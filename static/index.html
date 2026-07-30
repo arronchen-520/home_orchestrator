@@ -21,7 +21,7 @@
           <span data-i18n="iAm">我是</span>
           <select id="actorSelect" data-i18n-aria="currentMember" aria-label="Current family member"></select>
         </label>
-        <button id="membersButton" class="button secondary compact" type="button" data-i18n="family">
+        <button id="membersButton" class="button ghost compact" type="button" data-i18n="familyManage">
           家庭成员
         </button>
         <button id="languageButton" class="button ghost compact" type="button" data-i18n-aria="switchLanguage" aria-label="Switch language">
@@ -221,12 +221,19 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
         </button>
       </form>
-      <p data-i18n="memberHelp">先添加家庭成员。每个人使用前在右上角选择自己。</p>
+      <p data-i18n="memberHelp">管理家庭成员和家庭城市。</p>
       <ul id="memberList" class="member-list"></ul>
       <form id="memberForm" class="inline-form">
         <label class="sr-only" for="memberName" data-i18n="memberName">成员姓名</label>
         <input id="memberName" maxlength="40" required data-i18n-placeholder="memberName" placeholder="成员姓名">
+        <label class="sr-only" for="memberRole" data-i18n="memberRole">身份</label>
+        <input id="memberRole" maxlength="40" data-i18n-placeholder="memberRole" placeholder="例如：爸爸">
         <button class="button primary" type="submit" data-i18n="addMember">添加成员</button>
+      </form>
+      <form id="manageCityForm" class="setup-form">
+        <label for="manageCity" data-i18n="cityLabel">家庭城市</label>
+        <input id="manageCity" maxlength="120" required autocomplete="address-level2" data-i18n-placeholder="cityPlaceholder" placeholder="Toronto, CA">
+        <button class="button secondary" type="submit" data-i18n="saveCity">保存城市</button>
       </form>
     </dialog>
 

@@ -43,6 +43,7 @@ const messages = {
     claimed: "已认领",
     done: "完成",
     familyMembers: "家庭成员",
+    familyManage: "家庭管理",
     citySetupTitle: "选择家庭城市",
     citySetupHelp: "天气会显示在日历上。输入城市和国家，例如 Toronto, CA。",
     cityLabel: "家庭城市",
@@ -56,6 +57,8 @@ const messages = {
     weatherUnavailable: "暂时无法加载天气",
     memberHelp: "先添加家庭成员。每个人使用前在右上角选择自己。",
     memberName: "成员姓名",
+    memberRole: "身份（例如：爸爸）",
+    removeMember: "删除",
     addMember: "添加成员",
     previousPeriod: "上一段时间",
     nextPeriod: "下一段时间",
@@ -161,6 +164,7 @@ const messages = {
     claimed: "Claimed",
     done: "Done",
     familyMembers: "Family members",
+    familyManage: "Manage family",
     citySetupTitle: "Choose your household city",
     citySetupHelp: "Weather will appear in Calendar. Enter a city and country, such as Toronto, CA.",
     cityLabel: "Household city",
@@ -174,6 +178,8 @@ const messages = {
     weatherUnavailable: "Weather is temporarily unavailable",
     memberHelp: "Add family members first. Each person selects themselves before use.",
     memberName: "Member name",
+    memberRole: "Role (for example, Dad)",
+    removeMember: "Remove",
     addMember: "Add member",
     previousPeriod: "Previous period",
     nextPeriod: "Next period",
@@ -328,7 +334,7 @@ function fillMemberSelect(select, includeUnassigned, selectedValue = "") {
     select.add(new Option(t("unassigned"), ""));
   }
   state.board.members.forEach((member) => {
-    select.add(new Option(member.name, member.id));
+    select.add(new Option(member.role ? `${member.name} (${member.role})` : member.name, member.id));
   });
   if ([...select.options].some((option) => option.value === selectedValue)) {
     select.value = selectedValue;
@@ -362,7 +368,18 @@ function renderMembers() {
   list.replaceChildren();
   state.board.members.forEach((member) => {
     const item = document.createElement("li");
-    item.textContent = member.name;
+    item.append(createText("span", "", member.role ? `${member.name} · ${member.role}` : member.name));
+    const remove = document.createElement("button");
+    remove.className = "button ghost compact";
+    remove.type = "button";
+    remove.textContent = t("removeMember");
+    remove.addEventListener("click", async () => {
+      if (!confirm(`${t("removeMember")} ${member.name}?`)) return;
+      state.board = await api(`/api/members/${member.id}`, { method: "DELETE" });
+      if (localStorage.getItem("home-actor") === member.id) localStorage.removeItem("home-actor");
+      render();
+    });
+    item.append(remove);
     list.append(item);
   });
 }
@@ -1091,9 +1108,10 @@ $("#memberForm").addEventListener("submit", async (event) => {
   try {
     state.board = await api("/api/members", {
       method: "POST",
-      body: JSON.stringify({ name: input.value }),
+      body: JSON.stringify({ name: input.value, role: $("#memberRole").value }),
     });
     input.value = "";
+    $("#memberRole").value = "";
     render();
     showToast(t("added"));
   } catch (error) {
@@ -1106,7 +1124,23 @@ actorSelect.addEventListener("change", () => {
   renderBoard();
 });
 
-$("#membersButton").addEventListener("click", () => membersDialog.showModal());
+$("#membersButton").addEventListener("click", () => {
+  const household = state.board.household || {};
+  $("#manageCity").value = household.city ? `${household.city}, ${household.country_code}` : "";
+  membersDialog.showModal();
+});
+$("#manageCityForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    state.board = await api("/api/household", { method: "PUT", body: JSON.stringify({ city: $("#manageCity").value }) });
+    state.weather = null;
+    render();
+    await loadWeather();
+    showToast(t("updated"));
+  } catch (error) {
+    showToast(error.message || t("networkError"), true);
+  }
+});
 $("#householdLocationButton").addEventListener("click", () => {
   const household = state.board.household || {};
   $("#householdCity").value = household.city

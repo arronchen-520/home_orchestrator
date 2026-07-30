@@ -285,11 +285,14 @@ class BoardService:
                 return await self.get_board(state["result"])
             if command_type == "add_member":
                 member_id = self.database.add_member(
-                    self.household_id, command.get("name", "")
+                    self.household_id, command.get("name", ""), command.get("role", "")
                 )
                 return await self.get_board(
                     {"action": "member_added", "member_id": member_id}
                 )
+            if command_type == "delete_member":
+                self.database.delete_member(self.household_id, command["member_id"])
+                return await self.get_board({"action": "member_deleted"})
             if command_type == "update_item":
                 self.database.update_item(
                     self.household_id,

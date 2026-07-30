@@ -131,6 +131,8 @@ class BoardDatabase:
                 id TEXT PRIMARY KEY,
                 household_id TEXT NOT NULL REFERENCES households(id),
                 name TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT '',
+                deleted_at TEXT,
                 created_at TEXT NOT NULL
             );
 
@@ -235,6 +237,13 @@ class BoardDatabase:
                 self.connection.execute(
                     f"ALTER TABLE households ADD COLUMN {name} {sql_type}"
                 )
+        member_columns = {
+            row["name"] for row in self.connection.execute("PRAGMA table_info(members)")
+        }
+        if "role" not in member_columns:
+            self.connection.execute("ALTER TABLE members ADD COLUMN role TEXT NOT NULL DEFAULT ''")
+        if "deleted_at" not in member_columns:
+            self.connection.execute("ALTER TABLE members ADD COLUMN deleted_at TEXT")
         self.connection.commit()
 
     def close(self) -> None:
@@ -254,7 +263,7 @@ class BoardDatabase:
         self, cursor: sqlite3.Cursor, household_id: str, member_id: str | None
     ) -> str:
         if not member_id or cursor.execute(
-            "SELECT 1 FROM members WHERE id = ? AND household_id = ?",
+            "SELECT 1 FROM members WHERE id = ? AND household_id = ? AND deleted_at IS NULL",
             (member_id, household_id),
         ).fetchone() is None:
             raise ValueError("Choose a valid family member first")
@@ -312,26 +321,38 @@ class BoardDatabase:
                 ),
             )
 
-    def add_member(self, household_id: str, name: str) -> str:
+    def add_member(self, household_id: str, name: str, role: str = "") -> str:
         name = name.strip()
+        role = role.strip()
         if not name or len(name) > 40:
             raise ValueError("Member name must be 1 to 40 characters")
+        if len(role) > 40:
+            raise ValueError("Member role must be at most 40 characters")
         with self.connection:
             self.ensure_household(household_id)
             names = self.connection.execute(
-                "SELECT name FROM members WHERE household_id = ?", (household_id,)
+                "SELECT name FROM members WHERE household_id = ? AND deleted_at IS NULL", (household_id,)
             )
             if any(row["name"].casefold() == name.casefold() for row in names):
                 raise ValueError("That family member already exists")
             member_id = str(uuid4())
             self.connection.execute(
                 """
-                INSERT INTO members (id, household_id, name, created_at)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO members (id, household_id, name, role, created_at)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (member_id, household_id, name, _now()),
+                (member_id, household_id, name, role, _now()),
             )
         return member_id
+
+    def delete_member(self, household_id: str, member_id: str) -> None:
+        with self.connection:
+            cursor = self.connection.execute(
+                "UPDATE members SET deleted_at = ? WHERE id = ? AND household_id = ? AND deleted_at IS NULL",
+                (_now(), member_id, household_id),
+            )
+            if not cursor.rowcount:
+                raise ValueError("Family member not found")
 
     def create_items(
         self,
@@ -819,8 +840,8 @@ class BoardDatabase:
             dict(row)
             for row in self.connection.execute(
                 """
-                SELECT id, name FROM members
-                WHERE household_id = ?
+                SELECT id, name, role FROM members
+                WHERE household_id = ? AND deleted_at IS NULL
                 ORDER BY created_at, rowid
                 """,
                 (household_id,),

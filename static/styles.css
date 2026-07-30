@@ -1081,6 +1081,10 @@ dialog::backdrop {
 }
 
 .member-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 11px 13px;
   border-radius: 11px;
   background: var(--surface-soft);

@@ -63,6 +63,7 @@ class TextInput(BaseModel):
 
 class MemberInput(BaseModel):
     name: str = Field(min_length=1, max_length=40)
+    role: str = Field(default="", max_length=40)
 
 
 class HouseholdLocationInput(BaseModel):
@@ -171,7 +172,14 @@ async def get_weather(request: Request, lang: Literal["en", "zh_cn"] = "en"):
 @app.post("/api/members", status_code=201)
 async def add_member(payload: MemberInput, request: Request):
     return await execute(
-        board_service(request), {"type": "add_member", "name": payload.name}
+        board_service(request), {"type": "add_member", "name": payload.name, "role": payload.role}
+    )
+
+
+@app.delete("/api/members/{member_id}")
+async def delete_member(member_id: str, request: Request):
+    return await execute(
+        board_service(request), {"type": "delete_member", "member_id": member_id}
     )
 
 

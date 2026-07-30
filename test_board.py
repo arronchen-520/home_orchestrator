@@ -91,6 +91,21 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 monthly_on_last_day=True,
             )
 
+    def test_member_role_and_removal_keep_existing_items(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = BoardDatabase(Path(temp_dir) / "test.sqlite3")
+            database.setup()
+            member_id = database.add_member("test-family", "Lin", "Mom")
+            database.create_items(
+                "test-family", "submission", "note", "text", "UTC", member_id, None,
+                [{"kind": "note", "title": "Keep me"}],
+            )
+            database.delete_member("test-family", member_id)
+            board = database.get_board("test-family")
+            self.assertEqual(board["members"], [])
+            self.assertEqual(board["items"][0]["title"], "Keep me")
+            database.close()
+
     def test_manual_edits_follow_each_item_type(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             database = BoardDatabase(Path(temp_dir) / "test.sqlite3")
