@@ -33,7 +33,8 @@ types: events, tasks, and notes. Events can recur daily, weekly, or monthly.
   calendar. Series edits and deletion apply to every occurrence.
 - Keep recurrence event-only and limited to daily, weekly, and monthly. Do not
   add end dates or per-occurrence exceptions until a concrete requirement needs
-  them.
+  them. Preserve the distinction between a fixed day-of-month and the last day
+  of each month.
 - Do not add React, an ORM, authentication, or notifications until a concrete
   requirement needs them.
 - Never commit `.env`, API keys, audio, or local board data.

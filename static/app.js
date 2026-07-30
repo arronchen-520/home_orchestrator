@@ -65,6 +65,7 @@ const messages = {
     daily: "每天",
     weekly: "每周",
     monthly: "每月",
+    monthlyLastDay: "每月最后一天",
     delete: "删除",
     confirmDelete: "确定删除这项内容吗？",
     confirmDeleteSeries: "确定删除整个重复日程吗？",
@@ -151,6 +152,7 @@ const messages = {
     daily: "Daily",
     weekly: "Weekly",
     monthly: "Monthly",
+    monthlyLastDay: "Last day of every month",
     delete: "Delete",
     confirmDelete: "Delete this item?",
     confirmDeleteSeries: "Delete this entire recurring series?",
@@ -345,7 +347,8 @@ function itemCard(item, compact = false, index = 0) {
       `${t("starts")}: ${formatDateTime(starts, item.all_day)}${item.all_day ? ` · ${t("allDay")}` : ""}`,
     ));
     if (item.recurrence) {
-      meta.append(createText("p", "", `${t("recurs")}: ${t(item.recurrence)}`));
+      const recurrence = item.monthly_on_last_day ? "monthlyLastDay" : item.recurrence;
+      meta.append(createText("p", "", `${t("recurs")}: ${t(recurrence)}`));
     }
   } else if (item.kind === "task" && (item.due_at || item.due_date)) {
     const due = item.due_at || item.due_date;
@@ -479,6 +482,13 @@ function occursOnDate(item, key) {
   const target = localDateFromKey(key);
   if (item.recurrence === "weekly") {
     return Math.round((target - start) / 86400000) % 7 === 0;
+  }
+  if (item.monthly_on_last_day) {
+    return target.getDate() === new Date(
+      target.getFullYear(),
+      target.getMonth() + 1,
+      0,
+    ).getDate();
   }
   return target.getDate() === start.getDate();
 }

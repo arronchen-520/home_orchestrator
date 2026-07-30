@@ -69,6 +69,9 @@ class BoardDatabase:
                 recurrence TEXT CHECK (
                     recurrence IS NULL OR recurrence IN ('daily', 'weekly', 'monthly')
                 ),
+                monthly_on_last_day INTEGER NOT NULL DEFAULT 0 CHECK (
+                    monthly_on_last_day IN (0, 1)
+                ),
                 created_by TEXT NOT NULL REFERENCES members(id),
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
@@ -91,6 +94,15 @@ class BoardDatabase:
                 ALTER TABLE items ADD COLUMN recurrence TEXT CHECK (
                     recurrence IS NULL OR recurrence IN ('daily', 'weekly', 'monthly')
                 )
+                """
+            )
+        if "monthly_on_last_day" not in {
+            row["name"] for row in self.connection.execute("PRAGMA table_info(items)")
+        }:
+            self.connection.execute(
+                """
+                ALTER TABLE items ADD COLUMN monthly_on_last_day INTEGER
+                NOT NULL DEFAULT 0 CHECK (monthly_on_last_day IN (0, 1))
                 """
             )
         self.connection.commit()
@@ -195,9 +207,9 @@ class BoardDatabase:
                     INSERT OR IGNORE INTO items (
                         id, household_id, submission_id, source_index, kind,
                         title, details, owner_id, status, start_at, end_at,
-                        start_date, due_at, due_date, all_day, recurrence, created_by,
-                        created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        start_date, due_at, due_date, all_day, recurrence,
+                        monthly_on_last_day, created_by, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         str(uuid4()),
@@ -216,6 +228,7 @@ class BoardDatabase:
                         draft.get("due_date"),
                         int(draft.get("all_day", False)),
                         draft.get("recurrence"),
+                        int(draft.get("monthly_on_last_day", False)),
                         actor_id,
                         now,
                         now,
@@ -311,8 +324,9 @@ class BoardDatabase:
             SELECT
                 i.id, i.submission_id, i.kind, i.title, i.details,
                 i.owner_id, i.status, i.start_at, i.end_at, i.start_date,
-                i.due_at, i.due_date, i.all_day, i.recurrence, i.created_by,
-                i.created_at, i.updated_at, s.original_text
+                i.due_at, i.due_date, i.all_day, i.recurrence,
+                i.monthly_on_last_day, i.created_by, i.created_at, i.updated_at,
+                s.original_text
             FROM items AS i
             LEFT JOIN submissions AS s ON s.id = i.submission_id
             WHERE i.household_id = ?
@@ -324,6 +338,7 @@ class BoardDatabase:
         for row in rows:
             item = dict(row)
             item["all_day"] = bool(item["all_day"])
+            item["monthly_on_last_day"] = bool(item["monthly_on_last_day"])
             items.append(item)
         return {"members": members, "items": items}
 
@@ -357,8 +372,8 @@ class BoardDatabase:
                     INSERT OR IGNORE INTO items (
                         id, household_id, kind, title, details, owner_id,
                         status, start_at, end_at, due_at, all_day, recurrence,
-                        created_by, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        monthly_on_last_day, created_by, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         item["id"],
@@ -373,6 +388,7 @@ class BoardDatabase:
                         item.get("due_at"),
                         int(item.get("all_day", False)),
                         item.get("recurrence"),
+                        int(item.get("monthly_on_last_day", False)),
                         item["created_by"],
                         now,
                         now,

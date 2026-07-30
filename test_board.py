@@ -24,7 +24,7 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 )
                 actor_id = board["members"][0]["id"]
                 original_text = (
-                    "周六买牛奶，下午三点看牙医，再记下 Wi-Fi 密码"
+                    "周六买牛奶，每月最后一天下午三点看牙医，再记下 Wi-Fi 密码"
                 )
                 extraction = ExtractionResult(
                     items=[
@@ -36,8 +36,9 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                         ItemDraft(
                             kind="event",
                             title="Dentist appointment",
-                            start_at="2026-08-01T15:00:00-04:00",
-                            recurrence="weekly",
+                            start_at="2026-08-31T15:00:00-04:00",
+                            recurrence="monthly",
+                            monthly_on_last_day=True,
                         ),
                         ItemDraft(
                             kind="note",
@@ -66,8 +67,9 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                     ["task", "event", "note"],
                 )
                 self.assertEqual(task["due_date"], "2026-08-01")
-                self.assertEqual(event["start_at"], "2026-08-01T15:00:00-04:00")
-                self.assertEqual(event["recurrence"], "weekly")
+                self.assertEqual(event["start_at"], "2026-08-31T15:00:00-04:00")
+                self.assertEqual(event["recurrence"], "monthly")
+                self.assertTrue(event["monthly_on_last_day"])
                 self.assertEqual(
                     {item["original_text"] for item in board["items"]},
                     {original_text},
@@ -91,7 +93,7 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
             restored = database.get_board("test-family")
             self.assertEqual(len(restored["items"]), 3)
             self.assertEqual(restored["items"][0]["status"], "claimed")
-            self.assertEqual(restored["items"][1]["recurrence"], "weekly")
+            self.assertTrue(restored["items"][1]["monthly_on_last_day"])
             database.close()
 
             connection = sqlite3.connect(database_path)
@@ -106,6 +108,14 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
     def test_recurrence_is_limited_to_events(self):
         with self.assertRaisesRegex(ValueError, "Only events can recur"):
             ItemDraft(kind="task", title="Take out trash", recurrence="weekly")
+        with self.assertRaisesRegex(ValueError, "must start on a month's last day"):
+            ItemDraft(
+                kind="event",
+                title="Month end",
+                start_date="2026-02-27",
+                recurrence="monthly",
+                monthly_on_last_day=True,
+            )
 
 
 if __name__ == "__main__":

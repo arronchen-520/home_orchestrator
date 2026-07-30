@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from calendar import monthrange
 from datetime import date, datetime
 from functools import lru_cache
 from typing import Literal, TypedDict
@@ -53,6 +54,7 @@ class ItemDraft(BaseModel):
         default=None,
         description="Event repetition: daily, weekly, monthly, or null",
     )
+    monthly_on_last_day: bool = False
 
     @model_validator(mode="after")
     def match_kind(self) -> ItemDraft:
@@ -61,6 +63,12 @@ class ItemDraft(BaseModel):
                 raise ValueError("Date-times require a timezone")
 
         if self.kind == "event":
+            if self.monthly_on_last_day:
+                if self.recurrence != "monthly":
+                    raise ValueError("Last-day recurrence must be monthly")
+                first = self.start_date or (self.start_at.date() if self.start_at else None)
+                if first and first.day != monthrange(first.year, first.month)[1]:
+                    raise ValueError("Last-day recurrence must start on a month's last day")
             self.due_at = self.due_date = None
             if self.start_date is not None:
                 self.all_day = True
@@ -77,14 +85,14 @@ class ItemDraft(BaseModel):
                 if self.end_at is not None and self.end_at < self.start_at:
                     raise ValueError("Event end must be after its start")
         elif self.kind == "task":
-            if self.recurrence is not None:
+            if self.recurrence is not None or self.monthly_on_last_day:
                 raise ValueError("Only events can recur")
             self.start_at = self.end_at = self.start_date = None
             self.all_day = False
             if self.due_at is not None and self.due_date is not None:
                 raise ValueError("A task cannot have both due_at and due_date")
         else:
-            if self.recurrence is not None:
+            if self.recurrence is not None or self.monthly_on_last_day:
                 raise ValueError("Only events can recur")
             self.start_at = self.end_at = self.start_date = None
             self.due_at = self.due_date = None
@@ -125,6 +133,9 @@ Rules:
 - Use start_date/due_date for date-only input and set all_day for date-only events.
 - Use start_at/due_at only when a time is stated.
 - For an event repeated every day, week, or month, set recurrence to daily, weekly, or monthly.
+- For "the last day of every month", also set monthly_on_last_day to true and
+  resolve the first occurrence to the current or next month-end.
+- "Every month on the 31st" is not a last-day rule; leave monthly_on_last_day false.
 - Treat recurring scheduled actions as events; recurrence is not supported for tasks or notes.
 - A recurring event still needs its first stated date or date-time.
 - Never invent a date, time, owner, or assignee.
