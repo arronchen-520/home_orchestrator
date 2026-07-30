@@ -184,7 +184,7 @@ async def parse_with_openrouter(
     )
 
 
-def build_ingestion_graph(database: BoardDatabase, checkpointer):
+def build_ingestion_graph(database: BoardDatabase):
     async def extract_items(state: IngestionState) -> dict:
         command = state["command"]
         timezone_name = command.get("timezone", "UTC")
@@ -232,19 +232,18 @@ def build_ingestion_graph(database: BoardDatabase, checkpointer):
     builder.add_edge(START, "extract_items")
     builder.add_edge("extract_items", "save_items")
     builder.add_edge("save_items", END)
-    return builder.compile(checkpointer=checkpointer)
+    return builder.compile()
 
 
 class BoardService:
     def __init__(
         self,
         database: BoardDatabase,
-        checkpointer,
         household_id: str = "family-default",
     ):
         self.database = database
         self.household_id = household_id
-        self.graph = build_ingestion_graph(database, checkpointer)
+        self.graph = build_ingestion_graph(database)
         # ponytail: one-process lock; SQLite transactions become the write boundary.
         self._lock = asyncio.Lock()
 

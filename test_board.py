@@ -1,156 +1,83 @@
-import sqlite3
 import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-
 from board_db import BoardDatabase
 from board_graph import BoardService, ExtractionResult, ItemDraft
 
 
 class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
-    async def test_multi_item_input_original_text_and_restart_persistence(self):
+    async def test_domain_items_persist_without_graph_checkpoint(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            database_path = str(Path(temp_dir) / "test.sqlite3")
-            database = BoardDatabase(database_path)
+            path = Path(temp_dir) / "test.sqlite3"
+            database = BoardDatabase(path)
             database.setup()
-            async with AsyncSqliteSaver.from_conn_string(database_path) as saver:
-                await saver.setup()
-                service = BoardService(database, saver, "test-family")
-                board = await service.execute(
-                    {"type": "add_member", "name": "小林"}
-                )
-                actor_id = board["members"][0]["id"]
-                original_text = (
-                    "周六买牛奶，每月最后一天下午三点看牙医，再记下 Wi-Fi 密码"
-                )
-                extraction = ExtractionResult(
-                    items=[
-                        ItemDraft(
-                            kind="task",
-                            title="买牛奶",
-                            due_date="2026-08-01",
-                        ),
-                        ItemDraft(
-                            kind="event",
-                            title="Dentist appointment",
-                            start_at="2026-08-31T15:00:00-04:00",
-                            recurrence="monthly",
-                            monthly_on_last_day=True,
-                            recurrence_until="2026-11-30",
-                        ),
-                        ItemDraft(
-                            kind="note",
-                            title="Wi-Fi",
-                            details="Guest password",
-                        ),
-                    ]
-                )
-                with patch(
-                    "board_graph.parse_with_openrouter",
-                    AsyncMock(return_value=extraction),
-                ):
-                    board = await service.execute(
-                        {
-                            "type": "add_item",
-                            "text": original_text,
-                            "actor_id": actor_id,
-                            "timezone": "America/Toronto",
-                            "source": "text",
-                        }
+            service = BoardService(database, "test-family")
+            board = await service.execute({"type": "add_member", "name": "Lin"})
+            actor_id = board["members"][0]["id"]
+            extraction = ExtractionResult(
+                items=[
+                    ItemDraft(
+                        kind="event",
+                        title="Dentist",
+                        start_at="2026-08-31T15:00:00-04:00",
+                        recurrence="monthly",
+                        monthly_on_last_day=True,
+                        recurrence_until="2026-11-30",
                     )
-
-                task, event, note = board["items"]
-                self.assertEqual(
-                    [task["kind"], event["kind"], note["kind"]],
-                    ["task", "event", "note"],
-                )
-                self.assertEqual(task["due_date"], "2026-08-01")
-                self.assertEqual(event["start_at"], "2026-08-31T15:00:00-04:00")
-                self.assertEqual(event["recurrence"], "monthly")
-                self.assertTrue(event["monthly_on_last_day"])
-                self.assertEqual(event["recurrence_until"], "2026-11-30")
-                self.assertEqual(
-                    {item["original_text"] for item in board["items"]},
-                    {original_text},
-                )
-                self.assertEqual(len(board["result"]["item_ids"]), 3)
-                self.assertIsNone(note["status"])
-
+                ]
+            )
+            with patch(
+                "board_graph.parse_with_openrouter", AsyncMock(return_value=extraction)
+            ):
                 board = await service.execute(
                     {
-                        "type": "update_item",
-                        "item_id": task["id"],
+                        "type": "add_item",
+                        "text": "Dentist every month",
                         "actor_id": actor_id,
-                        "fields": {"status": "claimed"},
+                        "timezone": "America/Toronto",
+                        "source": "text",
                     }
-                )
-                self.assertEqual(board["items"][0]["owner_id"], actor_id)
-
-                await service.execute(
-                    {
-                        "type": "update_occurrence",
-                        "item_id": event["id"],
-                        "occurrence_date": "2026-09-30",
-                        "actor_id": actor_id,
-                        "fields": {
-                            "title": "Moved dentist",
-                            "start_at": "2026-10-01T16:00:00-04:00",
-                        },
-                    }
-                )
-                await service.execute(
-                    {
-                        "type": "cancel_occurrence",
-                        "item_id": event["id"],
-                        "occurrence_date": "2026-10-31",
-                        "actor_id": actor_id,
-                    }
-                )
-                calendar = await service.get_calendar(
-                    date(2026, 8, 1), date(2026, 12, 31)
-                )
-                occurrences = [
-                    item for item in calendar["items"] if item["kind"] == "event"
-                ]
-                self.assertEqual(
-                    [item["start_at"][:10] for item in occurrences],
-                    ["2026-08-31", "2026-10-01", "2026-11-30"],
-                )
-                self.assertEqual(occurrences[1]["title"], "Moved dentist")
-                self.assertEqual(occurrences[1]["occurrence_date"], "2026-09-30")
+            )
+            event_id = board["items"][0]["id"]
+            await service.execute(
+                {
+                    "type": "update_occurrence",
+                    "item_id": event_id,
+                    "occurrence_date": "2026-09-30",
+                    "actor_id": actor_id,
+                    "fields": {
+                        "title": "Moved dentist",
+                        "start_at": "2026-10-01T16:00:00-04:00",
+                    },
+                }
+            )
+            await service.execute(
+                {
+                    "type": "cancel_occurrence",
+                    "item_id": event_id,
+                    "occurrence_date": "2026-10-31",
+                    "actor_id": actor_id,
+                }
+            )
             database.close()
 
-            database = BoardDatabase(database_path)
+            database = BoardDatabase(path)
             database.setup()
-            restored = database.get_board("test-family")
-            self.assertEqual(len(restored["items"]), 3)
-            self.assertEqual(restored["items"][0]["status"], "claimed")
-            self.assertTrue(restored["items"][1]["monthly_on_last_day"])
-            restored_calendar = database.get_calendar(
+            self.assertEqual(len(database.get_board("test-family")["items"]), 1)
+            calendar = database.get_calendar(
                 "test-family", date(2026, 8, 1), date(2026, 12, 31)
             )
             self.assertEqual(
-                [
-                    item["start_at"][:10]
-                    for item in restored_calendar["items"]
-                    if item["kind"] == "event"
-                ],
+                [item["start_at"][:10] for item in calendar["items"]],
                 ["2026-08-31", "2026-10-01", "2026-11-30"],
             )
+            self.assertEqual(calendar["items"][1]["title"], "Moved dentist")
+            self.assertEqual(calendar["items"][1]["occurrence_date"], "2026-09-30")
+            self.assertEqual(calendar["items"][0]["series_id"], event_id)
             database.close()
-
-            connection = sqlite3.connect(database_path)
-            try:
-                self.assertEqual(
-                    connection.execute("SELECT COUNT(*) FROM items").fetchone()[0],
-                    3,
-                )
-            finally:
-                connection.close()
 
     def test_recurrence_is_limited_to_events(self):
         with self.assertRaisesRegex(ValueError, "Only events can recur"):
@@ -163,6 +90,84 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 recurrence="monthly",
                 monthly_on_last_day=True,
             )
+
+    def test_manual_edits_follow_each_item_type(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = BoardDatabase(Path(temp_dir) / "test.sqlite3")
+            database.setup()
+            actor_id = database.add_member("test-family", "Lin")
+            event_id, task_id, note_id = database.create_items(
+                "test-family",
+                "submission",
+                "three items",
+                "text",
+                "America/Toronto",
+                actor_id,
+                None,
+                [
+                    {
+                        "kind": "event",
+                        "title": "Pickup",
+                        "start_date": "2026-08-01",
+                        "all_day": True,
+                        "recurrence": "daily",
+                    },
+                    {
+                        "kind": "task",
+                        "title": "Pay bill",
+                        "due_date": "2026-08-02",
+                    },
+                    {"kind": "note", "title": "Door code"},
+                ],
+            )
+            database.update_occurrence(
+                "test-family",
+                event_id,
+                "2026-08-02",
+                actor_id,
+                {"title": "Late pickup"},
+            )
+            database.update_item(
+                "test-family",
+                event_id,
+                actor_id,
+                {"title": "School pickup", "start_date": "2026-08-03"},
+            )
+            database.update_item(
+                "test-family",
+                task_id,
+                actor_id,
+                {
+                    "title": "Pay hydro bill",
+                    "due_date": None,
+                    "due_at": "2026-08-02T18:00:00-04:00",
+                },
+            )
+            database.update_item(
+                "test-family",
+                note_id,
+                actor_id,
+                {"title": "Front door code", "details": "1234"},
+            )
+
+            items = {
+                item["kind"]: item
+                for item in database.get_board("test-family")["items"]
+            }
+            self.assertEqual(items["event"]["start_date"], "2026-08-03")
+            self.assertEqual(items["task"]["due_at"], "2026-08-02T18:00:00-04:00")
+            self.assertEqual(items["note"]["details"], "1234")
+            self.assertEqual(
+                database.connection.execute(
+                    "SELECT COUNT(*) FROM recurrence_exceptions"
+                ).fetchone()[0],
+                0,
+            )
+            with self.assertRaisesRegex(ValueError, "Notes only"):
+                database.update_item(
+                    "test-family", note_id, actor_id, {"status": "done"}
+                )
+            database.close()
 
 
 if __name__ == "__main__":

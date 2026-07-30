@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from calendar import monthrange
 from datetime import date, datetime, time, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -116,11 +117,6 @@ class BoardDatabase:
     def setup(self) -> None:
         self.connection.executescript(
             """
-            CREATE TABLE IF NOT EXISTS app_meta (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            );
-
             CREATE TABLE IF NOT EXISTS households (
                 id TEXT PRIMARY KEY,
                 timezone TEXT NOT NULL DEFAULT 'UTC',
@@ -437,16 +433,28 @@ class BoardDatabase:
         actor_id: str,
         fields: dict,
     ) -> None:
-        if not fields or set(fields) - {"owner_id", "status", "recurrence_until"}:
-            raise ValueError("Only owner, status, and recurrence end can be changed")
+        allowed = {
+            "title",
+            "details",
+            "owner_id",
+            "status",
+            "start_at",
+            "end_at",
+            "start_date",
+            "due_at",
+            "due_date",
+            "all_day",
+            "recurrence_until",
+        }
+        if not fields or set(fields) - allowed:
+            raise ValueError("Invalid item fields")
 
         with self.connection:
             cursor = self.connection.cursor()
             self._require_member(cursor, household_id, actor_id)
             row = cursor.execute(
                 """
-                SELECT i.kind, i.owner_id, i.status, i.start_at, i.start_date,
-                       i.recurrence, i.recurrence_until, h.timezone
+                SELECT i.*, h.timezone
                 FROM items AS i
                 JOIN households AS h ON h.id = i.household_id
                 WHERE i.id = ? AND i.household_id = ?
@@ -455,51 +463,115 @@ class BoardDatabase:
             ).fetchone()
             if row is None:
                 raise ValueError("Item not found")
-            if row["kind"] == "note":
-                raise ValueError("Notes do not have owners or status")
+            item = dict(row)
+            original_start = (item["start_at"], item["start_date"])
+            item.update(fields)
+            if not isinstance(item["title"], str):
+                raise ValueError("Title must be 1 to 120 characters")
+            item["title"] = item["title"].strip()
+            if not item["title"] or len(item["title"]) > 120:
+                raise ValueError("Title must be 1 to 120 characters")
+            if not isinstance(item["details"], str) or len(item["details"]) > 2000:
+                raise ValueError("Details must be 2000 characters or fewer")
 
-            owner_id, status = row["owner_id"], row["status"]
-            recurrence_until = row["recurrence_until"]
-            if "owner_id" in fields:
-                owner_id = fields["owner_id"]
-                if owner_id is not None:
-                    self._require_member(cursor, household_id, owner_id)
-                if status != "done":
-                    status = "claimed" if owner_id else "unclaimed"
+            if item["kind"] == "note":
+                if set(fields) - {"title", "details"}:
+                    raise ValueError("Notes only have a title and details")
+            else:
+                if "owner_id" in fields:
+                    if item["owner_id"] is not None:
+                        self._require_member(cursor, household_id, item["owner_id"])
+                    if item["status"] != "done":
+                        item["status"] = (
+                            "claimed" if item["owner_id"] else "unclaimed"
+                        )
 
-            if "status" in fields:
-                status = fields["status"]
-                if status not in {"unclaimed", "claimed", "done"}:
-                    raise ValueError("Invalid status")
-                if status == "unclaimed":
-                    owner_id = None
-                elif not owner_id:
-                    owner_id = actor_id
+                if "status" in fields:
+                    if item["status"] not in {"unclaimed", "claimed", "done"}:
+                        raise ValueError("Invalid status")
+                    if item["status"] == "unclaimed":
+                        item["owner_id"] = None
+                    elif not item["owner_id"]:
+                        item["owner_id"] = actor_id
 
-            if "recurrence_until" in fields:
-                if row["kind"] != "event" or row["recurrence"] is None:
-                    raise ValueError("Only recurring events have an end date")
-                recurrence_until = fields["recurrence_until"]
-                if recurrence_until is not None:
-                    end_date = date.fromisoformat(recurrence_until)
-                    if end_date < _item_date(dict(row), row["timezone"]):
+            if item["kind"] == "event":
+                if set(fields) & {"due_at", "due_date"}:
+                    raise ValueError("Events do not have task deadlines")
+                item["all_day"] = bool(item["all_day"])
+                if item["all_day"]:
+                    if not item["start_date"]:
+                        raise ValueError("An all-day event requires a date")
+                    date.fromisoformat(item["start_date"])
+                    item["start_at"] = item["end_at"] = None
+                else:
+                    if not item["start_at"]:
+                        raise ValueError("A timed event requires a start")
+                    start = datetime.fromisoformat(item["start_at"])
+                    if start.utcoffset() is None:
+                        raise ValueError("Date-times require a timezone")
+                    item["start_date"] = None
+                    if item["end_at"]:
+                        end = datetime.fromisoformat(item["end_at"])
+                        if end.utcoffset() is None or end < start:
+                            raise ValueError("Event end must be after its start")
+                first_date = _item_date(item, item["timezone"])
+                if item["monthly_on_last_day"] and first_date.day != monthrange(
+                    first_date.year, first_date.month
+                )[1]:
+                    raise ValueError(
+                        "Last-day recurrence must start on a month's last day"
+                    )
+                if item["recurrence_until"] is not None:
+                    if item["recurrence"] is None:
+                        raise ValueError("Only recurring events have an end date")
+                    if date.fromisoformat(item["recurrence_until"]) < first_date:
                         raise ValueError("Recurrence end date cannot precede its start")
+            elif item["kind"] == "task":
+                if set(fields) & {"start_at", "end_at", "start_date", "all_day"}:
+                    raise ValueError("Tasks do not have event start fields")
+                if item["due_at"] and item["due_date"]:
+                    raise ValueError("A task cannot have both due time and due date")
+                if item["due_at"]:
+                    due = datetime.fromisoformat(item["due_at"])
+                    if due.utcoffset() is None:
+                        raise ValueError("Date-times require a timezone")
+                if item["due_date"]:
+                    date.fromisoformat(item["due_date"])
 
             cursor.execute(
                 """
                 UPDATE items
-                SET owner_id = ?, status = ?, recurrence_until = ?, updated_at = ?
+                SET title = ?, details = ?, owner_id = ?, status = ?,
+                    start_at = ?, end_at = ?, start_date = ?,
+                    due_at = ?, due_date = ?, all_day = ?,
+                    recurrence_until = ?, updated_at = ?
                 WHERE id = ? AND household_id = ?
                 """,
                 (
-                    owner_id,
-                    status,
-                    recurrence_until,
+                    item["title"],
+                    item["details"],
+                    item["owner_id"],
+                    item["status"],
+                    item["start_at"],
+                    item["end_at"],
+                    item["start_date"],
+                    item["due_at"],
+                    item["due_date"],
+                    int(item["all_day"]),
+                    item["recurrence_until"],
                     _now(),
                     item_id,
                     household_id,
                 ),
             )
+            if item["recurrence"] and original_start != (
+                item["start_at"],
+                item["start_date"],
+            ):
+                cursor.execute(
+                    "DELETE FROM recurrence_exceptions WHERE series_id = ?",
+                    (item_id,),
+                )
 
     def delete_item(self, household_id: str, item_id: str, actor_id: str) -> None:
         with self.connection:
@@ -780,62 +852,3 @@ class BoardDatabase:
             "members": members,
             "items": items,
         }
-
-    def import_legacy_state(self, household_id: str, values: dict) -> None:
-        migration_key = f"legacy_checkpoint_v1:{household_id}"
-        if self.connection.execute(
-            "SELECT 1 FROM app_meta WHERE key = ?", (migration_key,)
-        ).fetchone():
-            return
-
-        with self.connection:
-            self.ensure_household(household_id)
-            for member in values.get("members", []):
-                self.connection.execute(
-                    """
-                    INSERT OR IGNORE INTO members (
-                        id, household_id, name, created_at
-                    ) VALUES (?, ?, ?, ?)
-                    """,
-                    (
-                        member["id"],
-                        household_id,
-                        member["name"],
-                        member.get("created_at", _now()),
-                    ),
-                )
-            for item in values.get("items", []):
-                now = item.get("created_at", _now())
-                self.connection.execute(
-                    """
-                    INSERT OR IGNORE INTO items (
-                        id, household_id, kind, title, details, owner_id,
-                        status, start_at, end_at, due_at, all_day, recurrence,
-                        monthly_on_last_day, recurrence_until, created_by,
-                        created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        item["id"],
-                        household_id,
-                        item["kind"],
-                        item["title"],
-                        item.get("details", ""),
-                        item.get("owner_id"),
-                        item.get("status"),
-                        item.get("start_at"),
-                        item.get("end_at"),
-                        item.get("due_at"),
-                        int(item.get("all_day", False)),
-                        item.get("recurrence"),
-                        int(item.get("monthly_on_last_day", False)),
-                        item.get("recurrence_until"),
-                        item["created_by"],
-                        now,
-                        now,
-                    ),
-                )
-            self.connection.execute(
-                "INSERT INTO app_meta (key, value) VALUES (?, ?)",
-                (migration_key, _now()),
-            )

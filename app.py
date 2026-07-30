@@ -13,7 +13,6 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from pydantic import BaseModel, Field
 
 from board_db import BoardDatabase
@@ -43,21 +42,12 @@ async def lifespan(app: FastAPI):
     database = BoardDatabase(database_path)
     database.setup()
     household_id = os.getenv("HOUSEHOLD_ID", "family-default")
-    async with AsyncSqliteSaver.from_conn_string(str(database_path)) as saver:
-        await saver.setup()
-        legacy = await saver.aget_tuple(
-            {"configurable": {"thread_id": household_id}}
-        )
-        database.import_legacy_state(
-            household_id,
-            legacy.checkpoint.get("channel_values", {}) if legacy else {},
-        )
-        app.state.board = BoardService(database, saver, household_id)
-        app.state.weather = WeatherService(os.getenv("OPENWEATHER_API_KEY"))
-        try:
-            yield
-        finally:
-            database.close()
+    app.state.board = BoardService(database, household_id)
+    app.state.weather = WeatherService(os.getenv("OPENWEATHER_API_KEY"))
+    try:
+        yield
+    finally:
+        database.close()
 
 
 app = FastAPI(title="Home Orchestrator", lifespan=lifespan)
@@ -81,8 +71,16 @@ class HouseholdLocationInput(BaseModel):
 
 class ItemUpdate(BaseModel):
     actor_id: str
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+    details: str | None = Field(default=None, max_length=2000)
     owner_id: str | None = None
     status: Literal["unclaimed", "claimed", "done"] | None = None
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    start_date: date | None = None
+    due_at: datetime | None = None
+    due_date: date | None = None
+    all_day: bool | None = None
     recurrence_until: date | None = None
 
 

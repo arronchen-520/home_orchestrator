@@ -230,6 +230,78 @@
       </form>
     </dialog>
 
+    <dialog id="itemEditor">
+      <form id="itemEditorForm" class="setup-form">
+        <header class="dialog-header">
+          <h2 data-i18n="editItem">编辑内容</h2>
+          <button id="closeItemEditor" class="icon-button" type="button" data-i18n-aria="close" aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          </button>
+        </header>
+
+        <label for="editTitle" data-i18n="title">标题</label>
+        <input id="editTitle" maxlength="120" required>
+
+        <label for="editDetails" data-i18n="details">详情</label>
+        <textarea id="editDetails" maxlength="2000" rows="4"></textarea>
+
+        <label id="editScopeField" for="editScope" hidden>
+          <span data-i18n="editScope">修改范围</span>
+          <select id="editScope">
+            <option value="occurrence" data-i18n="thisOccurrence">只修改这一次</option>
+            <option value="series" data-i18n="entireSeries">修改整个系列</option>
+          </select>
+        </label>
+
+        <div id="editEventFields" class="editor-fields" hidden>
+          <label class="checkbox-row">
+            <input id="editAllDay" type="checkbox">
+            <span data-i18n="allDay">全天</span>
+          </label>
+          <label id="editStartDateField" for="editStartDate">
+            <span data-i18n="date">日期</span>
+            <input id="editStartDate" type="date">
+          </label>
+          <label id="editStartAtField" for="editStartAt">
+            <span data-i18n="starts">时间</span>
+            <input id="editStartAt" type="datetime-local">
+          </label>
+          <label id="editEndAtField" for="editEndAt">
+            <span data-i18n="ends">结束</span>
+            <input id="editEndAt" type="datetime-local">
+          </label>
+          <label id="editRecurrenceUntilField" for="editRecurrenceUntil" hidden>
+            <span data-i18n="recurrenceEnds">重复结束</span>
+            <input id="editRecurrenceUntil" type="date">
+          </label>
+        </div>
+
+        <div id="editTaskFields" class="editor-fields" hidden>
+          <label class="checkbox-row">
+            <input id="editDueTimed" type="checkbox">
+            <span data-i18n="specificTime">指定时间</span>
+          </label>
+          <label id="editDueDateField" for="editDueDate">
+            <span data-i18n="dueDate">截止日期</span>
+            <input id="editDueDate" type="date">
+          </label>
+          <label id="editDueAtField" for="editDueAt">
+            <span data-i18n="due">截止</span>
+            <input id="editDueAt" type="datetime-local">
+          </label>
+        </div>
+
+        <p id="editSeriesWarning" class="form-hint" data-i18n="seriesEditWarning" hidden>
+          修改系列开始时间会清除已有的单次例外。
+        </p>
+        <p id="itemEditorError" class="form-error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button id="cancelItemEditor" class="button secondary" type="button" data-i18n="close">关闭</button>
+          <button class="button primary" type="submit" data-i18n="saveChanges">保存修改</button>
+        </div>
+      </form>
+    </dialog>
+
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="/static/app.js" defer></script>
   </body>

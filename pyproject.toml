@@ -5,9 +5,9 @@ description = "A bilingual, LangGraph-powered shared family board."
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.141.1",
+    "httpx>=0.28.1",
     "langchain-openai>=1.4.1",
     "langgraph>=1.2.10",
-    "langgraph-checkpoint-sqlite>=3.1.1",
     "python-dotenv>=1.2.2",
     "python-dateutil>=2.9.0.post0",
     "python-multipart>=0.0.32",

@@ -78,6 +78,19 @@ const messages = {
     monthly: "每月",
     monthlyLastDay: "每月最后一天",
     recurrenceEnds: "重复结束",
+    edit: "编辑",
+    editItem: "编辑内容",
+    title: "标题",
+    details: "详情",
+    editScope: "修改范围",
+    thisOccurrence: "只修改这一次",
+    entireSeries: "修改整个系列",
+    date: "日期",
+    ends: "结束",
+    specificTime: "指定时间",
+    dueDate: "截止日期",
+    seriesEditWarning: "修改系列开始时间会清除已有的单次例外。",
+    saveChanges: "保存修改",
     editOccurrence: "修改这一次",
     cancelOccurrence: "取消这一次",
     confirmCancelOccurrence: "确定只取消这一次日程吗？",
@@ -183,6 +196,19 @@ const messages = {
     monthly: "Monthly",
     monthlyLastDay: "Last day of every month",
     recurrenceEnds: "Recurrence ends",
+    edit: "Edit",
+    editItem: "Edit item",
+    title: "Title",
+    details: "Details",
+    editScope: "Edit scope",
+    thisOccurrence: "Only this occurrence",
+    entireSeries: "Entire series",
+    date: "Date",
+    ends: "Ends",
+    specificTime: "Specific time",
+    dueDate: "Due date",
+    seriesEditWarning: "Changing the series start clears existing occurrence exceptions.",
+    saveChanges: "Save changes",
     editOccurrence: "Edit this occurrence",
     cancelOccurrence: "Cancel this occurrence",
     confirmCancelOccurrence: "Cancel only this occurrence?",
@@ -227,6 +253,8 @@ const state = {
   search: "",
   recorder: null,
   recordingTimer: null,
+  editingItem: null,
+  editingOccurrence: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -234,6 +262,7 @@ const actorSelect = $("#actorSelect");
 const ownerSelect = $("#newOwnerSelect");
 const householdDialog = $("#householdDialog");
 const membersDialog = $("#membersDialog");
+const itemEditor = $("#itemEditor");
 const recordButton = $("#recordButton");
 
 function t(key) {
@@ -424,10 +453,13 @@ function itemCard(item, compact = false, index = 0) {
     cancel.addEventListener("click", () => cancelOccurrence(item));
     actions.append(edit, cancel);
   } else {
+    const edit = createText("button", "delete-button", t("edit"));
+    edit.type = "button";
+    edit.addEventListener("click", () => openItemEditor(item));
     const remove = createText("button", "delete-button", t("delete"));
     remove.type = "button";
     remove.addEventListener("click", () => removeItem(item));
-    actions.append(remove);
+    actions.append(edit, remove);
   }
   top.append(badge, actions);
   card.append(top, createText("h3", "", item.title));
@@ -499,6 +531,11 @@ function itemCard(item, compact = false, index = 0) {
   } else if (compact && item.kind !== "note") {
     card.append(createText("p", "", `${t("owner")}: ${memberName(item.owner_id)}`));
   }
+  card.addEventListener("click", (event) => {
+    if (!event.target.closest("button, input, select, textarea, label")) {
+      openItemEditor(item);
+    }
+  });
   return card;
 }
 
@@ -816,42 +853,132 @@ async function updateItem(itemId, fields) {
   }
 }
 
-async function editOccurrence(item) {
+function toLocalDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  const local = new Date(date.valueOf() - (date.getTimezoneOffset() * 60000));
+  return local.toISOString().slice(0, 16);
+}
+
+function toggleEditorFields() {
+  const allDay = $("#editAllDay").checked;
+  $("#editStartDateField").hidden = !allDay;
+  $("#editStartAtField").hidden = allDay;
+  $("#editEndAtField").hidden = allDay;
+  $("#editStartDate").required = allDay;
+  $("#editStartAt").required = !allDay;
+  const dueTimed = $("#editDueTimed").checked;
+  $("#editDueDateField").hidden = dueTimed;
+  $("#editDueAtField").hidden = !dueTimed;
+}
+
+function editorItemForScope(scope) {
+  if (scope === "occurrence") return state.editingOccurrence;
+  if (!state.editingOccurrence) return state.editingItem;
+  return state.board.items.find(
+    (item) => item.id === state.editingOccurrence.series_id,
+  );
+}
+
+function fillItemEditor(item, scope) {
+  if (!item) return;
+  state.editingItem = item;
+  $("#editTitle").value = item.title;
+  $("#editDetails").value = item.details || "";
+  $("#editEventFields").hidden = item.kind !== "event";
+  $("#editTaskFields").hidden = item.kind !== "task";
+
+  if (item.kind === "event") {
+    $("#editAllDay").checked = Boolean(item.all_day);
+    $("#editStartDate").value = item.start_date || "";
+    $("#editStartAt").value = toLocalDateTime(item.start_at);
+    $("#editEndAt").value = toLocalDateTime(item.end_at);
+    $("#editRecurrenceUntil").value = item.recurrence_until || "";
+  } else if (item.kind === "task") {
+    $("#editDueTimed").checked = Boolean(item.due_at);
+    $("#editDueDate").value = item.due_date || "";
+    $("#editDueAt").value = toLocalDateTime(item.due_at);
+  }
+
+  const editingSeries = scope === "series" && Boolean(item.recurrence);
+  $("#editRecurrenceUntilField").hidden = !editingSeries;
+  $("#editSeriesWarning").hidden = !(
+    editingSeries && Boolean(state.editingOccurrence)
+  );
+  toggleEditorFields();
+}
+
+function openItemEditor(item) {
+  state.editingItem = item;
+  state.editingOccurrence = item.is_occurrence ? item : null;
+  const scope = state.editingOccurrence ? "occurrence" : "series";
+  $("#editScopeField").hidden = !state.editingOccurrence;
+  $("#editScope").value = scope;
+  $("#itemEditorError").hidden = true;
+  fillItemEditor(editorItemForScope(scope) || item, scope);
+  itemEditor.showModal();
+}
+
+function editOccurrence(item) {
+  openItemEditor(item);
+}
+
+async function saveItemEditor(event) {
+  event.preventDefault();
   if (!requireActor()) return;
-  const title = window.prompt(t("occurrenceTitlePrompt"), item.title);
-  if (title === null) return;
-  let currentStart = item.start_date;
-  if (!item.all_day) {
-    const start = new Date(item.start_at);
-    currentStart = new Date(start - (start.getTimezoneOffset() * 60000))
-      .toISOString()
-      .slice(0, 16);
-  }
-  const moved = window.prompt(t("occurrenceDatePrompt"), currentStart);
-  if (moved === null) return;
-  const fields = { title };
-  if (item.all_day) {
-    fields.start_date = moved;
-  } else {
-    const start = new Date(moved);
-    if (Number.isNaN(start.valueOf())) {
-      showToast(t("networkError"), true);
-      return;
+  const error = $("#itemEditorError");
+  error.hidden = true;
+  const scope = $("#editScope").value;
+  const item = editorItemForScope(scope);
+  const fields = {
+    title: $("#editTitle").value,
+    details: $("#editDetails").value,
+  };
+
+  if (item.kind === "event") {
+    if ($("#editAllDay").checked) {
+      fields.start_date = $("#editStartDate").value;
+      fields.start_at = null;
+      fields.end_at = null;
+    } else {
+      fields.start_at = new Date($("#editStartAt").value).toISOString();
+      fields.end_at = $("#editEndAt").value
+        ? new Date($("#editEndAt").value).toISOString()
+        : null;
+      fields.start_date = null;
     }
-    fields.start_at = start.toISOString();
+    if (scope === "series") {
+      fields.all_day = $("#editAllDay").checked;
+      if (item.recurrence) {
+        fields.recurrence_until = $("#editRecurrenceUntil").value || null;
+      }
+    }
+  } else if (item.kind === "task") {
+    if ($("#editDueTimed").checked) {
+      fields.due_at = $("#editDueAt").value
+        ? new Date($("#editDueAt").value).toISOString()
+        : null;
+      fields.due_date = null;
+    } else {
+      fields.due_date = $("#editDueDate").value || null;
+      fields.due_at = null;
+    }
   }
+
+  const path = state.editingOccurrence && scope === "occurrence"
+    ? `/api/items/${state.editingOccurrence.series_id}/occurrences/${state.editingOccurrence.occurrence_date}`
+    : `/api/items/${item.id}`;
   try {
-    state.board = await api(
-      `/api/items/${item.series_id}/occurrences/${item.occurrence_date}`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ actor_id: selectedActor(), ...fields }),
-      },
-    );
+    state.board = await api(path, {
+      method: "PATCH",
+      body: JSON.stringify({ actor_id: selectedActor(), ...fields }),
+    });
     await loadCalendar();
+    itemEditor.close();
     showToast(t("updated"));
-  } catch (error) {
-    showToast(error.message || t("networkError"), true);
+  } catch (problem) {
+    error.textContent = problem.message || t("networkError");
+    error.hidden = false;
   }
 }
 
@@ -893,6 +1020,15 @@ function setProcessing(processing) {
   recordButton.disabled = processing;
   $("#submitButton").textContent = processing ? t("processing") : t("add");
 }
+
+$("#editAllDay").addEventListener("change", toggleEditorFields);
+$("#editDueTimed").addEventListener("change", toggleEditorFields);
+$("#editScope").addEventListener("change", (event) => {
+  fillItemEditor(editorItemForScope(event.target.value), event.target.value);
+});
+$("#itemEditorForm").addEventListener("submit", saveItemEditor);
+$("#closeItemEditor").addEventListener("click", () => itemEditor.close());
+$("#cancelItemEditor").addEventListener("click", () => itemEditor.close());
 
 $("#inputForm").addEventListener("submit", async (event) => {
   event.preventDefault();
