@@ -65,6 +65,7 @@ class TextInput(BaseModel):
 class IntakeConfirmation(BaseModel):
     actor_id: str
     owner_ids: list[str | None] = Field(max_length=20)
+    accepted_preparations: list[bool] = Field(max_length=20)
 
 
 class MemberInput(BaseModel):
@@ -80,6 +81,7 @@ class ItemUpdate(BaseModel):
     actor_id: str
     title: str | None = Field(default=None, min_length=1, max_length=120)
     details: str | None = Field(default=None, max_length=2000)
+    preparation: str | None = Field(default=None, max_length=500)
     owner_id: str | None = None
     status: Literal["unclaimed", "claimed", "done"] | None = None
     start_at: datetime | None = None
@@ -221,7 +223,10 @@ async def confirm_intake(
 ):
     return await service_call(
         board_service(request).confirm_intake(
-            session_id, payload.actor_id, payload.owner_ids
+            session_id,
+            payload.actor_id,
+            payload.owner_ids,
+            payload.accepted_preparations,
         )
     )
 

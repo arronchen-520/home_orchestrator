@@ -142,18 +142,23 @@ class IntakeItemDraft(ItemDraft):
         default=None,
         description="Suggested family member ID, or null when nobody is a clear fit",
     )
+    preparation: str | None = Field(
+        default=None,
+        max_length=500,
+        description="One useful preparation step, or null when none is needed",
+    )
 
     @model_validator(mode="after")
-    def notes_have_no_owner(self) -> IntakeItemDraft:
+    def notes_have_no_owner_or_preparation(self) -> IntakeItemDraft:
         if self.kind == "note":
             self.owner_id = None
+            self.preparation = None
         return self
 
 
 class IntakeAnalysis(BaseModel):
     status: Literal["clarify", "review"]
     message: str = Field(min_length=1, max_length=1000)
-    preparations: list[str] = Field(default_factory=list, max_length=5)
     assumptions: list[str] = Field(default_factory=list, max_length=5)
     items: list[IntakeItemDraft] = Field(default_factory=list, max_length=20)
 
@@ -254,9 +259,10 @@ assumptions. If the user says to continue or use your best judgment, return revi
 
 For review:
 - Split independent events, tasks, and notes into separate items.
-- Preserve the user's language in messages, titles, details, preparations, and assumptions.
-- Suggest at most five genuinely useful preparation steps; do not turn them into
-  saved tasks unless the user requested them.
+- Preserve the user's language in messages, titles, details, preparation, and assumptions.
+- For each event or task, set preparation to one short, concrete preparation
+  step only when it is genuinely useful; otherwise set it to null. Never add one
+  to notes or turn it into a separate task.
 - owner_id must be one listed member ID or null. Prefer an explicitly named person,
   then a clearly relevant household role or established responsibility. Otherwise
   leave it null. Never assign notes. Do not use gender stereotypes.
@@ -472,7 +478,6 @@ class BoardService:
             )
             payload = {
                 "message": analysis.message,
-                "preparations": analysis.preparations,
                 "assumptions": analysis.assumptions,
                 "drafts": drafts,
                 "conflicts": conflicts,
@@ -507,7 +512,11 @@ class BoardService:
         }
 
     async def confirm_intake(
-        self, session_id: str, actor_id: str, owner_ids: list[str | None]
+        self,
+        session_id: str,
+        actor_id: str,
+        owner_ids: list[str | None],
+        accepted_preparations: list[bool],
     ) -> dict:
         async with self._lock:
             session = self.database.get_intake_session(
@@ -516,13 +525,19 @@ class BoardService:
             drafts = session["payload"].get("drafts") or []
             if len(owner_ids) != len(drafts):
                 raise ValueError("Choose an owner or no owner for every draft")
+            if len(accepted_preparations) != len(drafts):
+                raise ValueError("Accept or reject preparation for every draft")
             valid_members = {
                 member["id"] for member in self.database.get_board(self.household_id)["members"]
             }
-            for draft, owner_id in zip(drafts, owner_ids):
+            for draft, owner_id, accepted in zip(
+                drafts, owner_ids, accepted_preparations
+            ):
                 if owner_id is not None and owner_id not in valid_members:
                     raise ValueError("Choose a valid family member")
                 draft["owner_id"] = owner_id if draft["kind"] != "note" else None
+                if not accepted or draft["kind"] == "note":
+                    draft["preparation"] = None
             session["payload"]["drafts"] = drafts
             self.database.update_intake_session(
                 self.household_id,

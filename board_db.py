@@ -171,6 +171,7 @@ class BoardDatabase:
                 kind TEXT NOT NULL CHECK (kind IN ('event', 'task', 'note')),
                 title TEXT NOT NULL,
                 details TEXT NOT NULL DEFAULT '',
+                preparation TEXT,
                 owner_id TEXT REFERENCES members(id),
                 assignment_state TEXT CHECK (
                     assignment_state IS NULL OR assignment_state IN ('pending', 'accepted')
@@ -285,6 +286,10 @@ class BoardDatabase:
             row["name"] for row in self.connection.execute("PRAGMA table_info(items)")
         }:
             self.connection.execute("ALTER TABLE items ADD COLUMN reminder_at TEXT")
+        if "preparation" not in {
+            row["name"] for row in self.connection.execute("PRAGMA table_info(items)")
+        }:
+            self.connection.execute("ALTER TABLE items ADD COLUMN preparation TEXT")
         self.connection.execute(
             """
             UPDATE items SET assignment_state = 'accepted'
@@ -640,11 +645,11 @@ class BoardDatabase:
                     """
                     INSERT OR IGNORE INTO items (
                         id, household_id, submission_id, source_index, kind,
-                        title, details, owner_id, assignment_state, status, start_at, end_at,
+                        title, details, preparation, owner_id, assignment_state, status, start_at, end_at,
                         start_date, due_at, due_date, reminder_at, all_day, recurrence,
                         monthly_on_last_day, recurrence_until, created_by,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         str(uuid4()),
@@ -654,6 +659,7 @@ class BoardDatabase:
                         draft["kind"],
                         draft["title"],
                         draft.get("details", ""),
+                        draft.get("preparation") if actionable else None,
                         item_owner,
                         assignment_state,
                         status,
@@ -783,6 +789,7 @@ class BoardDatabase:
         allowed = {
             "title",
             "details",
+            "preparation",
             "owner_id",
             "status",
             "start_at",
@@ -821,6 +828,11 @@ class BoardDatabase:
                 raise ValueError("Title must be 1 to 120 characters")
             if not isinstance(item["details"], str) or len(item["details"]) > 2000:
                 raise ValueError("Details must be 2000 characters or fewer")
+            if item["preparation"] is not None and (
+                not isinstance(item["preparation"], str)
+                or len(item["preparation"]) > 500
+            ):
+                raise ValueError("Preparation must be 500 characters or fewer")
 
             if item["kind"] == "note":
                 if set(fields) - {"title", "details"}:
@@ -914,7 +926,7 @@ class BoardDatabase:
             cursor.execute(
                 """
                 UPDATE items
-                SET title = ?, details = ?, owner_id = ?, assignment_state = ?, status = ?,
+                SET title = ?, details = ?, preparation = ?, owner_id = ?, assignment_state = ?, status = ?,
                     start_at = ?, end_at = ?, start_date = ?,
                     due_at = ?, due_date = ?, reminder_at = ?, all_day = ?,
                     recurrence_until = ?, updated_at = ?
@@ -923,6 +935,7 @@ class BoardDatabase:
                 (
                     item["title"],
                     item["details"],
+                    item["preparation"],
                     item["owner_id"],
                     item["assignment_state"],
                     item["status"],
@@ -1235,7 +1248,7 @@ class BoardDatabase:
         rows = self.connection.execute(
             """
             SELECT
-                i.id, i.submission_id, i.kind, i.title, i.details,
+                i.id, i.submission_id, i.kind, i.title, i.details, i.preparation,
                 i.owner_id, i.assignment_state, i.status, i.start_at, i.end_at, i.start_date,
                 i.due_at, i.due_date, i.reminder_at, i.all_day, i.recurrence,
                 i.monthly_on_last_day, i.recurrence_until, i.created_by,

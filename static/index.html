@@ -58,7 +58,6 @@
           <section id="intakeConversation" class="intake-conversation" aria-live="polite" hidden>
             <div id="intakeMessages" class="intake-messages"></div>
             <div id="intakeReview" hidden>
-              <div id="intakePreparations"></div>
               <div id="intakeAssumptions"></div>
               <div id="intakeDrafts" class="intake-drafts"></div>
               <div id="intakeConflicts"></div>
@@ -268,6 +267,11 @@
 
         <label for="editDetails" data-i18n="details">详情</label>
         <textarea id="editDetails" maxlength="2000" rows="4"></textarea>
+
+        <label id="editPreparationField" for="editPreparation">
+          <span data-i18n="preparation">准备工作</span>
+          <textarea id="editPreparation" maxlength="500" rows="2"></textarea>
+        </label>
 
         <label id="editScopeField" for="editScope" hidden>
           <span data-i18n="editScope">修改范围</span>

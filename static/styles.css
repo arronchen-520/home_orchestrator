@@ -390,6 +390,27 @@ textarea {
   font-weight: 750;
 }
 
+.intake-draft .preparation-choice {
+  display: flex;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  align-items: center;
+  gap: 8px;
+  background: var(--amber-soft);
+}
+
+.preparation-choice input {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.item-preparation {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--amber-soft);
+}
+
 .intake-actions {
   display: flex;
   justify-content: flex-end;

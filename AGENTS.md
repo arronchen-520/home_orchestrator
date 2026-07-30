@@ -30,6 +30,8 @@ types: events, tasks, and notes. Events can recur daily, weekly, or monthly.
 - Keep board state in domain tables, not LangGraph checkpoints.
 - AI may suggest an owner from household context, but the user must be able to
   change or clear every suggestion before confirmation. Notes never have owners.
+- AI may propose one preparation for an event or task; save it only when the
+  user accepts it, and keep it manually editable afterward.
 - Preserve the input language in generated titles and details.
 - Keep Chinese and English UI strings in `static/app.js`.
 - Keep weather optional: provider failures must not block board data.

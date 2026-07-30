@@ -15,7 +15,7 @@ from board_graph import (
 
 
 class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
-    async def test_intake_waits_for_confirmation_and_owner_stays_editable(self):
+    async def test_intake_confirmation_keeps_owner_and_preparation_editable(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             database = BoardDatabase(Path(temp_dir) / "test.sqlite3")
             database.setup()
@@ -48,7 +48,6 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 IntakeAnalysis(
                     status="review",
                     message="Please review this event.",
-                    preparations=["Bring the pickup card."],
                     items=[
                         IntakeItemDraft(
                             kind="event",
@@ -57,7 +56,14 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                             end_at="2026-08-01T16:30:00-04:00",
                             reminder_at="2026-08-01T15:00:00-04:00",
                             owner_id=sam_id,
-                        )
+                            preparation="Bring the pickup card.",
+                        ),
+                        IntakeItemDraft(
+                            kind="task",
+                            title="Return school form",
+                            owner_id=lin_id,
+                            preparation="Find the form in the backpack.",
+                        ),
                     ],
                 ),
             ]
@@ -90,13 +96,22 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(len(database.get_board("test-family")["items"]), 1)
 
                 board = await service.confirm_intake(
-                    intake["session_id"], lin_id, [lin_id]
+                    intake["session_id"],
+                    lin_id,
+                    [lin_id, sam_id],
+                    [True, False],
                 )
                 created = next(
                     item for item in board["items"] if item["title"] == "School pickup"
                 )
                 self.assertEqual(created["owner_id"], lin_id)
-                self.assertEqual(len(board["items"]), 2)
+                self.assertEqual(created["preparation"], "Bring the pickup card.")
+                rejected = next(
+                    item for item in board["items"] if item["title"] == "Return school form"
+                )
+                self.assertEqual(rejected["owner_id"], sam_id)
+                self.assertIsNone(rejected["preparation"])
+                self.assertEqual(len(board["items"]), 3)
             database.close()
 
     async def test_domain_items_persist_without_graph_checkpoint(self):
@@ -264,6 +279,7 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 actor_id,
                 {
                     "title": "Pay hydro bill",
+                    "preparation": "Find the account number",
                     "due_date": None,
                     "due_at": "2026-08-02T18:00:00-04:00",
                 },
@@ -281,6 +297,7 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
             }
             self.assertEqual(items["event"]["start_date"], "2026-08-03")
             self.assertEqual(items["task"]["due_at"], "2026-08-02T18:00:00-04:00")
+            self.assertEqual(items["task"]["preparation"], "Find the account number")
             self.assertEqual(items["note"]["details"], "1234")
             self.assertEqual(
                 database.connection.execute(

@@ -111,7 +111,8 @@ const messages = {
     added: "已添加",
     reply: "回复",
     analyzing: "AI 正在分析…",
-    preparations: "准备建议",
+    preparation: "准备工作",
+    acceptPreparation: "接受这项准备工作",
     assumptions: "采用的理解",
     conflicts: "需要注意",
     confirmCreate: "确认创建",
@@ -246,7 +247,8 @@ const messages = {
     added: "Added",
     reply: "Reply",
     analyzing: "AI is analyzing…",
-    preparations: "Preparation suggestions",
+    preparation: "Preparation",
+    acceptPreparation: "Accept this preparation",
     assumptions: "Assumptions",
     conflicts: "Needs attention",
     confirmCreate: "Confirm and create",
@@ -481,7 +483,6 @@ function renderIntake(response = state.intake) {
     return;
   }
 
-  reviewList($("#intakePreparations"), t("preparations"), response.preparations);
   reviewList($("#intakeAssumptions"), t("assumptions"), response.assumptions);
   const conflicts = response.conflicts.map((conflict) => (
     conflict.kind === "duplicate"
@@ -503,6 +504,28 @@ function renderIntake(response = state.intake) {
     if (draft.details) card.append(createText("p", "", draft.details));
     const schedule = draftSchedule(draft);
     if (schedule) card.append(createText("p", "", schedule));
+    if (draft.preparation) {
+      if (draft.preparation_accepted === undefined) {
+        draft.preparation_accepted = true;
+      }
+      const preparationLabel = document.createElement("label");
+      preparationLabel.className = "preparation-choice";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = draft.preparation_accepted;
+      checkbox.addEventListener("change", () => {
+        draft.preparation_accepted = checkbox.checked;
+      });
+      preparationLabel.append(
+        checkbox,
+        createText(
+          "span",
+          "",
+          `${t("acceptPreparation")}: ${draft.preparation}`,
+        ),
+      );
+      card.append(preparationLabel);
+    }
     if (draft.kind !== "note") {
       const label = document.createElement("label");
       label.append(createText("span", "", t("suggestedOwner")));
@@ -633,6 +656,9 @@ function itemCard(item, compact = false, index = 0) {
   card.append(top, createText("h3", "", item.title));
 
   if (item.details) card.append(createText("p", "", item.details));
+  if (item.preparation) {
+    card.append(createText("p", "item-preparation", `${t("preparation")}: ${item.preparation}`));
+  }
   if (item.kind === "task" && item.assignment_state === "pending") {
     card.append(createText("p", "", t("pendingAssignment")));
   }
@@ -1077,6 +1103,8 @@ function fillItemEditor(item, scope) {
   state.editingItem = item;
   $("#editTitle").value = item.title;
   $("#editDetails").value = item.details || "";
+  $("#editPreparation").value = item.preparation || "";
+  $("#editPreparationField").hidden = item.kind === "note" || scope === "occurrence";
   $("#editEventFields").hidden = item.kind !== "event";
   $("#editTaskFields").hidden = item.kind !== "task";
 
@@ -1128,6 +1156,9 @@ async function saveItemEditor(event) {
     title: $("#editTitle").value,
     details: $("#editDetails").value,
   };
+  if (item.kind !== "note" && scope !== "occurrence") {
+    fields.preparation = $("#editPreparation").value || null;
+  }
 
   if (item.kind === "event") {
     fields.reminder_at = $("#editEventReminderAt").value
@@ -1264,11 +1295,15 @@ $("#intakeConfirmButton").addEventListener("click", async () => {
     const ownerIds = state.intake.drafts.map((draft) =>
       draft.kind === "note" ? null : draft.owner_id || null
     );
+    const acceptedPreparations = state.intake.drafts.map((draft) =>
+      Boolean(draft.preparation && draft.preparation_accepted)
+    );
     state.board = await api(`/api/intake/${state.intake.session_id}/confirm`, {
       method: "POST",
       body: JSON.stringify({
         actor_id: selectedActor(),
         owner_ids: ownerIds,
+        accepted_preparations: acceptedPreparations,
       }),
     });
     resetIntake();
