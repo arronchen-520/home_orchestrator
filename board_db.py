@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from calendar import monthrange
 from datetime import date, datetime, time, timedelta, timezone
@@ -216,9 +217,9 @@ class BoardDatabase:
                 id TEXT PRIMARY KEY,
                 household_id TEXT NOT NULL REFERENCES households(id),
                 actor_id TEXT NOT NULL REFERENCES members(id),
-                kind TEXT NOT NULL CHECK (kind IN ('intake')),
+                kind TEXT NOT NULL CHECK (kind IN ('intake', 'assistant')),
                 status TEXT NOT NULL CHECK (
-                    status IN ('clarifying', 'review', 'confirmed')
+                    status IN ('active', 'clarifying', 'review', 'confirmed')
                 ),
                 owner_id TEXT REFERENCES members(id),
                 source TEXT NOT NULL CHECK (source IN ('text', 'audio')),
@@ -247,6 +248,7 @@ class BoardDatabase:
                 ON chat_messages(session_id, id);
             """
         )
+        self._upgrade_chat_sessions()
         if "recurrence" not in {
             row["name"] for row in self.connection.execute("PRAGMA table_info(items)")
         }:
@@ -318,6 +320,60 @@ class BoardDatabase:
         if "deleted_at" not in member_columns:
             self.connection.execute("ALTER TABLE members ADD COLUMN deleted_at TEXT")
         self.connection.commit()
+
+    def _upgrade_chat_sessions(self) -> None:
+        schema = self.connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'chat_sessions'"
+        ).fetchone()
+        if schema is None or "'assistant'" in schema["sql"]:
+            return
+        self.connection.commit()
+        self.connection.execute("PRAGMA foreign_keys = OFF")
+        try:
+            self.connection.executescript(
+                """
+                BEGIN IMMEDIATE;
+                ALTER TABLE chat_messages RENAME TO old_chat_messages;
+                ALTER TABLE chat_sessions RENAME TO old_chat_sessions;
+
+                CREATE TABLE chat_sessions (
+                    id TEXT PRIMARY KEY,
+                    household_id TEXT NOT NULL REFERENCES households(id),
+                    actor_id TEXT NOT NULL REFERENCES members(id),
+                    kind TEXT NOT NULL CHECK (kind IN ('intake', 'assistant')),
+                    status TEXT NOT NULL CHECK (
+                        status IN ('active', 'clarifying', 'review', 'confirmed')
+                    ),
+                    owner_id TEXT REFERENCES members(id),
+                    source TEXT NOT NULL CHECK (source IN ('text', 'audio')),
+                    timezone TEXT NOT NULL,
+                    clarification_count INTEGER NOT NULL DEFAULT 0,
+                    payload_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                CREATE TABLE chat_messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+                    role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+                    content TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+
+                INSERT INTO chat_sessions SELECT * FROM old_chat_sessions;
+                INSERT INTO chat_messages SELECT * FROM old_chat_messages;
+                DROP TABLE old_chat_messages;
+                DROP TABLE old_chat_sessions;
+                CREATE INDEX chat_messages_session ON chat_messages(session_id, id);
+                COMMIT;
+                """
+            )
+        except Exception:
+            self.connection.rollback()
+            raise
+        finally:
+            self.connection.execute("PRAGMA foreign_keys = ON")
 
     def close(self) -> None:
         self.connection.close()
@@ -438,6 +494,86 @@ class BoardDatabase:
                 (_now(), session_id),
             )
         return self.get_intake_session(household_id, session_id, actor_id)
+
+    def create_assistant_session(
+        self,
+        household_id: str,
+        actor_id: str,
+        timezone_name: str,
+        text: str,
+    ) -> dict:
+        session_id = str(uuid4())
+        now = _now()
+        with self.connection:
+            self.ensure_household(household_id, timezone_name)
+            self._require_member(self.connection.cursor(), household_id, actor_id)
+            self.connection.execute(
+                """
+                INSERT INTO chat_sessions (
+                    id, household_id, actor_id, kind, status, source,
+                    timezone, created_at, updated_at
+                ) VALUES (?, ?, ?, 'assistant', 'active', 'text', ?, ?, ?)
+                """,
+                (session_id, household_id, actor_id, timezone_name, now, now),
+            )
+            self.connection.execute(
+                """
+                INSERT INTO chat_messages (session_id, role, content, created_at)
+                VALUES (?, 'user', ?, ?)
+                """,
+                (session_id, text, now),
+            )
+        return self.get_assistant_session(household_id, session_id, actor_id)
+
+    def get_assistant_session(
+        self, household_id: str, session_id: str, actor_id: str
+    ) -> dict:
+        row = self.connection.execute(
+            """
+            SELECT * FROM chat_sessions
+            WHERE id = ? AND household_id = ? AND actor_id = ?
+                AND kind = 'assistant' AND status = 'active'
+            """,
+            (session_id, household_id, actor_id),
+        ).fetchone()
+        if row is None:
+            raise ValueError("Assistant conversation not found")
+        session = dict(row)
+        session["payload"] = json.loads(session.pop("payload_json"))
+        session["messages"] = [
+            dict(message)
+            for message in self.connection.execute(
+                """
+                SELECT role, content FROM chat_messages
+                WHERE session_id = ? ORDER BY id
+                """,
+                (session_id,),
+            )
+        ]
+        return session
+
+    def add_assistant_message(
+        self,
+        household_id: str,
+        session_id: str,
+        actor_id: str,
+        role: str,
+        content: str,
+    ) -> dict:
+        self.get_assistant_session(household_id, session_id, actor_id)
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO chat_messages (session_id, role, content, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (session_id, role, content, _now()),
+            )
+            self.connection.execute(
+                "UPDATE chat_sessions SET updated_at = ? WHERE id = ?",
+                (_now(), session_id),
+            )
+        return self.get_assistant_session(household_id, session_id, actor_id)
 
     def update_intake_session(
         self,
@@ -778,6 +914,169 @@ class BoardDatabase:
                             }
                         )
         return conflicts
+
+    def query_assistant(
+        self, household_id: str, timezone_name: str, sql: str
+    ) -> list[dict]:
+        # ponytail: copy a family-sized board; use scoped SQL views if boards outgrow memory.
+        statement = sql.strip().removesuffix(";").strip()
+        if (
+            not re.match(r"^(SELECT|WITH)\b", statement, re.IGNORECASE)
+            or ";" in statement
+        ):
+            raise ValueError("Assistant queries must be one read-only SELECT")
+
+        board = self.get_board(household_id)
+        member_names = {
+            member["id"]: member["name"] for member in board["members"]
+        }
+        item_columns = [
+            "id",
+            "kind",
+            "title",
+            "details",
+            "preparation",
+            "owner_id",
+            "owner_name",
+            "assignment_state",
+            "status",
+            "start_at",
+            "end_at",
+            "start_date",
+            "due_at",
+            "due_date",
+            "reminder_at",
+            "recurrence",
+            "monthly_on_last_day",
+            "recurrence_until",
+            "created_by",
+            "created_by_name",
+            "created_at",
+            "updated_at",
+            "original_text",
+        ]
+
+        zone = ZoneInfo(timezone_name)
+        today = datetime.now(zone).date()
+        occurrences = self.get_calendar(
+            household_id, today - timedelta(days=365), today
+        )["items"] + self.get_calendar(
+            household_id, today + timedelta(days=1), today + timedelta(days=370)
+        )["items"]
+
+        def values(item: dict) -> list:
+            projected = {
+                **item,
+                "owner_name": member_names.get(item.get("owner_id")),
+                "created_by_name": member_names.get(item.get("created_by")),
+            }
+            return [projected.get(column) for column in item_columns]
+
+        database = sqlite3.connect(":memory:")
+        database.row_factory = sqlite3.Row
+        columns_sql = ", ".join(f"{column} TEXT" for column in item_columns)
+        placeholders = ", ".join("?" for _ in item_columns)
+        database.execute(
+            "CREATE TABLE members (id TEXT, name TEXT, role TEXT)"
+        )
+        database.execute(f"CREATE TABLE items ({columns_sql})")
+        database.execute(
+            f"""
+            CREATE TABLE occurrences (
+                {columns_sql},
+                series_id TEXT,
+                occurrence_date TEXT,
+                is_occurrence INTEGER
+            )
+            """
+        )
+        database.executemany(
+            "INSERT INTO members VALUES (?, ?, ?)",
+            [
+                (member["id"], member["name"], member["role"])
+                for member in board["members"]
+            ],
+        )
+        database.executemany(
+            f"INSERT INTO items VALUES ({placeholders})",
+            [values(item) for item in board["items"]],
+        )
+        database.executemany(
+            f"""
+            INSERT INTO occurrences VALUES (
+                {placeholders}, ?, ?, ?
+            )
+            """,
+            [
+                values(item)
+                + [
+                    item.get("series_id"),
+                    item.get("occurrence_date"),
+                    int(item.get("is_occurrence", False)),
+                ]
+                for item in occurrences
+            ],
+        )
+
+        allowed_tables = {"items", "members", "occurrences"}
+        allowed_functions = {
+            "abs",
+            "avg",
+            "coalesce",
+            "count",
+            "current_date",
+            "current_time",
+            "current_timestamp",
+            "date",
+            "datetime",
+            "group_concat",
+            "julianday",
+            "length",
+            "like",
+            "lower",
+            "max",
+            "min",
+            "round",
+            "strftime",
+            "sum",
+            "total",
+            "trim",
+            "upper",
+        }
+
+        def authorize(action, first, second, _database, _trigger):
+            if action in {
+                sqlite3.SQLITE_SELECT,
+                getattr(sqlite3, "SQLITE_RECURSIVE", -1),
+            }:
+                return sqlite3.SQLITE_OK
+            if action == sqlite3.SQLITE_READ and first in allowed_tables:
+                return sqlite3.SQLITE_OK
+            if (
+                action == sqlite3.SQLITE_FUNCTION
+                and (second or first or "").lower() in allowed_functions
+            ):
+                return sqlite3.SQLITE_OK
+            return sqlite3.SQLITE_DENY
+
+        steps = 0
+
+        def stop_long_query():
+            nonlocal steps
+            steps += 1
+            return int(steps > 1000)
+
+        database.set_authorizer(authorize)
+        database.set_progress_handler(stop_long_query, 1000)
+        try:
+            rows = database.execute(
+                f"SELECT * FROM ({statement}) LIMIT 100"
+            ).fetchall()
+            return [dict(row) for row in rows]
+        except sqlite3.Error as exc:
+            raise ValueError(f"Assistant query failed: {exc}") from exc
+        finally:
+            database.close()
 
     def update_item(
         self,

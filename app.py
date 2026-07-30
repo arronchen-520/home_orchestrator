@@ -68,6 +68,13 @@ class IntakeConfirmation(BaseModel):
     accepted_preparations: list[bool] = Field(max_length=20)
 
 
+class AssistantInput(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+    actor_id: str
+    timezone: str = "UTC"
+    session_id: str | None = None
+
+
 class MemberInput(BaseModel):
     name: str = Field(min_length=1, max_length=40)
     role: str = Field(default="", max_length=40)
@@ -227,6 +234,20 @@ async def confirm_intake(
             payload.actor_id,
             payload.owner_ids,
             payload.accepted_preparations,
+        )
+    )
+
+
+@app.post("/api/assistant")
+async def assistant(payload: AssistantInput, request: Request):
+    return await service_call(
+        board_service(request).assistant(
+            {
+                "text": payload.text.strip(),
+                "actor_id": payload.actor_id,
+                "timezone": payload.timezone,
+                "session_id": payload.session_id,
+            }
         )
     )
 

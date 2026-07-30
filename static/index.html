@@ -338,6 +338,52 @@
       </form>
     </dialog>
 
+    <aside id="assistantPanel" class="assistant-panel" aria-labelledby="assistantTitle" hidden>
+      <header class="assistant-header">
+        <div>
+          <p class="eyebrow" data-i18n="assistantEyebrow">家庭助手</p>
+          <h2 id="assistantTitle" data-i18n="assistantTitle">问问家庭安排</h2>
+        </div>
+        <div class="assistant-header-actions">
+          <button id="assistantNewButton" class="button ghost compact" type="button" data-i18n="newChat">
+            新对话
+          </button>
+          <button id="assistantCloseButton" class="icon-button" type="button" data-i18n-aria="closeAssistant" aria-label="Close assistant">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+      </header>
+      <div id="assistantMessages" class="assistant-messages" aria-live="polite"></div>
+      <form id="assistantForm" class="assistant-form">
+        <label class="sr-only" for="assistantInput" data-i18n="assistantInputLabel">询问日程、待办或笔记</label>
+        <input
+          id="assistantInput"
+          maxlength="2000"
+          autocomplete="off"
+          required
+          data-i18n-placeholder="assistantPlaceholder"
+          placeholder="例如：这周末有什么安排？"
+        >
+        <button id="assistantSendButton" class="button primary" type="submit" data-i18n="send">
+          发送
+        </button>
+      </form>
+    </aside>
+    <button
+      id="assistantButton"
+      class="assistant-launcher"
+      type="button"
+      aria-controls="assistantPanel"
+      aria-expanded="false"
+      data-i18n-aria="openAssistant"
+      aria-label="Open family assistant"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-5.2 4v-4.7A2.5 2.5 0 0 1 4 13.5z"/>
+        <path d="M8 8h8M8 11.5h5"/>
+      </svg>
+    </button>
+
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="/static/app.js" defer></script>
   </body>

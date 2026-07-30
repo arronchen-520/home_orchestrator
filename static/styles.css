@@ -1250,9 +1250,121 @@ dialog::backdrop {
   font-weight: 700;
 }
 
-.toast {
+.assistant-launcher {
   position: fixed;
   right: 18px;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  z-index: 40;
+  display: grid;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  place-items: center;
+  color: #fff;
+  background: var(--blue);
+  box-shadow: var(--shadow-md);
+  transition: background-color 200ms ease, box-shadow 200ms ease;
+}
+
+.assistant-launcher:hover {
+  background: #4f49df;
+  box-shadow: 0 24px 65px rgb(21 23 26 / 18%);
+}
+
+.assistant-launcher svg {
+  width: 27px;
+  height: 27px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.assistant-panel {
+  position: fixed;
+  right: 18px;
+  bottom: calc(86px + env(safe-area-inset-bottom));
+  z-index: 40;
+  display: grid;
+  width: min(390px, calc(100vw - 24px));
+  height: min(560px, calc(100vh - 120px));
+  min-height: 320px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: 0 28px 80px rgb(21 23 26 / 22%);
+  animation: assistant-in 200ms ease both;
+}
+
+.assistant-header {
+  display: flex;
+  min-width: 0;
+  padding: 14px;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.assistant-header .eyebrow {
+  margin-bottom: 2px;
+}
+
+.assistant-header-actions,
+.assistant-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.assistant-messages {
+  display: flex;
+  min-height: 0;
+  padding: 14px;
+  overflow-y: auto;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface-soft);
+}
+
+.assistant-message {
+  max-width: 88%;
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px 14px 14px 4px;
+  align-self: flex-start;
+  background: var(--surface);
+  font-size: 0.86rem;
+  white-space: pre-wrap;
+}
+
+.assistant-message.user {
+  border-color: transparent;
+  border-radius: 14px 14px 4px;
+  align-self: flex-end;
+  color: #fff;
+  background: var(--blue);
+}
+
+.assistant-form {
+  padding: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.assistant-form input {
+  min-width: 0;
+  flex: 1;
+}
+
+.toast {
+  position: fixed;
+  right: 86px;
   bottom: 18px;
   z-index: 30;
   max-width: min(420px, calc(100% - 36px));
@@ -1291,6 +1403,11 @@ dialog::backdrop {
 }
 
 @keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes assistant-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
@@ -1394,6 +1511,29 @@ dialog::backdrop {
   main {
     width: min(100% - 20px, 1240px);
     margin-top: 10px;
+  }
+
+  .assistant-panel {
+    left: 10px;
+    right: 10px;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+    width: auto;
+    height: min(68vh, 560px);
+  }
+
+  .assistant-launcher {
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .toast {
+    right: 76px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 86px);
+  }
+
+  .assistant-form {
+    align-items: stretch;
   }
 
   .hero-card {

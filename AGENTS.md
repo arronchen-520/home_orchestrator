@@ -16,6 +16,8 @@ types: events, tasks, and notes. Events can recur daily, weekly, or monthly.
 
 - `board_db.py`: SQLite schema, transactions, board queries, and mutations.
 - `board_graph.py`: OpenRouter extraction and the multi-item ingestion graph.
+- The family assistant is read-only: AI-generated SQL runs only against a
+  household-scoped in-memory projection, never the writable board connection.
 - `weather.py`: OpenWeather city lookup, five-day aggregation, and short cache.
 - `app.py`: FastAPI routes, Groq speech-to-text, and static file serving.
 - `python-dateutil`: server-side recurrence expansion for calendar date ranges.
@@ -32,6 +34,8 @@ types: events, tasks, and notes. Events can recur daily, weekly, or monthly.
   change or clear every suggestion before confirmation. Notes never have owners.
 - AI may propose one preparation for an event or task; save it only when the
   user accepts it, and keep it manually editable afterward.
+- Keep assistant conversations continuous but read-only. Do not expose generated
+  SQL in the UI or add chat mutations without a concrete requirement.
 - Preserve the input language in generated titles and details.
 - Keep Chinese and English UI strings in `static/app.js`.
 - Keep weather optional: provider failures must not block board data.

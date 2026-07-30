@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from calendar import monthrange
 from datetime import date, datetime
@@ -171,6 +172,18 @@ class IntakeAnalysis(BaseModel):
         return self
 
 
+class AssistantQueryPlan(BaseModel):
+    sql: str | None = Field(
+        default=None,
+        max_length=4000,
+        description="One read-only SQLite SELECT, or null when no board lookup is needed",
+    )
+
+
+class AssistantReply(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+
+
 class IngestionState(TypedDict, total=False):
     command: dict
     drafts: list[dict]
@@ -307,6 +320,121 @@ async def analyze_intake_with_openrouter(
             "remaining_questions": remaining_questions,
             "preferred_owner": preferred_owner,
             "family": family,
+        }
+    )
+
+
+ASSISTANT_SCHEMA = """
+members(id, name, role)
+items(id, kind, title, details, preparation, owner_id, owner_name,
+  assignment_state, status, start_at, end_at, start_date, due_at, due_date,
+  reminder_at, recurrence, monthly_on_last_day, recurrence_until, created_by,
+  created_by_name, created_at, updated_at, original_text)
+occurrences(same item columns, series_id, occurrence_date, is_occurrence)
+"""
+
+
+@lru_cache(maxsize=1)
+def assistant_query_chain():
+    parser = PydanticOutputParser(pydantic_object=AssistantQueryPlan)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                """You plan one safe SQLite query for a bilingual household board assistant.
+Use the conversation to resolve follow-up references. Generate exactly one SELECT
+or WITH...SELECT when board data is needed. Use only the supplied schema. Never
+write, modify, attach, or inspect database metadata. Prefer occurrences for dated
+calendar questions because recurring events are expanded there. occurrences covers
+365 days before today through 370 days after today. Use items for notes, raw series,
+and tasks without dates. Return null SQL for greetings or questions that need no
+board lookup. A previous SQL error may be supplied; fix it once.
+
+Schema:
+{schema}
+
+{format_instructions}""",
+            ),
+            (
+                "human",
+                """Current time: {now}
+Timezone: {timezone_name}
+Previous SQL error: {query_error}
+Conversation:
+{conversation}""",
+            ),
+        ]
+    ).partial(
+        schema=ASSISTANT_SCHEMA,
+        format_instructions=parser.get_format_instructions(),
+    )
+    return prompt | openrouter_model() | parser
+
+
+async def plan_assistant_query(
+    conversation: str,
+    now: str,
+    timezone_name: str,
+    query_error: str = "",
+) -> AssistantQueryPlan:
+    return await assistant_query_chain().ainvoke(
+        {
+            "conversation": conversation,
+            "now": now,
+            "timezone_name": timezone_name,
+            "query_error": query_error or "none",
+        }
+    )
+
+
+@lru_cache(maxsize=1)
+def assistant_answer_chain():
+    parser = PydanticOutputParser(pydantic_object=AssistantReply)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                """You are a concise bilingual family board assistant. Answer in the
+user's language using only the conversation and query results. Dates and times
+must respect the supplied timezone. Do not claim that you changed board data;
+you are read-only. If the question is outside schedules, tasks, notes, reminders,
+preparations, or family board organization, briefly redirect to those topics.
+If the query failed, apologize plainly and ask the user to rephrase. Do not show
+SQL or internal implementation details.
+
+{format_instructions}""",
+            ),
+            (
+                "human",
+                """Current time: {now}
+Timezone: {timezone_name}
+Conversation:
+{conversation}
+
+Query results:
+{query_results}
+
+Query error: {query_error}""",
+            ),
+        ]
+    ).partial(format_instructions=parser.get_format_instructions())
+    return prompt | openrouter_model() | parser
+
+
+async def answer_assistant_with_openrouter(
+    conversation: str,
+    now: str,
+    timezone_name: str,
+    query_results: str,
+    query_error: str = "",
+) -> AssistantReply:
+    return await assistant_answer_chain().ainvoke(
+        {
+            "conversation": conversation,
+            "now": now,
+            "timezone_name": timezone_name,
+            "query_results": query_results,
+            "query_error": query_error or "none",
         }
     )
 
@@ -551,6 +679,74 @@ class BoardService:
                 self.household_id, session_id, actor_id
             )
             return await self.get_board(result)
+
+    async def assistant(self, command: dict) -> dict:
+        async with self._lock:
+            actor_id = self.database.require_member(
+                self.household_id, command.get("actor_id")
+            )
+            text = command.get("text", "").strip()
+            if not text:
+                raise ValueError("Message cannot be empty")
+            session_id = command.get("session_id")
+            if session_id:
+                session = self.database.add_assistant_message(
+                    self.household_id, session_id, actor_id, "user", text
+                )
+            else:
+                session = self.database.create_assistant_session(
+                    self.household_id,
+                    actor_id,
+                    command.get("timezone", "UTC"),
+                    text,
+                )
+            try:
+                local_now = datetime.now(ZoneInfo(session["timezone"]))
+            except ZoneInfoNotFoundError as exc:
+                raise ValueError("Invalid timezone") from exc
+            conversation = "\n".join(
+                f'{message["role"]}: {message["content"]}'
+                for message in session["messages"][-20:]
+            )
+
+            results = []
+            query_error = ""
+            for _ in range(2):
+                plan = await plan_assistant_query(
+                    conversation,
+                    local_now.isoformat(),
+                    session["timezone"],
+                    query_error,
+                )
+                if not plan.sql:
+                    break
+                try:
+                    results = self.database.query_assistant(
+                        self.household_id, session["timezone"], plan.sql
+                    )
+                    query_error = ""
+                    break
+                except ValueError as exc:
+                    query_error = str(exc)
+
+            reply = await answer_assistant_with_openrouter(
+                conversation=conversation,
+                now=local_now.isoformat(),
+                timezone_name=session["timezone"],
+                query_results=json.dumps(results, ensure_ascii=False, default=str),
+                query_error=query_error,
+            )
+            session = self.database.add_assistant_message(
+                self.household_id,
+                session["id"],
+                actor_id,
+                "assistant",
+                reply.message,
+            )
+            return {
+                "session_id": session["id"],
+                "messages": session["messages"],
+            }
 
     def get_weather_location(self) -> dict | None:
         return self.database.get_weather_location(self.household_id)

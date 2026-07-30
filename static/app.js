@@ -130,6 +130,16 @@ const messages = {
     groqMissing: "请在 .env 配置 GROQ_API_KEY",
     openweatherMissing: "请在 .env 配置 OPENWEATHER_API_KEY",
     noSpeech: "没有识别到语音",
+    assistantEyebrow: "家庭助手",
+    assistantTitle: "问问家庭安排",
+    assistantInputLabel: "询问日程、待办或笔记",
+    assistantPlaceholder: "例如：这周末有什么安排？",
+    openAssistant: "打开家庭助手",
+    closeAssistant: "关闭家庭助手",
+    newChat: "新对话",
+    send: "发送",
+    assistantWelcome: "可以问我家庭日程、待办、提醒、准备工作或笔记。",
+    assistantThinking: "正在查找家庭资料…",
     today: "今天",
     notesEyebrow: "家庭资料夹",
     notesTitle: "留给以后用的信息",
@@ -266,6 +276,16 @@ const messages = {
     groqMissing: "Configure GROQ_API_KEY in .env",
     openweatherMissing: "Configure OPENWEATHER_API_KEY in .env",
     noSpeech: "No speech was detected",
+    assistantEyebrow: "Family assistant",
+    assistantTitle: "Ask about home plans",
+    assistantInputLabel: "Ask about schedules, tasks, or notes",
+    assistantPlaceholder: "For example: What is happening this weekend?",
+    openAssistant: "Open family assistant",
+    closeAssistant: "Close family assistant",
+    newChat: "New chat",
+    send: "Send",
+    assistantWelcome: "Ask me about family schedules, tasks, reminders, preparations, or notes.",
+    assistantThinking: "Checking the family board…",
     today: "Today",
     notesEyebrow: "Family reference",
     notesTitle: "Information worth keeping",
@@ -290,6 +310,9 @@ const state = {
   recorder: null,
   recordingTimer: null,
   intake: null,
+  assistant: null,
+  assistantPending: "",
+  assistantError: "",
   editingItem: null,
   editingOccurrence: null,
 };
@@ -347,6 +370,7 @@ function applyLanguage() {
   $("#languageButton").textContent = state.language === "zh" ? "EN" : "中";
   render();
   renderIntake();
+  renderAssistant();
 }
 
 function selectedActor() {
@@ -566,6 +590,45 @@ function handleIntakeResponse(response) {
   state.intake = response;
   $("#textInput").value = "";
   renderIntake();
+}
+
+function renderAssistant() {
+  const container = $("#assistantMessages");
+  const messages = state.assistant?.messages?.length
+    ? [...state.assistant.messages]
+    : [{ role: "assistant", content: t("assistantWelcome") }];
+  if (state.assistantPending) {
+    messages.push(
+      { role: "user", content: state.assistantPending },
+      { role: "assistant", content: t("assistantThinking") },
+    );
+  } else if (state.assistantError) {
+    messages.push({ role: "assistant", content: state.assistantError });
+  }
+  container.replaceChildren(...messages.map((message) =>
+    createText("p", `assistant-message ${message.role}`, message.content)
+  ));
+  container.scrollTop = container.scrollHeight;
+}
+
+function resetAssistant() {
+  state.assistant = null;
+  state.assistantPending = "";
+  state.assistantError = "";
+  $("#assistantInput").value = "";
+  renderAssistant();
+}
+
+function toggleAssistant(open) {
+  const panel = $("#assistantPanel");
+  panel.hidden = !open;
+  $("#assistantButton").setAttribute("aria-expanded", String(open));
+  if (open) {
+    renderAssistant();
+    $("#assistantInput").focus();
+  } else if (document.activeElement?.closest("#assistantPanel")) {
+    $("#assistantButton").focus();
+  }
 }
 
 function weatherForDate(key) {
@@ -1366,6 +1429,7 @@ $("#memberForm").addEventListener("submit", async (event) => {
 actorSelect.addEventListener("change", () => {
   localStorage.setItem("home-actor", actorSelect.value);
   resetIntake();
+  resetAssistant();
   renderBoard();
 });
 
@@ -1468,6 +1532,48 @@ $("#todayButton").addEventListener("click", async () => {
   state.selectedDate = dateKey(today);
   state.month = new Date(today.getFullYear(), today.getMonth(), 1);
   await loadCalendar();
+});
+
+$("#assistantButton").addEventListener("click", () => {
+  toggleAssistant($("#assistantPanel").hidden);
+});
+$("#assistantCloseButton").addEventListener("click", () => toggleAssistant(false));
+$("#assistantNewButton").addEventListener("click", resetAssistant);
+$("#assistantPanel").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") toggleAssistant(false);
+});
+$("#assistantForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!requireActor()) return;
+  const input = $("#assistantInput");
+  const button = $("#assistantSendButton");
+  const text = input.value.trim();
+  if (!text) return;
+  state.assistantPending = text;
+  state.assistantError = "";
+  input.disabled = true;
+  button.disabled = true;
+  renderAssistant();
+  try {
+    state.assistant = await api("/api/assistant", {
+      method: "POST",
+      body: JSON.stringify({
+        text,
+        actor_id: selectedActor(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        session_id: state.assistant?.session_id || null,
+      }),
+    });
+    input.value = "";
+  } catch (error) {
+    state.assistantError = error.message || t("networkError");
+  } finally {
+    state.assistantPending = "";
+    input.disabled = false;
+    button.disabled = false;
+    renderAssistant();
+    input.focus();
+  }
 });
 
 recordButton.addEventListener("click", async () => {

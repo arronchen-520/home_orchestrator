@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, patch
 
 from board_db import BoardDatabase
 from board_graph import (
+    AssistantQueryPlan,
+    AssistantReply,
     BoardService,
     ExtractionResult,
     IntakeAnalysis,
@@ -15,6 +17,90 @@ from board_graph import (
 
 
 class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
+    async def test_read_only_assistant_is_scoped_and_keeps_conversation(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = BoardDatabase(Path(temp_dir) / "test.sqlite3")
+            database.setup()
+            lin_id = database.add_member("test-family", "Lin")
+            other_id = database.add_member("other-family", "Other")
+            database.create_items(
+                "test-family",
+                "family-item",
+                "Pay bill",
+                "text",
+                "UTC",
+                lin_id,
+                None,
+                [{"kind": "task", "title": "Pay hydro bill"}],
+            )
+            database.create_items(
+                "other-family",
+                "other-item",
+                "Private note",
+                "text",
+                "UTC",
+                other_id,
+                None,
+                [{"kind": "note", "title": "Other household secret"}],
+            )
+            self.assertEqual(
+                database.query_assistant(
+                    "test-family", "UTC", "SELECT title FROM items"
+                ),
+                [{"title": "Pay hydro bill"}],
+            )
+            with self.assertRaisesRegex(ValueError, "read-only SELECT"):
+                database.query_assistant(
+                    "test-family", "UTC", "DELETE FROM items"
+                )
+
+            service = BoardService(database, "test-family")
+            plans = [
+                AssistantQueryPlan(sql="SELECT title FROM items"),
+                AssistantQueryPlan(
+                    sql="SELECT title FROM items WHERE title LIKE '%bill%'"
+                ),
+            ]
+            replies = [
+                AssistantReply(message="You have one task."),
+                AssistantReply(message="It is the hydro bill."),
+            ]
+            with (
+                patch(
+                    "board_graph.plan_assistant_query",
+                    AsyncMock(side_effect=plans),
+                ) as planner,
+                patch(
+                    "board_graph.answer_assistant_with_openrouter",
+                    AsyncMock(side_effect=replies),
+                ) as answer,
+            ):
+                first = await service.assistant(
+                    {
+                        "text": "What tasks do I have?",
+                        "actor_id": lin_id,
+                        "timezone": "UTC",
+                    }
+                )
+                second = await service.assistant(
+                    {
+                        "text": "Which bill?",
+                        "actor_id": lin_id,
+                        "session_id": first["session_id"],
+                    }
+                )
+                self.assertEqual(second["session_id"], first["session_id"])
+                self.assertEqual(len(second["messages"]), 4)
+                self.assertIn(
+                    "assistant: You have one task.",
+                    planner.await_args.args[0],
+                )
+                self.assertIn(
+                    "Pay hydro bill",
+                    answer.await_args.kwargs["query_results"],
+                )
+            database.close()
+
     async def test_intake_confirmation_keeps_owner_and_preparation_editable(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             database = BoardDatabase(Path(temp_dir) / "test.sqlite3")
