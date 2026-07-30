@@ -3,6 +3,10 @@
 A local bilingual family board powered by LangGraph, FastAPI, OpenRouter, and
 Groq. Natural-language input becomes an event, task, or note.
 
+Before saving, the intake assistant asks at most two necessary clarification
+questions, shows preparation advice and schedule conflicts, and lets the user
+review each item and edit or clear its suggested owner.
+
 一个本地运行的中英双语家庭共享板。自然语言会由 AI 转成日程、待办或笔记。
 
 Events and tasks share one workflow board with personal, owner, type, and text

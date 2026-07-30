@@ -109,6 +109,16 @@ const messages = {
     empty: "这里还没有内容",
     chooseMember: "请先添加并选择一位家庭成员",
     added: "已添加",
+    reply: "回复",
+    analyzing: "AI 正在分析…",
+    preparations: "准备建议",
+    assumptions: "采用的理解",
+    conflicts: "需要注意",
+    confirmCreate: "确认创建",
+    startOver: "重新开始",
+    suggestedOwner: "负责人（可修改）",
+    timeConflict: "与“{title}”在 {date} 时间冲突",
+    duplicateConflict: "可能与“{title}”重复",
     updated: "已更新",
     deleted: "已删除",
     recording: "正在录音，再按一次停止",
@@ -234,6 +244,16 @@ const messages = {
     empty: "Nothing here yet",
     chooseMember: "Add and choose a family member first",
     added: "Added",
+    reply: "Reply",
+    analyzing: "AI is analyzing…",
+    preparations: "Preparation suggestions",
+    assumptions: "Assumptions",
+    conflicts: "Needs attention",
+    confirmCreate: "Confirm and create",
+    startOver: "Start over",
+    suggestedOwner: "Owner (editable)",
+    timeConflict: "Overlaps “{title}” on {date}",
+    duplicateConflict: "May duplicate “{title}”",
     updated: "Updated",
     deleted: "Deleted",
     recording: "Recording — press again to stop",
@@ -267,6 +287,7 @@ const state = {
   search: "",
   recorder: null,
   recordingTimer: null,
+  intake: null,
   editingItem: null,
   editingOccurrence: null,
 };
@@ -323,6 +344,7 @@ function applyLanguage() {
   });
   $("#languageButton").textContent = state.language === "zh" ? "EN" : "中";
   render();
+  renderIntake();
 }
 
 function selectedActor() {
@@ -412,6 +434,115 @@ function createText(tag, className, text) {
   if (className) element.className = className;
   element.textContent = text;
   return element;
+}
+
+function reviewList(container, title, items, itemClass = "") {
+  container.replaceChildren();
+  if (!items?.length) return;
+  container.className = "intake-review-section";
+  container.append(createText("h3", "", title));
+  const list = document.createElement("ul");
+  items.forEach((text) => list.append(createText("li", itemClass, text)));
+  container.append(list);
+}
+
+function draftSchedule(draft) {
+  if (draft.kind === "event") {
+    const value = draft.start_date || draft.start_at;
+    return value ? `${t("starts")}: ${formatDateTime(value, Boolean(draft.start_date))}` : "";
+  }
+  if (draft.kind === "task") {
+    const value = draft.due_date || draft.due_at;
+    return value ? `${t("due")}: ${formatDateTime(value, Boolean(draft.due_date))}` : "";
+  }
+  return "";
+}
+
+function renderIntake(response = state.intake) {
+  const panel = $("#intakeConversation");
+  if (!response) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  const messages = $("#intakeMessages");
+  messages.replaceChildren(...response.messages.map((message) =>
+    createText("p", `intake-message ${message.role}`, message.content)
+  ));
+
+  const reviewing = response.status === "review";
+  $("#intakeReview").hidden = !reviewing;
+  $("#intakeConfirmButton").hidden = !reviewing;
+  $("#submitButton").hidden = reviewing;
+  $("#textInput").disabled = reviewing;
+  ownerSelect.disabled = true;
+  if (!reviewing) {
+    $("#textInput").placeholder = t("reply");
+    return;
+  }
+
+  reviewList($("#intakePreparations"), t("preparations"), response.preparations);
+  reviewList($("#intakeAssumptions"), t("assumptions"), response.assumptions);
+  const conflicts = response.conflicts.map((conflict) => (
+    conflict.kind === "duplicate"
+      ? t("duplicateConflict").replace("{title}", conflict.existing_title)
+      : t("timeConflict")
+        .replace("{title}", conflict.existing_title)
+        .replace("{date}", conflict.date)
+  ));
+  reviewList($("#intakeConflicts"), t("conflicts"), conflicts, "intake-conflict");
+
+  const drafts = $("#intakeDrafts");
+  drafts.replaceChildren();
+  response.drafts.forEach((draft) => {
+    const card = document.createElement("article");
+    card.className = "intake-draft";
+    card.append(
+      createText("strong", "", `${t(draft.kind)} · ${draft.title}`),
+    );
+    if (draft.details) card.append(createText("p", "", draft.details));
+    const schedule = draftSchedule(draft);
+    if (schedule) card.append(createText("p", "", schedule));
+    if (draft.kind !== "note") {
+      const label = document.createElement("label");
+      label.append(createText("span", "", t("suggestedOwner")));
+      const select = document.createElement("select");
+      select.className = "draft-owner";
+      select.append(new Option(t("unassigned"), ""));
+      state.board.members.forEach((member) => {
+        select.append(new Option(
+          member.role ? `${member.name} · ${member.role}` : member.name,
+          member.id,
+        ));
+      });
+      select.value = draft.owner_id || "";
+      select.addEventListener("change", () => {
+        draft.owner_id = select.value || null;
+      });
+      label.append(select);
+      card.append(label);
+    }
+    drafts.append(card);
+  });
+}
+
+function resetIntake() {
+  state.intake = null;
+  $("#intakeConversation").hidden = true;
+  $("#intakeReview").hidden = true;
+  $("#intakeConfirmButton").hidden = true;
+  $("#submitButton").hidden = false;
+  $("#textInput").disabled = false;
+  $("#textInput").value = "";
+  $("#textInput").placeholder = t("inputPlaceholder");
+  ownerSelect.disabled = false;
+  ownerSelect.value = "";
+}
+
+function handleIntakeResponse(response) {
+  state.intake = response;
+  $("#textInput").value = "";
+  renderIntake();
 }
 
 function weatherForDate(key) {
@@ -1084,8 +1215,11 @@ async function removeItem(item) {
 
 function setProcessing(processing) {
   $("#submitButton").disabled = processing;
+  $("#intakeConfirmButton").disabled = processing;
   recordButton.disabled = processing;
-  $("#submitButton").textContent = processing ? t("processing") : t("add");
+  $("#submitButton").textContent = processing
+    ? t("analyzing")
+    : state.intake ? t("reply") : t("add");
 }
 
 $("#editAllDay").addEventListener("change", toggleEditorFields);
@@ -1103,17 +1237,42 @@ $("#inputForm").addEventListener("submit", async (event) => {
   const input = $("#textInput");
   setProcessing(true);
   try {
-    state.board = await api("/api/input", {
+    const response = await api("/api/input", {
       method: "POST",
       body: JSON.stringify({
         text: input.value,
         actor_id: selectedActor(),
-        owner_id: ownerSelect.value || null,
+        owner_id: state.intake ? null : ownerSelect.value || null,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        session_id: state.intake?.session_id || null,
       }),
     });
-    input.value = "";
-    ownerSelect.value = "";
+    handleIntakeResponse(response);
+  } catch (error) {
+    showToast(error.message || t("networkError"), true);
+  } finally {
+    setProcessing(false);
+  }
+});
+
+$("#intakeResetButton").addEventListener("click", resetIntake);
+
+$("#intakeConfirmButton").addEventListener("click", async () => {
+  if (!state.intake || !requireActor()) return;
+  setProcessing(true);
+  try {
+    const ownerIds = state.intake.drafts.map((draft) =>
+      draft.kind === "note" ? null : draft.owner_id || null
+    );
+    state.board = await api(`/api/intake/${state.intake.session_id}/confirm`, {
+      method: "POST",
+      body: JSON.stringify({
+        actor_id: selectedActor(),
+        owner_ids: ownerIds,
+      }),
+    });
+    resetIntake();
+    render();
     await loadCalendar();
     showToast(t("added"));
   } catch (error) {
@@ -1171,6 +1330,7 @@ $("#memberForm").addEventListener("submit", async (event) => {
 
 actorSelect.addEventListener("change", () => {
   localStorage.setItem("home-actor", actorSelect.value);
+  resetIntake();
   renderBoard();
 });
 
@@ -1304,11 +1464,12 @@ recordButton.addEventListener("click", async () => {
       form.append("actor_id", selectedActor());
       form.append("timezone", Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
       if (ownerSelect.value) form.append("owner_id", ownerSelect.value);
+      if (state.intake?.session_id) form.append("session_id", state.intake.session_id);
       setProcessing(true);
       try {
-        state.board = await api("/api/audio", { method: "POST", body: form });
-        render();
-        showToast(t("added"));
+        handleIntakeResponse(
+          await api("/api/audio", { method: "POST", body: form })
+        );
       } catch (error) {
         showToast(error.message || t("networkError"), true);
       } finally {

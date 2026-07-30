@@ -55,6 +55,23 @@
             placeholder="例如：周六下午三点带孩子看牙医"
           ></textarea>
           <p class="input-hint" data-i18n="sortHint">有时间的进日历，要做的进待办，信息留在笔记。</p>
+          <section id="intakeConversation" class="intake-conversation" aria-live="polite" hidden>
+            <div id="intakeMessages" class="intake-messages"></div>
+            <div id="intakeReview" hidden>
+              <div id="intakePreparations"></div>
+              <div id="intakeAssumptions"></div>
+              <div id="intakeDrafts" class="intake-drafts"></div>
+              <div id="intakeConflicts"></div>
+            </div>
+            <div class="intake-actions">
+              <button id="intakeResetButton" class="button secondary compact" type="button" data-i18n="startOver">
+                重新开始
+              </button>
+              <button id="intakeConfirmButton" class="button primary" type="button" data-i18n="confirmCreate" hidden>
+                确认创建
+              </button>
+            </div>
+          </section>
           <div class="composer-options">
             <label>
               <span data-i18n="optionalOwner">负责人（可选）</span>

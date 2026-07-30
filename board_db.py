@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from calendar import monthrange
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -210,12 +211,39 @@ class BoardDatabase:
                 PRIMARY KEY (series_id, occurrence_date)
             );
 
+            CREATE TABLE IF NOT EXISTS chat_sessions (
+                id TEXT PRIMARY KEY,
+                household_id TEXT NOT NULL REFERENCES households(id),
+                actor_id TEXT NOT NULL REFERENCES members(id),
+                kind TEXT NOT NULL CHECK (kind IN ('intake')),
+                status TEXT NOT NULL CHECK (
+                    status IN ('clarifying', 'review', 'confirmed')
+                ),
+                owner_id TEXT REFERENCES members(id),
+                source TEXT NOT NULL CHECK (source IN ('text', 'audio')),
+                timezone TEXT NOT NULL,
+                clarification_count INTEGER NOT NULL DEFAULT 0,
+                payload_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+                role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS items_household_status
                 ON items(household_id, status);
             CREATE INDEX IF NOT EXISTS items_household_start
                 ON items(household_id, start_at, start_date);
             CREATE INDEX IF NOT EXISTS items_household_due
                 ON items(household_id, due_at, due_date);
+            CREATE INDEX IF NOT EXISTS chat_messages_session
+                ON chat_messages(session_id, id);
             """
         )
         if "recurrence" not in {
@@ -311,6 +339,162 @@ class BoardDatabase:
 
     def require_member(self, household_id: str, member_id: str | None) -> str:
         return self._require_member(self.connection.cursor(), household_id, member_id)
+
+    def create_intake_session(
+        self,
+        household_id: str,
+        actor_id: str,
+        owner_id: str | None,
+        source: str,
+        timezone_name: str,
+        text: str,
+    ) -> dict:
+        session_id = str(uuid4())
+        now = _now()
+        with self.connection:
+            self.ensure_household(household_id, timezone_name)
+            self._require_member(self.connection.cursor(), household_id, actor_id)
+            if owner_id is not None:
+                self._require_member(self.connection.cursor(), household_id, owner_id)
+            self.connection.execute(
+                """
+                INSERT INTO chat_sessions (
+                    id, household_id, actor_id, kind, status, owner_id, source,
+                    timezone, created_at, updated_at
+                ) VALUES (?, ?, ?, 'intake', 'clarifying', ?, ?, ?, ?, ?)
+                """,
+                (
+                    session_id,
+                    household_id,
+                    actor_id,
+                    owner_id,
+                    source,
+                    timezone_name,
+                    now,
+                    now,
+                ),
+            )
+            self.connection.execute(
+                """
+                INSERT INTO chat_messages (session_id, role, content, created_at)
+                VALUES (?, 'user', ?, ?)
+                """,
+                (session_id, text, now),
+            )
+        return self.get_intake_session(household_id, session_id, actor_id)
+
+    def get_intake_session(
+        self, household_id: str, session_id: str, actor_id: str
+    ) -> dict:
+        row = self.connection.execute(
+            """
+            SELECT * FROM chat_sessions
+            WHERE id = ? AND household_id = ? AND actor_id = ? AND kind = 'intake'
+            """,
+            (session_id, household_id, actor_id),
+        ).fetchone()
+        if row is None:
+            raise ValueError("Intake conversation not found")
+        session = dict(row)
+        session["payload"] = json.loads(session.pop("payload_json"))
+        session["messages"] = [
+            dict(message)
+            for message in self.connection.execute(
+                """
+                SELECT role, content FROM chat_messages
+                WHERE session_id = ? ORDER BY id
+                """,
+                (session_id,),
+            )
+        ]
+        return session
+
+    def add_intake_message(
+        self,
+        household_id: str,
+        session_id: str,
+        actor_id: str,
+        role: str,
+        content: str,
+    ) -> dict:
+        session = self.get_intake_session(household_id, session_id, actor_id)
+        if session["status"] != "clarifying":
+            raise ValueError("Confirm or start over before sending another message")
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO chat_messages (session_id, role, content, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (session_id, role, content, _now()),
+            )
+            self.connection.execute(
+                "UPDATE chat_sessions SET updated_at = ? WHERE id = ?",
+                (_now(), session_id),
+            )
+        return self.get_intake_session(household_id, session_id, actor_id)
+
+    def update_intake_session(
+        self,
+        household_id: str,
+        session_id: str,
+        actor_id: str,
+        status: str,
+        clarification_count: int,
+        payload: dict,
+    ) -> dict:
+        self.get_intake_session(household_id, session_id, actor_id)
+        with self.connection:
+            self.connection.execute(
+                """
+                UPDATE chat_sessions
+                SET status = ?, clarification_count = ?, payload_json = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    status,
+                    clarification_count,
+                    json.dumps(payload, ensure_ascii=False),
+                    _now(),
+                    session_id,
+                ),
+            )
+        return self.get_intake_session(household_id, session_id, actor_id)
+
+    def confirm_intake_session(
+        self, household_id: str, session_id: str, actor_id: str
+    ) -> dict:
+        session = self.get_intake_session(household_id, session_id, actor_id)
+        if session["status"] != "review":
+            raise ValueError("This intake conversation is not ready to confirm")
+        payload = session["payload"]
+        drafts = payload.get("drafts") or []
+        if not drafts:
+            raise ValueError("This intake conversation has no items to create")
+        user_text = "\n".join(
+            message["content"]
+            for message in session["messages"]
+            if message["role"] == "user"
+        )
+        item_ids = self.create_items(
+            household_id=household_id,
+            submission_id=session_id,
+            text=user_text,
+            source=session["source"],
+            timezone_name=session["timezone"],
+            actor_id=actor_id,
+            owner_id=None,
+            drafts=drafts,
+        )
+        with self.connection:
+            self.connection.execute(
+                """
+                UPDATE chat_sessions SET status = 'confirmed', updated_at = ?
+                WHERE id = ?
+                """,
+                (_now(), session_id),
+            )
+        return {"action": "created", "item_id": item_ids[0], "item_ids": item_ids}
 
     def get_household(self, household_id: str) -> dict:
         row = self.connection.execute(
@@ -435,7 +619,13 @@ class BoardDatabase:
 
             for index, draft in enumerate(drafts):
                 actionable = draft["kind"] != "note"
-                item_owner = owner_id if actionable else None
+                item_owner = (
+                    draft.get("owner_id")
+                    if actionable and draft.get("owner_id") is not None
+                    else owner_id if actionable else None
+                )
+                if item_owner is not None:
+                    self._require_member(cursor, household_id, item_owner)
                 assignment_state = (
                     "accepted" if draft["kind"] == "task" and item_owner == actor_id
                     else "pending" if draft["kind"] == "task" and item_owner
@@ -492,6 +682,96 @@ class BoardDatabase:
                 (submission_id,),
             ).fetchall()
         return [row["id"] for row in rows]
+
+    def find_draft_conflicts(
+        self, household_id: str, drafts: list[dict], timezone_name: str
+    ) -> list[dict]:
+        board = self.get_board(household_id)
+        conflicts = []
+        seen = set()
+        for index, draft in enumerate(drafts):
+            draft_date = _item_date(draft, timezone_name)
+            for item in board["items"]:
+                if (
+                    item["kind"] == draft["kind"]
+                    and item["title"].strip().casefold()
+                    == draft["title"].strip().casefold()
+                    and _item_date(item, timezone_name) == draft_date
+                ):
+                    key = ("duplicate", index, item["id"], draft_date)
+                    if key not in seen:
+                        seen.add(key)
+                        conflicts.append(
+                            {
+                                "kind": "duplicate",
+                                "draft_index": index,
+                                "existing_id": item["id"],
+                                "existing_title": item["title"],
+                                "date": draft_date.isoformat() if draft_date else None,
+                            }
+                        )
+
+            if draft["kind"] != "event" or draft_date is None:
+                continue
+            horizon = min(
+                date.fromisoformat(draft["recurrence_until"])
+                if draft.get("recurrence_until")
+                else draft_date + timedelta(days=90),
+                draft_date + timedelta(days=90),
+            )
+            occurrences = (
+                _base_occurrences(draft, draft_date, horizon, timezone_name)
+                if draft.get("recurrence")
+                else [
+                    datetime.combine(draft_date, time.min, ZoneInfo(timezone_name))
+                    if draft.get("all_day")
+                    else datetime.fromisoformat(draft["start_at"])
+                ]
+            )
+            existing = self.get_calendar(
+                household_id, draft_date, max(draft_date, horizon)
+            )["items"]
+            duration = (
+                datetime.fromisoformat(draft["end_at"])
+                - datetime.fromisoformat(draft["start_at"])
+                if draft.get("start_at") and draft.get("end_at")
+                else None
+            )
+            for occurrence in occurrences:
+                candidate_end = occurrence + duration if duration else None
+                for item in existing:
+                    if (
+                        item["kind"] != "event"
+                        or _item_date(item, timezone_name) != occurrence.date()
+                    ):
+                        continue
+                    overlap = draft.get("all_day") or item.get("all_day")
+                    if not overlap:
+                        existing_start = datetime.fromisoformat(item["start_at"])
+                        existing_end = (
+                            datetime.fromisoformat(item["end_at"])
+                            if item.get("end_at")
+                            else None
+                        )
+                        overlap = (
+                            occurrence == existing_start
+                            if candidate_end is None or existing_end is None
+                            else occurrence < existing_end
+                            and existing_start < candidate_end
+                        )
+                    key = ("time", index, item["id"], occurrence.date())
+                    if overlap and key not in seen:
+                        seen.add(key)
+                        conflicts.append(
+                            {
+                                "kind": "time",
+                                "draft_index": index,
+                                "existing_id": item["id"],
+                                "existing_title": item["title"],
+                                "date": occurrence.date().isoformat(),
+                            }
+                        )
+        return conflicts
 
     def update_item(
         self,

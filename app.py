@@ -59,6 +59,12 @@ class TextInput(BaseModel):
     actor_id: str
     owner_id: str | None = None
     timezone: str = "UTC"
+    session_id: str | None = None
+
+
+class IntakeConfirmation(BaseModel):
+    actor_id: str
+    owner_ids: list[str | None] = Field(max_length=20)
 
 
 class MemberInput(BaseModel):
@@ -108,9 +114,9 @@ def weather_service(request: Request) -> WeatherService:
     return request.app.state.weather
 
 
-async def execute(service: BoardService, command: dict) -> dict:
+async def service_call(awaitable) -> dict:
     try:
-        return await service.execute(command)
+        return await awaitable
     except ConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ValueError as exc:
@@ -121,6 +127,10 @@ async def execute(service: BoardService, command: dict) -> dict:
             status_code=502,
             detail="The AI service could not process this input.",
         ) from exc
+
+
+async def execute(service: BoardService, command: dict) -> dict:
+    return await service_call(service.execute(command))
 
 
 @app.get("/", include_in_schema=False)
@@ -191,16 +201,28 @@ async def delete_member(member_id: str, request: Request):
 
 @app.post("/api/input", status_code=201)
 async def add_text(payload: TextInput, request: Request):
-    return await execute(
-        board_service(request),
-        {
-            "type": "add_item",
-            "text": payload.text.strip(),
-            "actor_id": payload.actor_id,
-            "owner_id": payload.owner_id,
-            "timezone": payload.timezone,
-            "source": "text",
-        },
+    return await service_call(
+        board_service(request).intake(
+            {
+                "text": payload.text.strip(),
+                "actor_id": payload.actor_id,
+                "owner_id": payload.owner_id,
+                "timezone": payload.timezone,
+                "source": "text",
+                "session_id": payload.session_id,
+            }
+        )
+    )
+
+
+@app.post("/api/intake/{session_id}/confirm", status_code=201)
+async def confirm_intake(
+    session_id: str, payload: IntakeConfirmation, request: Request
+):
+    return await service_call(
+        board_service(request).confirm_intake(
+            session_id, payload.actor_id, payload.owner_ids
+        )
     )
 
 
@@ -211,6 +233,7 @@ async def add_audio(
     actor_id: Annotated[str, Form()],
     timezone_name: Annotated[str, Form(alias="timezone")],
     owner_id: Annotated[str | None, Form()] = None,
+    session_id: Annotated[str | None, Form()] = None,
 ):
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
@@ -250,16 +273,17 @@ async def add_audio(
     if not text:
         raise HTTPException(status_code=422, detail="No speech was detected")
 
-    return await execute(
-        board_service(request),
-        {
-            "type": "add_item",
-            "text": text,
-            "actor_id": actor_id,
-            "owner_id": owner_id or None,
-            "timezone": timezone_name,
-            "source": "audio",
-        },
+    return await service_call(
+        board_service(request).intake(
+            {
+                "text": text,
+                "actor_id": actor_id,
+                "owner_id": owner_id or None,
+                "timezone": timezone_name,
+                "source": "audio",
+                "session_id": session_id,
+            }
+        )
     )
 
 

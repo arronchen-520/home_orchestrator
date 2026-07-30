@@ -61,7 +61,6 @@ class ItemDraft(BaseModel):
     recurrence_until: date | None = Field(
         default=None, description="Inclusive final recurrence date; YYYY-MM-DD"
     )
-
     @model_validator(mode="after")
     def match_kind(self) -> ItemDraft:
         for value in (self.start_at, self.end_at, self.due_at, self.reminder_at):
@@ -138,6 +137,35 @@ class ExtractionResult(BaseModel):
     items: list[ItemDraft] = Field(min_length=1, max_length=20)
 
 
+class IntakeItemDraft(ItemDraft):
+    owner_id: str | None = Field(
+        default=None,
+        description="Suggested family member ID, or null when nobody is a clear fit",
+    )
+
+    @model_validator(mode="after")
+    def notes_have_no_owner(self) -> IntakeItemDraft:
+        if self.kind == "note":
+            self.owner_id = None
+        return self
+
+
+class IntakeAnalysis(BaseModel):
+    status: Literal["clarify", "review"]
+    message: str = Field(min_length=1, max_length=1000)
+    preparations: list[str] = Field(default_factory=list, max_length=5)
+    assumptions: list[str] = Field(default_factory=list, max_length=5)
+    items: list[IntakeItemDraft] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def match_status(self) -> IntakeAnalysis:
+        if self.status == "clarify" and self.items:
+            raise ValueError("Clarification responses cannot contain item drafts")
+        if self.status == "review" and not self.items:
+            raise ValueError("Review responses require at least one item draft")
+        return self
+
+
 class IngestionState(TypedDict, total=False):
     command: dict
     drafts: list[dict]
@@ -145,11 +173,21 @@ class IngestionState(TypedDict, total=False):
 
 
 @lru_cache(maxsize=1)
-def openrouter_chain():
+def openrouter_model():
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise ConfigurationError("OPENROUTER_API_KEY is not configured")
+    return ChatOpenAI(
+        api_key=api_key,
+        base_url="https://openrouter.ai/api/v1",
+        model=os.getenv("OPENROUTER_MODEL", "openrouter/free"),
+        temperature=0,
+        default_headers={"X-OpenRouter-Title": "Home Orchestrator"},
+    )
 
+
+@lru_cache(maxsize=1)
+def openrouter_chain():
     parser = PydanticOutputParser(pydantic_object=ExtractionResult)
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -187,14 +225,7 @@ Rules:
             ),
         ]
     ).partial(format_instructions=parser.get_format_instructions())
-    model = ChatOpenAI(
-        api_key=api_key,
-        base_url="https://openrouter.ai/api/v1",
-        model=os.getenv("OPENROUTER_MODEL", "openrouter/free"),
-        temperature=0,
-        default_headers={"X-OpenRouter-Title": "Home Orchestrator"},
-    )
-    return prompt | model | parser
+    return prompt | openrouter_model() | parser
 
 
 async def parse_with_openrouter(
@@ -202,6 +233,75 @@ async def parse_with_openrouter(
 ) -> ExtractionResult:
     return await openrouter_chain().ainvoke(
         {"text": text, "now": now, "timezone_name": timezone_name}
+    )
+
+
+@lru_cache(maxsize=1)
+def intake_chain():
+    parser = PydanticOutputParser(pydantic_object=IntakeAnalysis)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                """You are a concise bilingual household intake assistant. Analyze the
+conversation before anything is saved.
+
+Ask one short clarification question only when the answer materially changes the
+item type, date, time, recurrence, or prevents a clear contradiction. Never ask
+for optional details, reminders, or an owner. At most two clarification questions
+are allowed; when Remaining questions is 0, return review with clearly stated
+assumptions. If the user says to continue or use your best judgment, return review.
+
+For review:
+- Split independent events, tasks, and notes into separate items.
+- Preserve the user's language in messages, titles, details, preparations, and assumptions.
+- Suggest at most five genuinely useful preparation steps; do not turn them into
+  saved tasks unless the user requested them.
+- owner_id must be one listed member ID or null. Prefer an explicitly named person,
+  then a clearly relevant household role or established responsibility. Otherwise
+  leave it null. Never assign notes. Do not use gender stereotypes.
+- If Preferred owner is set, use it for every event or task.
+- Resolve relative dates from Current time and Timezone.
+- Use date-only fields when no time was stated.
+- Only events recur, limited to daily, weekly, or monthly.
+- Preserve fixed day-of-month versus month-end recurrence.
+- Give every dated event or task a sensible reminder_at unless one was stated.
+- Never invent a date or time.
+
+{format_instructions}""",
+            ),
+            (
+                "human",
+                """Current time: {now}
+Timezone: {timezone_name}
+Remaining questions: {remaining_questions}
+Preferred owner: {preferred_owner}
+Family members and open workload: {family}
+Conversation:
+{conversation}""",
+            ),
+        ]
+    ).partial(format_instructions=parser.get_format_instructions())
+    return prompt | openrouter_model() | parser
+
+
+async def analyze_intake_with_openrouter(
+    conversation: str,
+    now: str,
+    timezone_name: str,
+    remaining_questions: int,
+    preferred_owner: str,
+    family: str,
+) -> IntakeAnalysis:
+    return await intake_chain().ainvoke(
+        {
+            "conversation": conversation,
+            "now": now,
+            "timezone_name": timezone_name,
+            "remaining_questions": remaining_questions,
+            "preferred_owner": preferred_owner,
+            "family": family,
+        }
     )
 
 
@@ -273,6 +373,169 @@ class BoardService:
 
     async def get_calendar(self, start_date: date, end_date: date) -> dict:
         return self.database.get_calendar(self.household_id, start_date, end_date)
+
+    def _family_context(self) -> str:
+        board = self.database.get_board(self.household_id)
+        open_counts = {
+            member["id"]: sum(
+                item["owner_id"] == member["id"]
+                and item["kind"] != "note"
+                and item["status"] != "done"
+                for item in board["items"]
+            )
+            for member in board["members"]
+        }
+        return "\n".join(
+            f'- id={member["id"]}, name={member["name"]}, '
+            f'role={member["role"] or "unspecified"}, open_items={open_counts[member["id"]]}'
+            for member in board["members"]
+        ) or "No family members"
+
+    async def intake(self, command: dict) -> dict:
+        async with self._lock:
+            actor_id = self.database.require_member(
+                self.household_id, command.get("actor_id")
+            )
+            text = command.get("text", "").strip()
+            if not text:
+                raise ValueError("Message cannot be empty")
+            session_id = command.get("session_id")
+            if session_id:
+                session = self.database.add_intake_message(
+                    self.household_id, session_id, actor_id, "user", text
+                )
+            else:
+                session = self.database.create_intake_session(
+                    self.household_id,
+                    actor_id,
+                    command.get("owner_id"),
+                    command.get("source", "text"),
+                    command.get("timezone", "UTC"),
+                    text,
+                )
+            if session["status"] == "review":
+                raise ValueError("Confirm or start over before sending another message")
+            try:
+                local_now = datetime.now(ZoneInfo(session["timezone"]))
+            except ZoneInfoNotFoundError as exc:
+                raise ValueError("Invalid timezone") from exc
+            conversation = "\n".join(
+                f'{message["role"]}: {message["content"]}'
+                for message in session["messages"]
+            )
+            analysis = await analyze_intake_with_openrouter(
+                conversation=conversation,
+                now=local_now.isoformat(),
+                timezone_name=session["timezone"],
+                remaining_questions=max(0, 2 - session["clarification_count"]),
+                preferred_owner=session["owner_id"] or "none",
+                family=self._family_context(),
+            )
+            if session["clarification_count"] >= 2 and analysis.status == "clarify":
+                extraction = await parse_with_openrouter(
+                    conversation, local_now.isoformat(), session["timezone"]
+                )
+                chinese = any("\u4e00" <= character <= "\u9fff" for character in text)
+                analysis = IntakeAnalysis(
+                    status="review",
+                    message=(
+                        "我会按目前的信息整理，请确认下面的内容。"
+                        if chinese else
+                        "I used the information available. Please review the items below."
+                    ),
+                    assumptions=[
+                        "未明确的信息保持为空。"
+                        if chinese else
+                        "Unspecified information was left blank."
+                    ],
+                    items=[
+                        IntakeItemDraft.model_validate(item.model_dump())
+                        for item in extraction.items
+                    ],
+                )
+            valid_members = {
+                member["id"] for member in self.database.get_board(self.household_id)["members"]
+            }
+            drafts = []
+            for item in analysis.items:
+                draft = item.model_dump(mode="json")
+                if session["owner_id"] and item.kind != "note":
+                    draft["owner_id"] = session["owner_id"]
+                elif draft.get("owner_id") not in valid_members:
+                    draft["owner_id"] = None
+                drafts.append(draft)
+            conflicts = (
+                self.database.find_draft_conflicts(
+                    self.household_id, drafts, session["timezone"]
+                )
+                if drafts else []
+            )
+            payload = {
+                "message": analysis.message,
+                "preparations": analysis.preparations,
+                "assumptions": analysis.assumptions,
+                "drafts": drafts,
+                "conflicts": conflicts,
+            }
+            status = "clarifying" if analysis.status == "clarify" else "review"
+            clarification_count = session["clarification_count"] + (
+                analysis.status == "clarify"
+            )
+            self.database.add_intake_message(
+                self.household_id,
+                session["id"],
+                actor_id,
+                "assistant",
+                analysis.message,
+            )
+            session = self.database.update_intake_session(
+                self.household_id,
+                session["id"],
+                actor_id,
+                status,
+                clarification_count,
+                payload,
+            )
+            return self._intake_response(session)
+
+    def _intake_response(self, session: dict) -> dict:
+        return {
+            "session_id": session["id"],
+            "status": session["status"],
+            "messages": session["messages"],
+            **session["payload"],
+        }
+
+    async def confirm_intake(
+        self, session_id: str, actor_id: str, owner_ids: list[str | None]
+    ) -> dict:
+        async with self._lock:
+            session = self.database.get_intake_session(
+                self.household_id, session_id, actor_id
+            )
+            drafts = session["payload"].get("drafts") or []
+            if len(owner_ids) != len(drafts):
+                raise ValueError("Choose an owner or no owner for every draft")
+            valid_members = {
+                member["id"] for member in self.database.get_board(self.household_id)["members"]
+            }
+            for draft, owner_id in zip(drafts, owner_ids):
+                if owner_id is not None and owner_id not in valid_members:
+                    raise ValueError("Choose a valid family member")
+                draft["owner_id"] = owner_id if draft["kind"] != "note" else None
+            session["payload"]["drafts"] = drafts
+            self.database.update_intake_session(
+                self.household_id,
+                session_id,
+                actor_id,
+                session["status"],
+                session["clarification_count"],
+                session["payload"],
+            )
+            result = self.database.confirm_intake_session(
+                self.household_id, session_id, actor_id
+            )
+            return await self.get_board(result)
 
     def get_weather_location(self) -> dict | None:
         return self.database.get_weather_location(self.household_id)

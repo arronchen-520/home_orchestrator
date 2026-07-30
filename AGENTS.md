@@ -28,7 +28,8 @@ types: events, tasks, and notes. Events can recur daily, weekly, or monthly.
 - Route AI-created items through LangGraph; keep ordinary CRUD in
   `BoardDatabase` transactions behind `BoardService`.
 - Keep board state in domain tables, not LangGraph checkpoints.
-- Keep AI owner assignment impossible; owner is always a user choice.
+- AI may suggest an owner from household context, but the user must be able to
+  change or clear every suggestion before confirmation. Notes never have owners.
 - Preserve the input language in generated titles and details.
 - Keep Chinese and English UI strings in `static/app.js`.
 - Keep weather optional: provider failures must not block board data.
