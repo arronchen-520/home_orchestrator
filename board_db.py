@@ -155,6 +155,9 @@ class BoardDatabase:
                 title TEXT NOT NULL,
                 details TEXT NOT NULL DEFAULT '',
                 owner_id TEXT REFERENCES members(id),
+                assignment_state TEXT CHECK (
+                    assignment_state IS NULL OR assignment_state IN ('pending', 'accepted')
+                ),
                 status TEXT CHECK (
                     status IS NULL OR status IN ('unclaimed', 'claimed', 'done')
                 ),
@@ -223,6 +226,22 @@ class BoardDatabase:
             self.connection.execute(
                 "ALTER TABLE items ADD COLUMN recurrence_until TEXT"
             )
+        if "assignment_state" not in {
+            row["name"] for row in self.connection.execute("PRAGMA table_info(items)")
+        }:
+            self.connection.execute(
+                """
+                ALTER TABLE items ADD COLUMN assignment_state TEXT CHECK (
+                    assignment_state IS NULL OR assignment_state IN ('pending', 'accepted')
+                )
+                """
+            )
+        self.connection.execute(
+            """
+            UPDATE items SET assignment_state = 'accepted'
+            WHERE kind = 'task' AND owner_id IS NOT NULL AND assignment_state IS NULL
+            """
+        )
         household_columns = {
             row["name"]
             for row in self.connection.execute("PRAGMA table_info(households)")
@@ -396,21 +415,25 @@ class BoardDatabase:
             for index, draft in enumerate(drafts):
                 actionable = draft["kind"] != "note"
                 item_owner = owner_id if actionable else None
-                status = (
-                    ("claimed" if item_owner else "unclaimed")
-                    if actionable
+                assignment_state = (
+                    "accepted" if draft["kind"] == "task" and item_owner == actor_id
+                    else "pending" if draft["kind"] == "task" and item_owner
                     else None
+                )
+                status = (
+                    ("claimed" if item_owner and assignment_state != "pending" else "unclaimed")
+                    if actionable else None
                 )
                 now = _now()
                 cursor.execute(
                     """
                     INSERT OR IGNORE INTO items (
                         id, household_id, submission_id, source_index, kind,
-                        title, details, owner_id, status, start_at, end_at,
+                        title, details, owner_id, assignment_state, status, start_at, end_at,
                         start_date, due_at, due_date, all_day, recurrence,
                         monthly_on_last_day, recurrence_until, created_by,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         str(uuid4()),
@@ -421,6 +444,7 @@ class BoardDatabase:
                         draft["title"],
                         draft.get("details", ""),
                         item_owner,
+                        assignment_state,
                         status,
                         draft.get("start_at"),
                         draft.get("end_at"),
@@ -502,18 +526,29 @@ class BoardDatabase:
                 if "owner_id" in fields:
                     if item["owner_id"] is not None:
                         self._require_member(cursor, household_id, item["owner_id"])
+                    item["assignment_state"] = (
+                        "pending"
+                        if item["kind"] == "task" and item["owner_id"]
+                        and item["owner_id"] != actor_id
+                        else "accepted"
+                        if item["kind"] == "task" and item["owner_id"]
+                        else None
+                    )
                     if item["status"] != "done":
-                        item["status"] = (
-                            "claimed" if item["owner_id"] else "unclaimed"
-                        )
+                        item["status"] = "claimed" if item["owner_id"] and item["assignment_state"] != "pending" else "unclaimed"
 
                 if "status" in fields:
                     if item["status"] not in {"unclaimed", "claimed", "done"}:
                         raise ValueError("Invalid status")
+                    if item["kind"] == "task" and item["assignment_state"] == "pending":
+                        raise ValueError("The assigned member must accept or reject this task")
                     if item["status"] == "unclaimed":
                         item["owner_id"] = None
+                        item["assignment_state"] = None
                     elif not item["owner_id"]:
                         item["owner_id"] = actor_id
+                        if item["kind"] == "task":
+                            item["assignment_state"] = "accepted"
 
             if item["kind"] == "event":
                 if set(fields) & {"due_at", "due_date"}:
@@ -562,7 +597,7 @@ class BoardDatabase:
             cursor.execute(
                 """
                 UPDATE items
-                SET title = ?, details = ?, owner_id = ?, status = ?,
+                SET title = ?, details = ?, owner_id = ?, assignment_state = ?, status = ?,
                     start_at = ?, end_at = ?, start_date = ?,
                     due_at = ?, due_date = ?, all_day = ?,
                     recurrence_until = ?, updated_at = ?
@@ -572,6 +607,7 @@ class BoardDatabase:
                     item["title"],
                     item["details"],
                     item["owner_id"],
+                    item["assignment_state"],
                     item["status"],
                     item["start_at"],
                     item["end_at"],
@@ -593,6 +629,37 @@ class BoardDatabase:
                     "DELETE FROM recurrence_exceptions WHERE series_id = ?",
                     (item_id,),
                 )
+
+    def respond_to_task_assignment(
+        self, household_id: str, item_id: str, actor_id: str, accept: bool
+    ) -> None:
+        with self.connection:
+            cursor = self.connection.cursor()
+            self._require_member(cursor, household_id, actor_id)
+            item = cursor.execute(
+                """
+                SELECT kind, owner_id, assignment_state FROM items
+                WHERE id = ? AND household_id = ?
+                """,
+                (item_id, household_id),
+            ).fetchone()
+            if item is None:
+                raise ValueError("Item not found")
+            if item["kind"] != "task" or item["owner_id"] != actor_id or item["assignment_state"] != "pending":
+                raise ValueError("Only the assigned member can respond to this task")
+            cursor.execute(
+                """
+                UPDATE items
+                SET owner_id = ?, assignment_state = ?, status = ?, updated_at = ?
+                WHERE id = ? AND household_id = ?
+                """,
+                (
+                    actor_id if accept else None,
+                    "accepted" if accept else None,
+                    "claimed" if accept else "unclaimed",
+                    _now(), item_id, household_id,
+                ),
+            )
 
     def delete_item(self, household_id: str, item_id: str, actor_id: str) -> None:
         with self.connection:
@@ -851,7 +918,7 @@ class BoardDatabase:
             """
             SELECT
                 i.id, i.submission_id, i.kind, i.title, i.details,
-                i.owner_id, i.status, i.start_at, i.end_at, i.start_date,
+                i.owner_id, i.assignment_state, i.status, i.start_at, i.end_at, i.start_date,
                 i.due_at, i.due_date, i.all_day, i.recurrence,
                 i.monthly_on_last_day, i.recurrence_until, i.created_by,
                 i.created_at, i.updated_at, s.original_text

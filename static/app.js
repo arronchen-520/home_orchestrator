@@ -42,6 +42,9 @@ const messages = {
     unclaimed: "未认领",
     claimed: "已认领",
     done: "完成",
+    pendingAssignment: "等待接受",
+    accept: "接受",
+    reject: "拒绝",
     familyMembers: "家庭成员",
     familyManage: "家庭管理",
     citySetupTitle: "选择家庭城市",
@@ -163,6 +166,9 @@ const messages = {
     unclaimed: "Unclaimed",
     claimed: "Claimed",
     done: "Done",
+    pendingAssignment: "Awaiting acceptance",
+    accept: "Accept",
+    reject: "Decline",
     familyMembers: "Family members",
     familyManage: "Manage family",
     citySetupTitle: "Choose your household city",
@@ -461,6 +467,18 @@ function itemCard(item, compact = false, index = 0) {
   const badge = createText("span", `badge ${item.kind}`, t(item.kind));
   const actions = document.createElement("div");
   actions.className = "item-actions";
+  if (
+    !compact && item.kind === "task" && item.assignment_state === "pending"
+    && item.owner_id === selectedActor()
+  ) {
+    const accept = createText("button", "button primary", t("accept"));
+    accept.type = "button";
+    accept.addEventListener("click", () => respondToAssignment(item.id, true));
+    const reject = createText("button", "delete-button", t("reject"));
+    reject.type = "button";
+    reject.addEventListener("click", () => respondToAssignment(item.id, false));
+    actions.append(accept, reject);
+  }
   if (compact && item.is_occurrence) {
     const edit = createText("button", "delete-button", t("editOccurrence"));
     edit.type = "button";
@@ -482,6 +500,9 @@ function itemCard(item, compact = false, index = 0) {
   card.append(top, createText("h3", "", item.title));
 
   if (item.details) card.append(createText("p", "", item.details));
+  if (item.kind === "task" && item.assignment_state === "pending") {
+    card.append(createText("p", "", t("pendingAssignment")));
+  }
 
   const meta = document.createElement("div");
   meta.className = "item-meta";
@@ -517,6 +538,8 @@ function itemCard(item, compact = false, index = 0) {
     const ownerLabel = createText("label", "", t("owner"));
     const itemOwner = document.createElement("select");
     fillMemberSelect(itemOwner, true, item.owner_id || "");
+    const assignmentPending = item.kind === "task" && item.assignment_state === "pending";
+    itemOwner.disabled = assignmentPending && item.owner_id === selectedActor();
     itemOwner.addEventListener("change", () => {
       updateItem(item.id, { owner_id: itemOwner.value || null });
     });
@@ -528,6 +551,7 @@ function itemCard(item, compact = false, index = 0) {
       statusSelect.add(new Option(t(status), status));
     });
     statusSelect.value = item.status;
+    statusSelect.disabled = assignmentPending;
     statusSelect.addEventListener("change", () => {
       updateItem(item.id, { status: statusSelect.value });
     });
@@ -861,6 +885,21 @@ async function updateItem(itemId, fields) {
     state.board = await api(`/api/items/${itemId}`, {
       method: "PATCH",
       body: JSON.stringify({ actor_id: selectedActor(), ...fields }),
+    });
+    await loadCalendar();
+    showToast(t("updated"));
+  } catch (error) {
+    showToast(error.message || t("networkError"), true);
+    await loadBoard();
+  }
+}
+
+async function respondToAssignment(itemId, accept) {
+  if (!requireActor()) return;
+  try {
+    state.board = await api(`/api/items/${itemId}/assignment`, {
+      method: "POST",
+      body: JSON.stringify({ actor_id: selectedActor(), accept }),
     });
     await loadCalendar();
     showToast(t("updated"));

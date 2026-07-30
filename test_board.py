@@ -184,6 +184,31 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 )
             database.close()
 
+    def test_task_assignment_can_be_accepted_or_rejected(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = BoardDatabase(Path(temp_dir) / "test.sqlite3")
+            database.setup()
+            lin_id = database.add_member("test-family", "Lin")
+            sam_id = database.add_member("test-family", "Sam")
+            task_id = database.create_items(
+                "test-family", "submission", "Two chores", "text", "UTC", lin_id,
+                sam_id, [{"kind": "task", "title": "Wash dishes"}],
+            )[0]
+            task = database.get_board("test-family")["items"][0]
+            self.assertEqual((task["owner_id"], task["assignment_state"], task["status"]), (sam_id, "pending", "unclaimed"))
+            with self.assertRaisesRegex(ValueError, "must accept or reject"):
+                database.update_item("test-family", task_id, sam_id, {"status": "claimed"})
+
+            database.respond_to_task_assignment("test-family", task_id, sam_id, True)
+            task = database.get_board("test-family")["items"][0]
+            self.assertEqual((task["owner_id"], task["assignment_state"], task["status"]), (sam_id, "accepted", "claimed"))
+
+            database.update_item("test-family", task_id, lin_id, {"owner_id": sam_id})
+            database.respond_to_task_assignment("test-family", task_id, sam_id, False)
+            task = database.get_board("test-family")["items"][0]
+            self.assertEqual((task["owner_id"], task["assignment_state"], task["status"]), (None, None, "unclaimed"))
+            database.close()
+
 
 if __name__ == "__main__":
     unittest.main()

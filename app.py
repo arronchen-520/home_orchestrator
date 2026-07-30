@@ -85,6 +85,11 @@ class ItemUpdate(BaseModel):
     recurrence_until: date | None = None
 
 
+class AssignmentResponse(BaseModel):
+    actor_id: str
+    accept: bool
+
+
 class OccurrenceUpdate(BaseModel):
     actor_id: str
     title: str | None = Field(default=None, min_length=1, max_length=120)
@@ -271,6 +276,21 @@ async def update_item(item_id: str, payload: ItemUpdate, request: Request):
             "item_id": item_id,
             "actor_id": payload.actor_id,
             "fields": fields,
+        },
+    )
+
+
+@app.post("/api/items/{item_id}/assignment")
+async def respond_to_assignment(
+    item_id: str, payload: AssignmentResponse, request: Request
+):
+    return await execute(
+        board_service(request),
+        {
+            "type": "respond_to_task_assignment",
+            "item_id": item_id,
+            "actor_id": payload.actor_id,
+            "accept": payload.accept,
         },
     )
 

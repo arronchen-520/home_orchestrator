@@ -303,6 +303,20 @@ class BoardService:
                 return await self.get_board(
                     {"action": "updated", "item_id": command["item_id"]}
                 )
+            if command_type == "respond_to_task_assignment":
+                self.database.respond_to_task_assignment(
+                    self.household_id,
+                    command["item_id"],
+                    command.get("actor_id"),
+                    command["accept"],
+                )
+                return await self.get_board(
+                    {
+                        "action": "assignment_accepted"
+                        if command["accept"] else "assignment_rejected",
+                        "item_id": command["item_id"],
+                    }
+                )
             if command_type == "update_occurrence":
                 self.database.update_occurrence(
                     self.household_id,
