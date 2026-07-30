@@ -27,6 +27,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -876,6 +880,33 @@ select:disabled {
   box-shadow: 0 0 0 1px rgb(255 255 255 / 35%);
 }
 
+.weather-brief {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+  color: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.weather-brief img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.day:not(.week-day) .weather-brief {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+}
+
+.day:not(.week-day) .weather-brief > span {
+  display: none;
+}
+
 .calendar-grid.week-mode {
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
@@ -940,6 +971,60 @@ select:disabled {
   margin-bottom: 12px;
 }
 
+.weather-detail {
+  display: flex;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-soft);
+}
+
+.weather-detail img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+
+.weather-detail strong {
+  display: block;
+  text-transform: capitalize;
+}
+
+.weather-detail p {
+  margin: 2px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.weather-attribution {
+  display: inline-flex;
+  min-height: 44px;
+  margin-top: 14px;
+  padding: 4px 12px 4px 6px;
+  border-radius: 12px;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  background: #242424;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background-color 180ms ease;
+}
+
+.weather-attribution:hover {
+  background: #000;
+}
+
+.weather-attribution img {
+  width: 88px;
+  height: 36px;
+  object-fit: contain;
+}
+
 .section-heading {
   display: flex;
   margin-bottom: 16px;
@@ -1001,6 +1086,28 @@ dialog::backdrop {
 
 .inline-form input {
   flex: 1 1 180px;
+}
+
+.setup-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.setup-form label {
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.setup-form input {
+  width: 100%;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--red);
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .toast {
@@ -1069,6 +1176,15 @@ dialog::backdrop {
 
   .day {
     min-height: 92px;
+  }
+
+  .day:not(.week-day) .weather-brief {
+    top: 2px;
+    right: 5px;
+  }
+
+  .day:not(.week-day) .weather-brief > span {
+    display: inline;
   }
 }
 

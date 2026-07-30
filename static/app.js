@@ -43,6 +43,17 @@ const messages = {
     claimed: "已认领",
     done: "完成",
     familyMembers: "家庭成员",
+    citySetupTitle: "选择家庭城市",
+    citySetupHelp: "天气会显示在日历上。输入城市和国家，例如 Toronto, CA。",
+    cityLabel: "家庭城市",
+    cityPlaceholder: "例如 Toronto, CA",
+    saveCity: "保存城市",
+    savingCity: "正在确认城市…",
+    editCity: "修改家庭城市",
+    cityNotFound: "找不到这个城市，请尝试加上国家代码",
+    weatherData: "天气数据由 OpenWeather 提供",
+    precipitation: "降雨概率",
+    weatherUnavailable: "暂时无法加载天气",
     memberHelp: "先添加家庭成员。每个人使用前在右上角选择自己。",
     memberName: "成员姓名",
     addMember: "添加成员",
@@ -80,6 +91,7 @@ const messages = {
     networkError: "操作失败，请检查服务和 API 配置",
     openrouterMissing: "请在 .env 配置 OPENROUTER_API_KEY",
     groqMissing: "请在 .env 配置 GROQ_API_KEY",
+    openweatherMissing: "请在 .env 配置 OPENWEATHER_API_KEY",
     noSpeech: "没有识别到语音",
     today: "今天",
     notesEyebrow: "家庭资料夹",
@@ -130,6 +142,17 @@ const messages = {
     claimed: "Claimed",
     done: "Done",
     familyMembers: "Family members",
+    citySetupTitle: "Choose your household city",
+    citySetupHelp: "Weather will appear in Calendar. Enter a city and country, such as Toronto, CA.",
+    cityLabel: "Household city",
+    cityPlaceholder: "For example, Toronto, CA",
+    saveCity: "Save city",
+    savingCity: "Checking city…",
+    editCity: "Edit household city",
+    cityNotFound: "City not found. Try adding the country code.",
+    weatherData: "Weather data provided by OpenWeather",
+    precipitation: "Chance of rain",
+    weatherUnavailable: "Weather is temporarily unavailable",
     memberHelp: "Add family members first. Each person selects themselves before use.",
     memberName: "Member name",
     addMember: "Add member",
@@ -167,6 +190,7 @@ const messages = {
     networkError: "Action failed. Check the service and API configuration.",
     openrouterMissing: "Configure OPENROUTER_API_KEY in .env",
     groqMissing: "Configure GROQ_API_KEY in .env",
+    openweatherMissing: "Configure OPENWEATHER_API_KEY in .env",
     noSpeech: "No speech was detected",
     today: "Today",
     notesEyebrow: "Family reference",
@@ -176,7 +200,8 @@ const messages = {
 };
 
 const state = {
-  board: { members: [], items: [] },
+  board: { household: {}, members: [], items: [] },
+  weather: null,
   language: localStorage.getItem("home-language")
     || (navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en"),
   month: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
@@ -193,6 +218,7 @@ const state = {
 const $ = (selector) => document.querySelector(selector);
 const actorSelect = $("#actorSelect");
 const ownerSelect = $("#newOwnerSelect");
+const householdDialog = $("#householdDialog");
 const membersDialog = $("#membersDialog");
 const recordButton = $("#recordButton");
 
@@ -212,6 +238,7 @@ async function api(path, options = {}) {
     const detail = data.detail || "";
     if (detail.includes("OPENROUTER_API_KEY")) throw new Error(t("openrouterMissing"));
     if (detail.includes("GROQ_API_KEY")) throw new Error(t("groqMissing"));
+    if (detail.includes("OPENWEATHER_API_KEY")) throw new Error(t("openweatherMissing"));
     throw new Error(detail || t("networkError"));
   }
   return data;
@@ -317,6 +344,51 @@ function createText(tag, className, text) {
   if (className) element.className = className;
   element.textContent = text;
   return element;
+}
+
+function weatherForDate(key) {
+  return state.weather?.days.find((day) => day.date === key) || null;
+}
+
+function weatherIcon(weather, size = 32) {
+  const image = document.createElement("img");
+  image.src = `https://openweathermap.org/img/wn/${weather.icon}@2x.png`;
+  image.alt = weather.description;
+  image.width = size;
+  image.height = size;
+  image.loading = "lazy";
+  return image;
+}
+
+function weatherBrief(weather) {
+  const brief = document.createElement("span");
+  brief.className = "weather-brief";
+  brief.append(
+    weatherIcon(weather),
+    createText("span", "", `${weather.temp_min}° / ${weather.temp_max}°`),
+  );
+  return brief;
+}
+
+function renderSelectedWeather() {
+  const container = $("#selectedWeather");
+  const weather = weatherForDate(state.selectedDate);
+  container.replaceChildren();
+  container.hidden = !weather;
+  if (!weather) return;
+
+  const copy = document.createElement("div");
+  copy.append(
+    createText("strong", "", weather.description),
+    createText("p", "", `${weather.temp_min}° / ${weather.temp_max}°`),
+    createText(
+      "p",
+      "",
+      `${t("precipitation")}: ${weather.precipitation_probability}%`,
+    ),
+  );
+  container.className = "weather-detail";
+  container.append(weatherIcon(weather, 52), copy);
 }
 
 function itemCard(item, compact = false, index = 0) {
@@ -524,6 +596,7 @@ function renderCalendarDay(grid, date, locale, outside = false) {
   const key = dateKey(date);
   const today = dateKey(new Date());
   const dayItems = itemsForDate(key);
+  const weather = weatherForDate(key);
   const weekMode = state.calendarMode === "week";
   const button = document.createElement("button");
   button.type = "button";
@@ -531,9 +604,15 @@ function renderCalendarDay(grid, date, locale, outside = false) {
   button.classList.toggle("outside", outside);
   button.classList.toggle("today", key === today);
   button.classList.toggle("selected", key === state.selectedDate);
-  button.setAttribute("aria-label", new Intl.DateTimeFormat(locale, {
+  const dateLabel = new Intl.DateTimeFormat(locale, {
     dateStyle: "full",
-  }).format(date));
+  }).format(date);
+  button.setAttribute(
+    "aria-label",
+    weather
+      ? `${dateLabel}, ${weather.description}, ${weather.temp_min}°–${weather.temp_max}°`
+      : dateLabel,
+  );
 
   if (weekMode) {
     button.append(
@@ -542,6 +621,7 @@ function renderCalendarDay(grid, date, locale, outside = false) {
       }).format(date)),
       createText("strong", "week-day-number", date.getDate()),
     );
+    if (weather) button.append(weatherBrief(weather));
     const preview = document.createElement("span");
     preview.className = "week-preview";
     dayItems.slice(0, 3).forEach((item) => {
@@ -551,6 +631,7 @@ function renderCalendarDay(grid, date, locale, outside = false) {
     button.append(preview);
   } else {
     button.append(createText("span", "day-number", date.getDate()));
+    if (weather) button.append(weatherBrief(weather));
     if (dayItems.length) {
       const dots = document.createElement("span");
       dots.className = "day-dots";
@@ -573,6 +654,13 @@ function renderCalendar() {
   const locale = state.language === "zh" ? "zh-CN" : "en-CA";
   const selected = localDateFromKey(state.selectedDate);
   const grid = $("#calendarGrid");
+  const household = state.board.household || {};
+  const locationButton = $("#householdLocationButton");
+  locationButton.hidden = !household.city;
+  locationButton.textContent = household.city
+    ? `${household.city}, ${household.country_code}`
+    : "";
+  $("#weatherAttribution").hidden = !state.weather?.days.length;
   grid.replaceChildren();
   grid.classList.toggle("week-mode", state.calendarMode === "week");
 
@@ -626,6 +714,7 @@ function renderCalendar() {
   const agenda = $("#agendaItems");
   agenda.replaceChildren();
   const dayItems = itemsForDate(state.selectedDate);
+  renderSelectedWeather();
   dayItems.forEach((item, index) => agenda.append(itemCard(item, true, index)));
   if (!dayItems.length) appendEmpty(agenda);
 }
@@ -649,9 +738,28 @@ async function loadBoard() {
   try {
     state.board = await api("/api/board");
     render();
+    if (!state.board.household?.city) {
+      $("#closeHouseholdDialog").hidden = true;
+      householdDialog.showModal();
+      return;
+    }
+    await loadWeather();
     if (!state.board.members.length && !membersDialog.open) membersDialog.showModal();
   } catch (error) {
     showToast(error.message || t("networkError"), true);
+  }
+}
+
+async function loadWeather() {
+  if (!state.board.household?.city) return;
+  try {
+    const language = state.language === "zh" ? "zh_cn" : "en";
+    state.weather = await api(`/api/weather?lang=${language}`);
+    renderCalendar();
+  } catch (error) {
+    state.weather = null;
+    renderCalendar();
+    showToast(t("weatherUnavailable"), true);
   }
 }
 
@@ -717,6 +825,35 @@ $("#inputForm").addEventListener("submit", async (event) => {
   }
 });
 
+$("#householdForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const input = $("#householdCity");
+  const error = $("#householdError");
+  const button = $("#saveHouseholdButton");
+  button.disabled = true;
+  button.textContent = t("savingCity");
+  error.hidden = true;
+  try {
+    state.board = await api("/api/household", {
+      method: "PUT",
+      body: JSON.stringify({ city: input.value }),
+    });
+    state.weather = null;
+    householdDialog.close();
+    render();
+    await loadWeather();
+    if (!state.board.members.length && !membersDialog.open) membersDialog.showModal();
+  } catch (problem) {
+    error.textContent = problem.message.includes("City not found")
+      ? t("cityNotFound")
+      : problem.message;
+    error.hidden = false;
+  } finally {
+    button.disabled = false;
+    button.textContent = t("saveCity");
+  }
+});
+
 $("#memberForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = $("#memberName");
@@ -739,10 +876,23 @@ actorSelect.addEventListener("change", () => {
 });
 
 $("#membersButton").addEventListener("click", () => membersDialog.showModal());
+$("#householdLocationButton").addEventListener("click", () => {
+  const household = state.board.household || {};
+  $("#householdCity").value = household.city
+    ? `${household.city}, ${household.country_code}`
+    : "";
+  $("#closeHouseholdDialog").hidden = false;
+  $("#householdError").hidden = true;
+  householdDialog.showModal();
+});
+householdDialog.addEventListener("cancel", (event) => {
+  if (!state.board.household?.city) event.preventDefault();
+});
 $("#languageButton").addEventListener("click", () => {
   state.language = state.language === "zh" ? "en" : "zh";
   localStorage.setItem("home-language", state.language);
   applyLanguage();
+  loadWeather();
 });
 
 document.querySelectorAll(".tab").forEach((tab) => {

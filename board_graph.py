@@ -234,6 +234,14 @@ class BoardService:
     async def get_board(self, result: dict | None = None) -> dict:
         return {**self.database.get_board(self.household_id), "result": result}
 
+    def get_weather_location(self) -> dict | None:
+        return self.database.get_weather_location(self.household_id)
+
+    async def set_household_location(self, location: dict) -> dict:
+        async with self._lock:
+            self.database.set_household_location(self.household_id, location)
+            return await self.get_board({"action": "household_updated"})
+
     async def execute(self, command: dict) -> dict:
         async with self._lock:
             command_type = command.get("type")

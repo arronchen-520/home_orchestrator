@@ -28,6 +28,10 @@ class BoardDatabase:
             CREATE TABLE IF NOT EXISTS households (
                 id TEXT PRIMARY KEY,
                 timezone TEXT NOT NULL DEFAULT 'UTC',
+                city TEXT,
+                country_code TEXT,
+                latitude REAL,
+                longitude REAL,
                 created_at TEXT NOT NULL
             );
 
@@ -105,6 +109,20 @@ class BoardDatabase:
                 NOT NULL DEFAULT 0 CHECK (monthly_on_last_day IN (0, 1))
                 """
             )
+        household_columns = {
+            row["name"]
+            for row in self.connection.execute("PRAGMA table_info(households)")
+        }
+        for name, sql_type in {
+            "city": "TEXT",
+            "country_code": "TEXT",
+            "latitude": "REAL",
+            "longitude": "REAL",
+        }.items():
+            if name not in household_columns:
+                self.connection.execute(
+                    f"ALTER TABLE households ADD COLUMN {name} {sql_type}"
+                )
         self.connection.commit()
 
     def close(self) -> None:
@@ -132,6 +150,55 @@ class BoardDatabase:
 
     def require_member(self, household_id: str, member_id: str | None) -> str:
         return self._require_member(self.connection.cursor(), household_id, member_id)
+
+    def get_household(self, household_id: str) -> dict:
+        row = self.connection.execute(
+            """
+            SELECT id, timezone, city, country_code
+            FROM households WHERE id = ?
+            """,
+            (household_id,),
+        ).fetchone()
+        return dict(row) if row else {
+            "id": household_id,
+            "timezone": "UTC",
+            "city": None,
+            "country_code": None,
+        }
+
+    def get_weather_location(self, household_id: str) -> dict | None:
+        row = self.connection.execute(
+            """
+            SELECT city, country_code, latitude, longitude
+            FROM households WHERE id = ?
+            """,
+            (household_id,),
+        ).fetchone()
+        if row is None or row["latitude"] is None or row["longitude"] is None:
+            return None
+        return dict(row)
+
+    def set_household_location(self, household_id: str, location: dict) -> None:
+        latitude = float(location["latitude"])
+        longitude = float(location["longitude"])
+        if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+            raise ValueError("Invalid city coordinates")
+        with self.connection:
+            self.ensure_household(household_id)
+            self.connection.execute(
+                """
+                UPDATE households
+                SET city = ?, country_code = ?, latitude = ?, longitude = ?
+                WHERE id = ?
+                """,
+                (
+                    location["city"],
+                    location["country_code"],
+                    latitude,
+                    longitude,
+                    household_id,
+                ),
+            )
 
     def add_member(self, household_id: str, name: str) -> str:
         name = name.strip()
@@ -340,7 +407,11 @@ class BoardDatabase:
             item["all_day"] = bool(item["all_day"])
             item["monthly_on_last_day"] = bool(item["monthly_on_last_day"])
             items.append(item)
-        return {"members": members, "items": items}
+        return {
+            "household": self.get_household(household_id),
+            "members": members,
+            "items": items,
+        }
 
     def import_legacy_state(self, household_id: str, values: dict) -> None:
         migration_key = f"legacy_checkpoint_v1:{household_id}"

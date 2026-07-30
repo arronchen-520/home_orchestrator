@@ -17,6 +17,11 @@ from pydantic import BaseModel, Field
 
 from board_db import BoardDatabase
 from board_graph import BoardService, ConfigurationError
+from weather import (
+    WeatherConfigurationError,
+    WeatherProviderError,
+    WeatherService,
+)
 
 load_dotenv()
 
@@ -47,6 +52,7 @@ async def lifespan(app: FastAPI):
             legacy.checkpoint.get("channel_values", {}) if legacy else {},
         )
         app.state.board = BoardService(database, saver, household_id)
+        app.state.weather = WeatherService(os.getenv("OPENWEATHER_API_KEY"))
         try:
             yield
         finally:
@@ -68,6 +74,10 @@ class MemberInput(BaseModel):
     name: str = Field(min_length=1, max_length=40)
 
 
+class HouseholdLocationInput(BaseModel):
+    city: str = Field(min_length=2, max_length=120)
+
+
 class ItemUpdate(BaseModel):
     actor_id: str
     owner_id: str | None = None
@@ -76,6 +86,10 @@ class ItemUpdate(BaseModel):
 
 def board_service(request: Request) -> BoardService:
     return request.app.state.board
+
+
+def weather_service(request: Request) -> WeatherService:
+    return request.app.state.weather
 
 
 async def execute(service: BoardService, command: dict) -> dict:
@@ -101,6 +115,40 @@ async def index():
 @app.get("/api/board")
 async def get_board(request: Request):
     return await board_service(request).get_board()
+
+
+@app.put("/api/household")
+async def set_household_location(
+    payload: HouseholdLocationInput, request: Request
+):
+    try:
+        location = await weather_service(request).geocode(payload.city)
+        board = await board_service(request).set_household_location(location)
+        weather_service(request).clear_cache()
+        return board
+    except WeatherConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except WeatherProviderError as exc:
+        raise HTTPException(
+            status_code=502, detail="The weather service is unavailable"
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/weather")
+async def get_weather(request: Request, lang: Literal["en", "zh_cn"] = "en"):
+    location = board_service(request).get_weather_location()
+    if location is None:
+        raise HTTPException(status_code=400, detail="Choose a household city first")
+    try:
+        return await weather_service(request).forecast(location, lang)
+    except WeatherConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except WeatherProviderError as exc:
+        raise HTTPException(
+            status_code=502, detail="The weather service is unavailable"
+        ) from exc
 
 
 @app.post("/api/members", status_code=201)

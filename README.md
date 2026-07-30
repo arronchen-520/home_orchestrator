@@ -16,7 +16,7 @@ family reference area.
 
 ```powershell
 Copy-Item .env.example .env
-# Add OPENROUTER_API_KEY and GROQ_API_KEY to .env
+# Add OPENROUTER_API_KEY, GROQ_API_KEY, and OPENWEATHER_API_KEY to .env
 uv sync
 uv run home-orchestrator
 ```
@@ -27,6 +27,10 @@ Board state is stored in domain tables inside `data/board.sqlite3`. LangGraph
 orchestrates AI ingestion and can split one input into multiple items; its
 checkpoints are not the board's source of truth. The browser only stores the
 selected UI language and current family member.
+
+On first launch, enter the household city (for example, `Toronto, CA`).
+OpenWeather resolves it once, stores the location with the household, and
+shows a cached five-day forecast in Calendar.
 
 共享板数据保存在 `data/board.sqlite3`。浏览器只保存界面语言和当前家庭成员。
 

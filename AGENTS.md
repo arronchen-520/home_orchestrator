@@ -16,6 +16,7 @@ types: events, tasks, and notes. Events can recur daily, weekly, or monthly.
 
 - `board_db.py`: SQLite schema, transactions, board queries, and mutations.
 - `board_graph.py`: OpenRouter extraction and the multi-item ingestion graph.
+- `weather.py`: OpenWeather city lookup, five-day aggregation, and short cache.
 - `app.py`: FastAPI routes, Groq speech-to-text, and static file serving.
 - `static/`: dependency-free bilingual browser UI.
 - `data/board.sqlite3`: runtime state; never commit it.
@@ -29,6 +30,7 @@ types: events, tasks, and notes. Events can recur daily, weekly, or monthly.
 - Keep AI owner assignment impossible; owner is always a user choice.
 - Preserve the input language in generated titles and details.
 - Keep Chinese and English UI strings in `static/app.js`.
+- Keep weather optional: provider failures must not block board data.
 - Store one row per recurring event series and expand occurrences in the
   calendar. Series edits and deletion apply to every occurrence.
 - Keep recurrence event-only and limited to daily, weekly, and monthly. Do not
