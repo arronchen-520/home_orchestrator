@@ -4,12 +4,14 @@ const messages = {
     currentMember: "当前家庭成员",
     switchLanguage: "切换语言",
     boardViews: "共享板视图",
+    itemTypes: "内容类型",
     family: "家庭成员",
-    eyebrow: "家庭共享板",
-    heading: "说出来，家里就安排好了。",
-    subheading: "AI 会把中文或英文整理成日程、待办或笔记。",
+    eyebrow: "全家的事，一个地方",
+    heading: "把家里的事，放在一起。",
+    subheading: "打几个字或说一句，我们会整理成日程、待办或笔记。",
     inputLabel: "要添加什么？",
     inputPlaceholder: "例如：周六下午三点带孩子看牙医",
+    sortHint: "有时间的进日历，要做的进待办，信息留在笔记。",
     optionalOwner: "负责人（可选）",
     unassigned: "未分配",
     record: "语音",
@@ -18,6 +20,25 @@ const messages = {
     board: "共享板",
     calendar: "日历",
     notes: "笔记",
+    workEyebrow: "家庭工作台",
+    boardTitle: "全家的进行中",
+    boardDescription: "日程和待办在这里认领、推进和完成；笔记单独收好。",
+    myBoardTitle: "我的工作台",
+    myBoardDescription: "这里只显示分配给我的日程和待办。",
+    openItems: "未完成",
+    mineItems: "我的",
+    thisWeek: "本周",
+    everyone: "全部",
+    justMine: "只看我的",
+    scopeFilter: "看板范围",
+    search: "搜索",
+    searchPlaceholder: "搜索日程或待办",
+    type: "类型",
+    allTypes: "全部类型",
+    tasksOnly: "只看待办",
+    eventsOnly: "只看日程",
+    allOwners: "全部负责人",
+    emptyFiltered: "没有符合当前筛选的内容",
     unclaimed: "未认领",
     claimed: "已认领",
     done: "完成",
@@ -25,8 +46,11 @@ const messages = {
     memberHelp: "先添加家庭成员。每个人使用前在右上角选择自己。",
     memberName: "成员姓名",
     addMember: "添加成员",
-    previousMonth: "上个月",
-    nextMonth: "下个月",
+    previousPeriod: "上一段时间",
+    nextPeriod: "下一段时间",
+    calendarView: "日历视图",
+    month: "月",
+    week: "周",
     close: "关闭",
     event: "日程",
     task: "待办",
@@ -52,18 +76,23 @@ const messages = {
     groqMissing: "请在 .env 配置 GROQ_API_KEY",
     noSpeech: "没有识别到语音",
     today: "今天",
+    notesEyebrow: "家庭资料夹",
+    notesTitle: "留给以后用的信息",
+    notesDescription: "门锁密码、购物偏好、学校信息——不需要完成，但需要找得到。",
   },
   en: {
     iAm: "I am",
     currentMember: "Current family member",
     switchLanguage: "Switch language",
     boardViews: "Board views",
+    itemTypes: "Item types",
     family: "Family",
-    eyebrow: "Shared family board",
-    heading: "Say it. The household is organized.",
-    subheading: "AI turns Chinese or English into an event, task, or note.",
+    eyebrow: "One place for home life",
+    heading: "Keep home life together.",
+    subheading: "Type it or say it. We’ll sort it into an event, task, or note.",
     inputLabel: "What would you like to add?",
     inputPlaceholder: "For example: Dentist for the kids Saturday at 3 PM",
+    sortHint: "Timed plans go to Calendar, actions become Tasks, and information stays in Notes.",
     optionalOwner: "Owner (optional)",
     unassigned: "Unassigned",
     record: "Voice",
@@ -72,6 +101,25 @@ const messages = {
     board: "Board",
     calendar: "Calendar",
     notes: "Notes",
+    workEyebrow: "Family workspace",
+    boardTitle: "What everyone is working on",
+    boardDescription: "Claim, move, and finish events and tasks here. Notes stay filed separately.",
+    myBoardTitle: "My workspace",
+    myBoardDescription: "Only events and tasks assigned to me are shown here.",
+    openItems: "Open",
+    mineItems: "Mine",
+    thisWeek: "This week",
+    everyone: "Everyone",
+    justMine: "Just mine",
+    scopeFilter: "Board scope",
+    search: "Search",
+    searchPlaceholder: "Search events or tasks",
+    type: "Type",
+    allTypes: "All types",
+    tasksOnly: "Tasks only",
+    eventsOnly: "Events only",
+    allOwners: "All owners",
+    emptyFiltered: "Nothing matches these filters",
     unclaimed: "Unclaimed",
     claimed: "Claimed",
     done: "Done",
@@ -79,8 +127,11 @@ const messages = {
     memberHelp: "Add family members first. Each person selects themselves before use.",
     memberName: "Member name",
     addMember: "Add member",
-    previousMonth: "Previous month",
-    nextMonth: "Next month",
+    previousPeriod: "Previous period",
+    nextPeriod: "Next period",
+    calendarView: "Calendar view",
+    month: "Month",
+    week: "Week",
     close: "Close",
     event: "Event",
     task: "Task",
@@ -106,6 +157,9 @@ const messages = {
     groqMissing: "Configure GROQ_API_KEY in .env",
     noSpeech: "No speech was detected",
     today: "Today",
+    notesEyebrow: "Family reference",
+    notesTitle: "Information worth keeping",
+    notesDescription: "Door codes, shopping preferences, school details—nothing to complete, but easy to find.",
   },
 };
 
@@ -115,6 +169,11 @@ const state = {
     || (navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en"),
   month: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   selectedDate: dateKey(new Date()),
+  calendarMode: localStorage.getItem("home-calendar-mode") === "week" ? "week" : "month",
+  boardScope: "all",
+  typeFilter: "all",
+  ownerFilter: "all",
+  search: "",
   recorder: null,
   recordingTimer: null,
 };
@@ -202,6 +261,20 @@ function renderMembers() {
     localStorage.setItem("home-actor", actorSelect.value);
   }
   fillMemberSelect(ownerSelect, true, ownerSelect.value);
+  const ownerFilter = $("#ownerFilter");
+  const savedFilter = state.ownerFilter;
+  ownerFilter.replaceChildren(
+    new Option(t("allOwners"), "all"),
+    new Option(t("unassigned"), "unassigned"),
+  );
+  state.board.members.forEach((member) => {
+    ownerFilter.add(new Option(member.name, member.id));
+  });
+  if ([...ownerFilter.options].some((option) => option.value === savedFilter)) {
+    ownerFilter.value = savedFilter;
+  } else {
+    state.ownerFilter = "all";
+  }
 
   const list = $("#memberList");
   list.replaceChildren();
@@ -232,9 +305,10 @@ function createText(tag, className, text) {
   return element;
 }
 
-function itemCard(item, compact = false) {
+function itemCard(item, compact = false, index = 0) {
   const card = document.createElement("article");
   card.className = `item-card ${item.status === "done" ? "done-card" : ""} ${item.kind === "note" ? "note-card" : ""}`;
+  card.style.setProperty("--item-index", index);
 
   const top = document.createElement("div");
   top.className = "item-topline";
@@ -291,19 +365,70 @@ function itemCard(item, compact = false) {
   return card;
 }
 
-function appendEmpty(container) {
-  container.append(createText("p", "empty", t("empty")));
+function appendEmpty(container, key = "empty") {
+  container.append(createText("p", "empty", t(key)));
+}
+
+function actionItems() {
+  return state.board.items.filter((item) => item.kind !== "note");
+}
+
+function filteredBoardItems() {
+  const query = state.search.trim().toLocaleLowerCase();
+  return actionItems().filter((item) => {
+    if (state.boardScope === "mine" && item.owner_id !== selectedActor()) return false;
+    if (state.typeFilter !== "all" && item.kind !== state.typeFilter) return false;
+    if (state.boardScope === "all" && state.ownerFilter !== "all") {
+      if (state.ownerFilter === "unassigned" && item.owner_id) return false;
+      if (state.ownerFilter !== "unassigned" && item.owner_id !== state.ownerFilter) return false;
+    }
+    return !query || `${item.title} ${item.details || ""}`.toLocaleLowerCase().includes(query);
+  });
+}
+
+function happensThisWeek(item) {
+  const value = item.kind === "event" ? item.start_at : item.due_at;
+  if (!value) return false;
+  const date = new Date(value);
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - start.getDay());
+  const end = new Date(start);
+  end.setDate(start.getDate() + 7);
+  return date >= start && date < end;
 }
 
 function renderBoard() {
+  const allItems = actionItems();
+  const visibleItems = filteredBoardItems();
+  const openItems = allItems.filter((item) => item.status !== "done");
+  $("#openStat").textContent = openItems.length;
+  $("#mineStat").textContent = openItems.filter((item) => item.owner_id === selectedActor()).length;
+  $("#weekStat").textContent = openItems.filter(happensThisWeek).length;
+  $("#boardTabCount").textContent = openItems.length;
+  $("#notesTabCount").textContent = state.board.items.filter((item) => item.kind === "note").length;
+  $("#boardTitle").textContent = t(state.boardScope === "mine" ? "myBoardTitle" : "boardTitle");
+  const boardDescription = $("#boardTitle").nextElementSibling;
+  boardDescription.textContent = t(
+    state.boardScope === "mine" ? "myBoardDescription" : "boardDescription",
+  );
+  $("#ownerFilter").disabled = state.boardScope === "mine";
+  document.querySelectorAll("[data-scope]").forEach((button) => {
+    const active = button.dataset.scope === state.boardScope;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  const defaultFilters = state.boardScope === "all"
+    && state.typeFilter === "all"
+    && state.ownerFilter === "all"
+    && !state.search.trim();
+
   ["unclaimed", "claimed", "done"].forEach((status) => {
-    const items = state.board.items.filter(
-      (item) => item.kind !== "note" && item.status === status,
-    );
+    const items = visibleItems.filter((item) => item.status === status);
     const container = $(`#${status}Items`);
     container.replaceChildren();
-    items.forEach((item) => container.append(itemCard(item)));
-    if (!items.length) appendEmpty(container);
+    items.forEach((item, index) => container.append(itemCard(item, false, index)));
+    if (!items.length) appendEmpty(container, defaultFilters ? "empty" : "emptyFiltered");
     $(`#${status}Count`).textContent = items.length;
   });
 }
@@ -320,69 +445,127 @@ function itemDate(item) {
   return value ? dateKey(new Date(value)) : null;
 }
 
-function renderCalendar() {
-  const locale = state.language === "zh" ? "zh-CN" : "en-CA";
-  $("#monthTitle").textContent = new Intl.DateTimeFormat(locale, {
-    month: "long",
-    year: "numeric",
-  }).format(state.month);
+function localDateFromKey(key) {
+  return new Date(`${key}T12:00:00`);
+}
 
-  const grid = $("#calendarGrid");
-  grid.replaceChildren();
-  const weekBase = new Date(2026, 0, 4);
-  for (let day = 0; day < 7; day += 1) {
-    const date = new Date(weekBase);
-    date.setDate(weekBase.getDate() + day);
-    grid.append(createText(
-      "div",
-      "weekday",
-      new Intl.DateTimeFormat(locale, { weekday: "short" }).format(date),
-    ));
-  }
+function startOfWeek(date) {
+  const start = new Date(date);
+  start.setDate(date.getDate() - date.getDay());
+  return start;
+}
 
-  const first = new Date(state.month.getFullYear(), state.month.getMonth(), 1);
-  const start = new Date(first);
-  start.setDate(1 - first.getDay());
+function itemsForDate(key) {
+  return state.board.items.filter((item) => itemDate(item) === key);
+}
+
+function renderCalendarDay(grid, date, locale, outside = false) {
+  const key = dateKey(date);
   const today = dateKey(new Date());
+  const dayItems = itemsForDate(key);
+  const weekMode = state.calendarMode === "week";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `day${weekMode ? " week-day" : ""}`;
+  button.classList.toggle("outside", outside);
+  button.classList.toggle("today", key === today);
+  button.classList.toggle("selected", key === state.selectedDate);
+  button.setAttribute("aria-label", new Intl.DateTimeFormat(locale, {
+    dateStyle: "full",
+  }).format(date));
 
-  for (let index = 0; index < 42; index += 1) {
-    const date = new Date(start);
-    date.setDate(start.getDate() + index);
-    const key = dateKey(date);
-    const button = createText("button", "day", date.getDate());
-    button.type = "button";
-    button.classList.toggle("outside", date.getMonth() !== state.month.getMonth());
-    button.classList.toggle("today", key === today);
-    button.classList.toggle("selected", key === state.selectedDate);
-    button.setAttribute("aria-label", new Intl.DateTimeFormat(locale, {
-      dateStyle: "full",
-    }).format(date));
-    button.addEventListener("click", () => {
-      state.selectedDate = key;
-      state.month = new Date(date.getFullYear(), date.getMonth(), 1);
-      renderCalendar();
+  if (weekMode) {
+    button.append(
+      createText("span", "week-day-name", new Intl.DateTimeFormat(locale, {
+        weekday: "short",
+      }).format(date)),
+      createText("strong", "week-day-number", date.getDate()),
+    );
+    const preview = document.createElement("span");
+    preview.className = "week-preview";
+    dayItems.slice(0, 3).forEach((item) => {
+      preview.append(createText("span", `calendar-label ${item.kind}`, item.title));
     });
-
-    const count = state.board.items.filter((item) => itemDate(item) === key).length;
-    if (count) {
+    if (dayItems.length > 3) preview.append(createText("span", "more-label", `+${dayItems.length - 3}`));
+    button.append(preview);
+  } else {
+    button.append(createText("span", "day-number", date.getDate()));
+    if (dayItems.length) {
       const dots = document.createElement("span");
       dots.className = "day-dots";
-      for (let dot = 0; dot < Math.min(count, 3); dot += 1) {
-        dots.append(createText("span", "day-dot", ""));
-      }
+      dayItems.slice(0, 3).forEach((item) => {
+        dots.append(createText("span", `day-dot ${item.kind}`, ""));
+      });
       button.append(dots);
     }
-    grid.append(button);
   }
 
-  const selected = new Date(`${state.selectedDate}T12:00:00`);
+  button.addEventListener("click", () => {
+    state.selectedDate = key;
+    state.month = new Date(date.getFullYear(), date.getMonth(), 1);
+    renderCalendar();
+  });
+  grid.append(button);
+}
+
+function renderCalendar() {
+  const locale = state.language === "zh" ? "zh-CN" : "en-CA";
+  const selected = localDateFromKey(state.selectedDate);
+  const grid = $("#calendarGrid");
+  grid.replaceChildren();
+  grid.classList.toggle("week-mode", state.calendarMode === "week");
+
+  document.querySelectorAll("[data-calendar-mode]").forEach((button) => {
+    const active = button.dataset.calendarMode === state.calendarMode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  if (state.calendarMode === "month") {
+    $("#monthTitle").textContent = new Intl.DateTimeFormat(locale, {
+      month: "long",
+      year: "numeric",
+    }).format(state.month);
+
+    const weekBase = new Date(2026, 0, 4);
+    for (let day = 0; day < 7; day += 1) {
+      const date = new Date(weekBase);
+      date.setDate(weekBase.getDate() + day);
+      grid.append(createText(
+        "div",
+        "weekday",
+        new Intl.DateTimeFormat(locale, { weekday: "short" }).format(date),
+      ));
+    }
+
+    const first = new Date(state.month.getFullYear(), state.month.getMonth(), 1);
+    const start = new Date(first);
+    start.setDate(1 - first.getDay());
+    for (let index = 0; index < 42; index += 1) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      renderCalendarDay(grid, date, locale, date.getMonth() !== state.month.getMonth());
+    }
+  } else {
+    const start = startOfWeek(selected);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const shortDate = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" });
+    $("#monthTitle").textContent = `${shortDate.format(start)} – ${shortDate.format(end)}`;
+    for (let index = 0; index < 7; index += 1) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      renderCalendarDay(grid, date, locale);
+    }
+  }
+
   $("#agendaTitle").textContent = new Intl.DateTimeFormat(locale, {
     dateStyle: "full",
   }).format(selected);
   const agenda = $("#agendaItems");
   agenda.replaceChildren();
-  const dayItems = state.board.items.filter((item) => itemDate(item) === state.selectedDate);
-  dayItems.forEach((item) => agenda.append(itemCard(item, true)));
+  const dayItems = itemsForDate(state.selectedDate);
+  dayItems.forEach((item, index) => agenda.append(itemCard(item, true, index)));
   if (!dayItems.length) appendEmpty(agenda);
 }
 
@@ -390,7 +573,7 @@ function renderNotes() {
   const container = $("#notesItems");
   container.replaceChildren();
   const notes = state.board.items.filter((item) => item.kind === "note");
-  notes.forEach((item) => container.append(itemCard(item)));
+  notes.forEach((item, index) => container.append(itemCard(item, false, index)));
   if (!notes.length) appendEmpty(container);
 }
 
@@ -490,6 +673,7 @@ $("#memberForm").addEventListener("submit", async (event) => {
 
 actorSelect.addEventListener("change", () => {
   localStorage.setItem("home-actor", actorSelect.value);
+  renderBoard();
 });
 
 $("#membersButton").addEventListener("click", () => membersDialog.showModal());
@@ -512,15 +696,55 @@ document.querySelectorAll(".tab").forEach((tab) => {
   });
 });
 
-$("#previousMonth").addEventListener("click", () => {
-  state.month = new Date(state.month.getFullYear(), state.month.getMonth() - 1, 1);
-  state.selectedDate = dateKey(state.month);
-  renderCalendar();
+document.querySelectorAll("[data-scope]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.boardScope = button.dataset.scope;
+    renderBoard();
+  });
 });
 
-$("#nextMonth").addEventListener("click", () => {
-  state.month = new Date(state.month.getFullYear(), state.month.getMonth() + 1, 1);
-  state.selectedDate = dateKey(state.month);
+$("#boardSearch").addEventListener("input", (event) => {
+  state.search = event.target.value;
+  renderBoard();
+});
+
+$("#typeFilter").addEventListener("change", (event) => {
+  state.typeFilter = event.target.value;
+  renderBoard();
+});
+
+$("#ownerFilter").addEventListener("change", (event) => {
+  state.ownerFilter = event.target.value;
+  renderBoard();
+});
+
+document.querySelectorAll("[data-calendar-mode]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.calendarMode = button.dataset.calendarMode;
+    localStorage.setItem("home-calendar-mode", state.calendarMode);
+    renderCalendar();
+  });
+});
+
+function moveCalendar(direction) {
+  if (state.calendarMode === "month") {
+    state.month = new Date(state.month.getFullYear(), state.month.getMonth() + direction, 1);
+    state.selectedDate = dateKey(state.month);
+  } else {
+    const selected = localDateFromKey(state.selectedDate);
+    selected.setDate(selected.getDate() + (direction * 7));
+    state.selectedDate = dateKey(selected);
+    state.month = new Date(selected.getFullYear(), selected.getMonth(), 1);
+  }
+  renderCalendar();
+}
+
+$("#previousPeriod").addEventListener("click", () => moveCalendar(-1));
+$("#nextPeriod").addEventListener("click", () => moveCalendar(1));
+$("#todayButton").addEventListener("click", () => {
+  const today = new Date();
+  state.selectedDate = dateKey(today);
+  state.month = new Date(today.getFullYear(), today.getMonth(), 1);
   renderCalendar();
 });
 

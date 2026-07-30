@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="A bilingual shared family board">
+    <meta name="theme-color" content="#f3f1ec">
     <title>Home Orchestrator</title>
     <link rel="stylesheet" href="/static/styles.css">
   </head>
@@ -30,22 +31,30 @@
     </header>
 
     <main>
-      <section class="composer card" aria-labelledby="pageTitle">
-        <div>
-          <p class="eyebrow" data-i18n="eyebrow">家庭共享板</p>
-          <h1 id="pageTitle" data-i18n="heading">说出来，家里就安排好了。</h1>
-          <p class="lede" data-i18n="subheading">AI 会把中文或英文整理成日程、待办或笔记。</p>
+      <section class="composer hero-card" aria-labelledby="pageTitle">
+        <div class="hero-copy">
+          <p class="eyebrow" data-i18n="eyebrow">全家的事，一个地方</p>
+          <h1 id="pageTitle" data-i18n="heading">把家里的事，放在一起。</h1>
+          <p class="lede" data-i18n="subheading">打几个字或说一句，我们会整理成日程、待办或笔记。</p>
+          <div class="hero-legend" data-i18n-aria="itemTypes" aria-label="Item types">
+            <span><i class="legend-dot event-dot"></i><span data-i18n="event">日程</span></span>
+            <span><i class="legend-dot task-dot"></i><span data-i18n="task">待办</span></span>
+            <span><i class="legend-dot note-dot"></i><span data-i18n="note">笔记</span></span>
+          </div>
         </div>
-        <form id="inputForm">
+        <div class="hero-glow glow-one" aria-hidden="true"></div>
+        <div class="hero-glow glow-two" aria-hidden="true"></div>
+        <form id="inputForm" class="capture-panel">
           <label for="textInput" data-i18n="inputLabel">要添加什么？</label>
           <textarea
             id="textInput"
-            rows="3"
+            rows="2"
             maxlength="2000"
             required
             data-i18n-placeholder="inputPlaceholder"
             placeholder="例如：周六下午三点带孩子看牙医"
           ></textarea>
+          <p class="input-hint" data-i18n="sortHint">有时间的进日历，要做的进待办，信息留在笔记。</p>
           <div class="composer-options">
             <label>
               <span data-i18n="optionalOwner">负责人（可选）</span>
@@ -67,18 +76,57 @@
       </section>
 
       <nav class="tabs" role="tablist" data-i18n-aria="boardViews" aria-label="Board views">
-        <button class="tab active" type="button" role="tab" aria-selected="true" data-view="board" data-i18n="board">
-          共享板
+        <button class="tab active" type="button" role="tab" aria-selected="true" data-view="board">
+          <span data-i18n="board">共享板</span>
+          <span id="boardTabCount" class="tab-count">0</span>
         </button>
-        <button class="tab" type="button" role="tab" aria-selected="false" data-view="calendar" data-i18n="calendar">
-          日历
+        <button class="tab" type="button" role="tab" aria-selected="false" data-view="calendar">
+          <span data-i18n="calendar">日历</span>
         </button>
-        <button class="tab" type="button" role="tab" aria-selected="false" data-view="notes" data-i18n="notes">
-          笔记
+        <button class="tab" type="button" role="tab" aria-selected="false" data-view="notes">
+          <span data-i18n="notes">笔记</span>
+          <span id="notesTabCount" class="tab-count">0</span>
         </button>
       </nav>
 
       <section id="boardView" class="view" role="tabpanel">
+        <section class="board-toolbar card">
+          <div class="board-intro">
+            <div>
+              <p class="eyebrow" data-i18n="workEyebrow">家庭工作台</p>
+              <h2 id="boardTitle" data-i18n="boardTitle">全家的进行中</h2>
+              <p data-i18n="boardDescription">日程和待办在这里认领、推进和完成；笔记单独收好。</p>
+            </div>
+            <div class="board-stats" aria-live="polite">
+              <div><strong id="openStat">0</strong><span data-i18n="openItems">未完成</span></div>
+              <div><strong id="mineStat">0</strong><span data-i18n="mineItems">我的</span></div>
+              <div><strong id="weekStat">0</strong><span data-i18n="thisWeek">本周</span></div>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <div class="segmented scope-switch" role="group" data-i18n-aria="scopeFilter" aria-label="Board scope">
+              <button class="segment active" type="button" data-scope="all" data-i18n="everyone">全部</button>
+              <button class="segment" type="button" data-scope="mine" data-i18n="justMine">只看我的</button>
+            </div>
+            <label class="search-field">
+              <span class="sr-only" data-i18n="search">搜索</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg>
+              <input id="boardSearch" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="搜索日程或待办">
+            </label>
+            <label class="filter-field">
+              <span data-i18n="type">类型</span>
+              <select id="typeFilter">
+                <option value="all" data-i18n="allTypes">全部类型</option>
+                <option value="task" data-i18n="tasksOnly">只看待办</option>
+                <option value="event" data-i18n="eventsOnly">只看日程</option>
+              </select>
+            </label>
+            <label class="filter-field">
+              <span data-i18n="owner">负责人</span>
+              <select id="ownerFilter"></select>
+            </label>
+          </div>
+        </section>
         <div class="board-grid">
           <section class="status-column unclaimed">
             <header>
@@ -107,14 +155,21 @@
       <section id="calendarView" class="view" role="tabpanel" hidden>
         <div class="calendar-layout">
           <section class="calendar card">
-            <header class="calendar-header">
-              <button id="previousMonth" class="icon-button" type="button" data-i18n-aria="previousMonth" aria-label="Previous month">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-              </button>
-              <h2 id="monthTitle"></h2>
-              <button id="nextMonth" class="icon-button" type="button" data-i18n-aria="nextMonth" aria-label="Next month">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
-              </button>
+            <header class="calendar-toolbar">
+              <div class="calendar-nav">
+                <button id="previousPeriod" class="icon-button" type="button" data-i18n-aria="previousPeriod" aria-label="Previous period">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                </button>
+                <h2 id="monthTitle"></h2>
+                <button id="nextPeriod" class="icon-button" type="button" data-i18n-aria="nextPeriod" aria-label="Next period">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
+                <button id="todayButton" class="button ghost compact" type="button" data-i18n="today">今天</button>
+              </div>
+              <div class="segmented" role="group" data-i18n-aria="calendarView" aria-label="Calendar view">
+                <button class="segment active" type="button" data-calendar-mode="month" data-i18n="month">月</button>
+                <button class="segment" type="button" data-calendar-mode="week" data-i18n="week">周</button>
+              </div>
             </header>
             <div id="calendarGrid" class="calendar-grid"></div>
           </section>
@@ -126,6 +181,13 @@
       </section>
 
       <section id="notesView" class="view" role="tabpanel" hidden>
+        <header class="section-heading">
+          <div>
+            <p class="eyebrow" data-i18n="notesEyebrow">家庭资料夹</p>
+            <h2 data-i18n="notesTitle">留给以后用的信息</h2>
+          </div>
+          <p data-i18n="notesDescription">门锁密码、购物偏好、学校信息——不需要完成，但需要找得到。</p>
+        </header>
         <div id="notesItems" class="notes-grid"></div>
       </section>
     </main>

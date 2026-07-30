@@ -5,6 +5,13 @@ Groq. Natural-language input becomes an event, task, or note.
 
 一个本地运行的中英双语家庭共享板。自然语言会由 AI 转成日程、待办或笔记。
 
+Events and tasks share one workflow board with personal, owner, type, and text
+filters. The calendar supports month and week views; notes stay in a separate
+family reference area.
+
+日程和待办进入同一张共享状态板，可按“只看我的”、负责人、类型和文字筛选。
+日历支持月视图和周视图；笔记保存在独立的家庭资料区。
+
 ## Run / 运行
 
 ```powershell

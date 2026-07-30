@@ -29,9 +29,11 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     DATA_DIR.mkdir(exist_ok=True)
-    async with AsyncSqliteSaver.from_conn_string(
-        str(DATA_DIR / "board.sqlite3")
-    ) as saver:
+    database = Path(os.getenv("BOARD_DB_PATH", DATA_DIR / "board.sqlite3"))
+    if not database.is_absolute():
+        database = ROOT / database
+    database.parent.mkdir(parents=True, exist_ok=True)
+    async with AsyncSqliteSaver.from_conn_string(str(database)) as saver:
         await saver.setup()
         app.state.board = BoardService(
             saver, os.getenv("HOUSEHOLD_ID", "family-default")

@@ -7,9 +7,9 @@
 ---
 
 **Project:** Home Orchestrator
-**Generated:** 2026-07-30 15:35:53
-**Category:** Family Calendar & Chores
-**Design Dials:** Variance 3/10 (Centered / Minimal) | Motion 2/10 (Subtle) | Density 6/10 (Standard)
+**Generated:** 2026-07-30 16:02:58
+**Category:** LMS (Learning Management System)
+**Design Dials:** Variance 6/10 (Balanced / Modern) | Motion 6/10 (Standard) | Density 7/10 (Standard)
 
 ---
 
@@ -34,19 +34,19 @@
 
 ### Typography
 
-- **Heading Font:** Plus Jakarta Sans
-- **Body Font:** Plus Jakarta Sans
-- **Mood:** enterprise, saas, b2b, professional, indigo, modern, approachable, legible, ios dynamic type, android scaling
-- **Google Fonts:** [Plus Jakarta Sans + Plus Jakarta Sans](https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400)
+- **Heading Font:** Fredoka
+- **Body Font:** Nunito
+- **Mood:** playful, friendly, fun, creative, warm, approachable
+- **Google Fonts:** [Fredoka + Nunito](https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700&display=swap)
 
 **CSS Import:**
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700&display=swap');
 ```
 
 ### Spacing Variables
 
-*Density: 6/10 — Standard*
+*Density: 7/10 — Standard*
 
 | Token | Value | Usage |
 |-------|-------|-------|
@@ -161,13 +161,13 @@
 
 ## Style Guidelines
 
-**Style:** Exaggerated Minimalism
+**Style:** Soft UI Evolution
 
-**Keywords:** Bold minimalism, oversized typography, high contrast, negative space, loud minimal, statement design
+**Keywords:** Evolved soft UI, better contrast, modern aesthetics, subtle depth, accessibility-focused, improved shadows, hybrid
 
-**Best For:** Fashion, architecture, portfolios, agency landing pages, luxury brands, editorial
+**Best For:** Modern enterprise apps, SaaS platforms, health/wellness, modern business tools, professional, hybrid
 
-**Key Effects:** font-size: clamp(3rem 10vw 12rem), font-weight: 900, letter-spacing: -0.05em, massive whitespace
+**Key Effects:** Improved shadows (softer than flat, clearer than neumorphism), modern (200-300ms), focus visible, WCAG AA/AAA
 
 ### Page Pattern
 
@@ -181,24 +181,24 @@
 
 ## Motion
 
-**Scroll Reveal** (Subtle) — Trigger: scroll (viewport enter) | Duration: 300-400ms | Easing: `power1.out`
+**Stagger List** (Standard) — Trigger: load or scroll | Duration: 300-450ms | Easing: `back.out(1.4)`
 
 ```js
-gsap.from(el, { opacity: 0, y: 12, duration: 0.35, ease: 'power1.out', scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none reverse' } });
+gsap.from('.grid-item', { opacity: 0, scale: 0.92, y: 16, duration: 0.4, stagger: { each: 0.06, from: 'start', grid: 'auto' }, ease: 'back.out(1.4)' });
 ```
 
-**Framework notes:** Requires the ScrollTrigger plugin registered once via gsap.registerPlugin(ScrollTrigger)
+**Framework notes:** grid: 'auto' lets GSAP infer rows/columns from a CSS grid layout for a natural wave stagger
 
-- ✅ Keep the y offset small (8-16px) so it reads as a fade, not a slide
-- ❌ Don't reveal below-the-fold content needed for SEO/crawlers as invisible-by-default without a no-JS fallback
-- ⚡ toggleActions 'play none none reverse' avoids re-triggering on every scroll direction change
+- ✅ Combine with from: 'center' for a bento-grid layout to draw the eye inward first
+- ❌ Don't use back.out on dense data tables; the overshoot reads as sloppy on informational UI
+- ⚡ Group DOM writes; avoid interleaving layout reads (getBoundingClientRect) between staggered tweens
 
 ---
 
 ## Anti-Patterns (Do NOT Use)
 
-- ❌ Complex shadows
-- ❌ 3D effects
+- ❌ Flat design without depth
+- ❌ Text-heavy pages
 
 ### Additional Forbidden Patterns
 
