@@ -77,6 +77,12 @@ const messages = {
     weekly: "每周",
     monthly: "每月",
     monthlyLastDay: "每月最后一天",
+    recurrenceEnds: "重复结束",
+    editOccurrence: "修改这一次",
+    cancelOccurrence: "取消这一次",
+    confirmCancelOccurrence: "确定只取消这一次日程吗？",
+    occurrenceTitlePrompt: "修改这一次的标题",
+    occurrenceDatePrompt: "修改这一次的日期或时间",
     delete: "删除",
     confirmDelete: "确定删除这项内容吗？",
     confirmDeleteSeries: "确定删除整个重复日程吗？",
@@ -176,6 +182,12 @@ const messages = {
     weekly: "Weekly",
     monthly: "Monthly",
     monthlyLastDay: "Last day of every month",
+    recurrenceEnds: "Recurrence ends",
+    editOccurrence: "Edit this occurrence",
+    cancelOccurrence: "Cancel this occurrence",
+    confirmCancelOccurrence: "Cancel only this occurrence?",
+    occurrenceTitlePrompt: "Edit this occurrence's title",
+    occurrenceDatePrompt: "Edit this occurrence's date or time",
     delete: "Delete",
     confirmDelete: "Delete this item?",
     confirmDeleteSeries: "Delete this entire recurring series?",
@@ -201,6 +213,8 @@ const messages = {
 
 const state = {
   board: { household: {}, members: [], items: [] },
+  calendarItems: [],
+  weekItems: [],
   weather: null,
   language: localStorage.getItem("home-language")
     || (navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en"),
@@ -399,10 +413,23 @@ function itemCard(item, compact = false, index = 0) {
   const top = document.createElement("div");
   top.className = "item-topline";
   const badge = createText("span", `badge ${item.kind}`, t(item.kind));
-  const remove = createText("button", "delete-button", t("delete"));
-  remove.type = "button";
-  remove.addEventListener("click", () => removeItem(item));
-  top.append(badge, remove);
+  const actions = document.createElement("div");
+  actions.className = "item-actions";
+  if (compact && item.is_occurrence) {
+    const edit = createText("button", "delete-button", t("editOccurrence"));
+    edit.type = "button";
+    edit.addEventListener("click", () => editOccurrence(item));
+    const cancel = createText("button", "delete-button", t("cancelOccurrence"));
+    cancel.type = "button";
+    cancel.addEventListener("click", () => cancelOccurrence(item));
+    actions.append(edit, cancel);
+  } else {
+    const remove = createText("button", "delete-button", t("delete"));
+    remove.type = "button";
+    remove.addEventListener("click", () => removeItem(item));
+    actions.append(remove);
+  }
+  top.append(badge, actions);
   card.append(top, createText("h3", "", item.title));
 
   if (item.details) card.append(createText("p", "", item.details));
@@ -410,9 +437,7 @@ function itemCard(item, compact = false, index = 0) {
   const meta = document.createElement("div");
   meta.className = "item-meta";
   if (item.kind === "event") {
-    const starts = compact && item.recurrence
-      ? occurrenceStart(item, state.selectedDate)
-      : item.start_at || item.start_date;
+    const starts = item.start_at || item.start_date;
     meta.append(createText(
       "p",
       "",
@@ -421,6 +446,13 @@ function itemCard(item, compact = false, index = 0) {
     if (item.recurrence) {
       const recurrence = item.monthly_on_last_day ? "monthlyLastDay" : item.recurrence;
       meta.append(createText("p", "", `${t("recurs")}: ${t(recurrence)}`));
+      if (item.recurrence_until) {
+        meta.append(createText(
+          "p",
+          "",
+          `${t("recurrenceEnds")}: ${formatDateTime(item.recurrence_until, true)}`,
+        ));
+      }
     }
   } else if (item.kind === "task" && (item.due_at || item.due_date)) {
     const due = item.due_at || item.due_date;
@@ -452,6 +484,17 @@ function itemCard(item, compact = false, index = 0) {
     });
     statusLabel.append(statusSelect);
     controls.append(ownerLabel, statusLabel);
+    if (item.recurrence) {
+      const endLabel = createText("label", "", t("recurrenceEnds"));
+      const endInput = document.createElement("input");
+      endInput.type = "date";
+      endInput.value = item.recurrence_until || "";
+      endInput.addEventListener("change", () => {
+        updateItem(item.id, { recurrence_until: endInput.value || null });
+      });
+      endLabel.append(endInput);
+      controls.append(endLabel);
+    }
     card.append(controls);
   } else if (compact && item.kind !== "note") {
     card.append(createText("p", "", `${t("owner")}: ${memberName(item.owner_id)}`));
@@ -481,15 +524,9 @@ function filteredBoardItems() {
 }
 
 function happensThisWeek(item) {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - start.getDay());
-  for (let index = 0; index < 7; index += 1) {
-    const date = new Date(start);
-    date.setDate(start.getDate() + index);
-    if (occursOnDate(item, dateKey(date))) return true;
-  }
-  return false;
+  return state.weekItems.some(
+    (occurrence) => (occurrence.series_id || occurrence.id) === item.id,
+  );
 }
 
 function renderBoard() {
@@ -544,40 +581,6 @@ function itemDate(item) {
   return value ? dateKey(new Date(value)) : null;
 }
 
-function occursOnDate(item, key) {
-  const first = itemDate(item);
-  if (!first || key < first) return false;
-  if (!item.recurrence) return key === first;
-  if (item.recurrence === "daily") return true;
-
-  const start = localDateFromKey(first);
-  const target = localDateFromKey(key);
-  if (item.recurrence === "weekly") {
-    return Math.round((target - start) / 86400000) % 7 === 0;
-  }
-  if (item.monthly_on_last_day) {
-    return target.getDate() === new Date(
-      target.getFullYear(),
-      target.getMonth() + 1,
-      0,
-    ).getDate();
-  }
-  return target.getDate() === start.getDate();
-}
-
-function occurrenceStart(item, key) {
-  if (item.all_day) return key;
-  const first = new Date(item.start_at);
-  const occurrence = localDateFromKey(key);
-  occurrence.setHours(
-    first.getHours(),
-    first.getMinutes(),
-    first.getSeconds(),
-    first.getMilliseconds(),
-  );
-  return occurrence.toISOString();
-}
-
 function localDateFromKey(key) {
   return new Date(`${key}T12:00:00`);
 }
@@ -589,7 +592,7 @@ function startOfWeek(date) {
 }
 
 function itemsForDate(key) {
-  return state.board.items.filter((item) => occursOnDate(item, key));
+  return state.calendarItems.filter((item) => itemDate(item) === key);
 }
 
 function renderCalendarDay(grid, date, locale, outside = false) {
@@ -734,10 +737,45 @@ function render() {
   renderNotes();
 }
 
+function calendarRange() {
+  if (state.calendarMode === "week") {
+    const start = startOfWeek(localDateFromKey(state.selectedDate));
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return [dateKey(start), dateKey(end)];
+  }
+  const first = new Date(state.month.getFullYear(), state.month.getMonth(), 1);
+  const start = new Date(first);
+  start.setDate(1 - first.getDay());
+  const end = new Date(start);
+  end.setDate(start.getDate() + 41);
+  return [dateKey(start), dateKey(end)];
+}
+
+async function loadCalendar() {
+  try {
+    const [start, end] = calendarRange();
+    const currentWeek = startOfWeek(new Date());
+    const currentWeekEnd = new Date(currentWeek);
+    currentWeekEnd.setDate(currentWeek.getDate() + 6);
+    const [calendar, week] = await Promise.all([
+      api(`/api/calendar?start=${start}&end=${end}`),
+      api(`/api/calendar?start=${dateKey(currentWeek)}&end=${dateKey(currentWeekEnd)}`),
+    ]);
+    state.calendarItems = calendar.items;
+    state.weekItems = week.items;
+  } catch (error) {
+    state.calendarItems = [];
+    state.weekItems = [];
+    showToast(error.message || t("networkError"), true);
+  }
+  render();
+}
+
 async function loadBoard() {
   try {
     state.board = await api("/api/board");
-    render();
+    await loadCalendar();
     if (!state.board.household?.city) {
       $("#closeHouseholdDialog").hidden = true;
       householdDialog.showModal();
@@ -770,11 +808,68 @@ async function updateItem(itemId, fields) {
       method: "PATCH",
       body: JSON.stringify({ actor_id: selectedActor(), ...fields }),
     });
-    render();
+    await loadCalendar();
     showToast(t("updated"));
   } catch (error) {
     showToast(error.message || t("networkError"), true);
     await loadBoard();
+  }
+}
+
+async function editOccurrence(item) {
+  if (!requireActor()) return;
+  const title = window.prompt(t("occurrenceTitlePrompt"), item.title);
+  if (title === null) return;
+  let currentStart = item.start_date;
+  if (!item.all_day) {
+    const start = new Date(item.start_at);
+    currentStart = new Date(start - (start.getTimezoneOffset() * 60000))
+      .toISOString()
+      .slice(0, 16);
+  }
+  const moved = window.prompt(t("occurrenceDatePrompt"), currentStart);
+  if (moved === null) return;
+  const fields = { title };
+  if (item.all_day) {
+    fields.start_date = moved;
+  } else {
+    const start = new Date(moved);
+    if (Number.isNaN(start.valueOf())) {
+      showToast(t("networkError"), true);
+      return;
+    }
+    fields.start_at = start.toISOString();
+  }
+  try {
+    state.board = await api(
+      `/api/items/${item.series_id}/occurrences/${item.occurrence_date}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ actor_id: selectedActor(), ...fields }),
+      },
+    );
+    await loadCalendar();
+    showToast(t("updated"));
+  } catch (error) {
+    showToast(error.message || t("networkError"), true);
+  }
+}
+
+async function cancelOccurrence(item) {
+  if (
+    !requireActor()
+    || !window.confirm(t("confirmCancelOccurrence"))
+  ) return;
+  try {
+    state.board = await api(
+      `/api/items/${item.series_id}/occurrences/${item.occurrence_date}`
+        + `?actor_id=${encodeURIComponent(selectedActor())}`,
+      { method: "DELETE" },
+    );
+    await loadCalendar();
+    showToast(t("deleted"));
+  } catch (error) {
+    showToast(error.message || t("networkError"), true);
   }
 }
 
@@ -786,7 +881,7 @@ async function removeItem(item) {
       `/api/items/${item.id}?actor_id=${encodeURIComponent(selectedActor())}`,
       { method: "DELETE" },
     );
-    render();
+    await loadCalendar();
     showToast(t("deleted"));
   } catch (error) {
     showToast(error.message || t("networkError"), true);
@@ -816,7 +911,7 @@ $("#inputForm").addEventListener("submit", async (event) => {
     });
     input.value = "";
     ownerSelect.value = "";
-    render();
+    await loadCalendar();
     showToast(t("added"));
   } catch (error) {
     showToast(error.message || t("networkError"), true);
@@ -931,14 +1026,14 @@ $("#ownerFilter").addEventListener("change", (event) => {
 });
 
 document.querySelectorAll("[data-calendar-mode]").forEach((button) => {
-  button.addEventListener("click", () => {
+  button.addEventListener("click", async () => {
     state.calendarMode = button.dataset.calendarMode;
     localStorage.setItem("home-calendar-mode", state.calendarMode);
-    renderCalendar();
+    await loadCalendar();
   });
 });
 
-function moveCalendar(direction) {
+async function moveCalendar(direction) {
   if (state.calendarMode === "month") {
     state.month = new Date(state.month.getFullYear(), state.month.getMonth() + direction, 1);
     state.selectedDate = dateKey(state.month);
@@ -948,16 +1043,16 @@ function moveCalendar(direction) {
     state.selectedDate = dateKey(selected);
     state.month = new Date(selected.getFullYear(), selected.getMonth(), 1);
   }
-  renderCalendar();
+  await loadCalendar();
 }
 
 $("#previousPeriod").addEventListener("click", () => moveCalendar(-1));
 $("#nextPeriod").addEventListener("click", () => moveCalendar(1));
-$("#todayButton").addEventListener("click", () => {
+$("#todayButton").addEventListener("click", async () => {
   const today = new Date();
   state.selectedDate = dateKey(today);
   state.month = new Date(today.getFullYear(), today.getMonth(), 1);
-  renderCalendar();
+  await loadCalendar();
 });
 
 recordButton.addEventListener("click", async () => {

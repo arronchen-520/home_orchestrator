@@ -1,6 +1,7 @@
 import sqlite3
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -39,6 +40,7 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                             start_at="2026-08-31T15:00:00-04:00",
                             recurrence="monthly",
                             monthly_on_last_day=True,
+                            recurrence_until="2026-11-30",
                         ),
                         ItemDraft(
                             kind="note",
@@ -70,6 +72,7 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(event["start_at"], "2026-08-31T15:00:00-04:00")
                 self.assertEqual(event["recurrence"], "monthly")
                 self.assertTrue(event["monthly_on_last_day"])
+                self.assertEqual(event["recurrence_until"], "2026-11-30")
                 self.assertEqual(
                     {item["original_text"] for item in board["items"]},
                     {original_text},
@@ -86,6 +89,39 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                     }
                 )
                 self.assertEqual(board["items"][0]["owner_id"], actor_id)
+
+                await service.execute(
+                    {
+                        "type": "update_occurrence",
+                        "item_id": event["id"],
+                        "occurrence_date": "2026-09-30",
+                        "actor_id": actor_id,
+                        "fields": {
+                            "title": "Moved dentist",
+                            "start_at": "2026-10-01T16:00:00-04:00",
+                        },
+                    }
+                )
+                await service.execute(
+                    {
+                        "type": "cancel_occurrence",
+                        "item_id": event["id"],
+                        "occurrence_date": "2026-10-31",
+                        "actor_id": actor_id,
+                    }
+                )
+                calendar = await service.get_calendar(
+                    date(2026, 8, 1), date(2026, 12, 31)
+                )
+                occurrences = [
+                    item for item in calendar["items"] if item["kind"] == "event"
+                ]
+                self.assertEqual(
+                    [item["start_at"][:10] for item in occurrences],
+                    ["2026-08-31", "2026-10-01", "2026-11-30"],
+                )
+                self.assertEqual(occurrences[1]["title"], "Moved dentist")
+                self.assertEqual(occurrences[1]["occurrence_date"], "2026-09-30")
             database.close()
 
             database = BoardDatabase(database_path)
@@ -94,6 +130,17 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(restored["items"]), 3)
             self.assertEqual(restored["items"][0]["status"], "claimed")
             self.assertTrue(restored["items"][1]["monthly_on_last_day"])
+            restored_calendar = database.get_calendar(
+                "test-family", date(2026, 8, 1), date(2026, 12, 31)
+            )
+            self.assertEqual(
+                [
+                    item["start_at"][:10]
+                    for item in restored_calendar["items"]
+                    if item["kind"] == "event"
+                ],
+                ["2026-08-31", "2026-10-01", "2026-11-30"],
+            )
             database.close()
 
             connection = sqlite3.connect(database_path)

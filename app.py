@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
+from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -82,6 +83,16 @@ class ItemUpdate(BaseModel):
     actor_id: str
     owner_id: str | None = None
     status: Literal["unclaimed", "claimed", "done"] | None = None
+    recurrence_until: date | None = None
+
+
+class OccurrenceUpdate(BaseModel):
+    actor_id: str
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+    details: str | None = Field(default=None, max_length=2000)
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    start_date: date | None = None
 
 
 def board_service(request: Request) -> BoardService:
@@ -115,6 +126,14 @@ async def index():
 @app.get("/api/board")
 async def get_board(request: Request):
     return await board_service(request).get_board()
+
+
+@app.get("/api/calendar")
+async def get_calendar(start: date, end: date, request: Request):
+    try:
+        return await board_service(request).get_calendar(start, end)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.put("/api/household")
@@ -235,7 +254,9 @@ async def add_audio(
 @app.patch("/api/items/{item_id}")
 async def update_item(item_id: str, payload: ItemUpdate, request: Request):
     fields = payload.model_dump(
-        include=payload.model_fields_set - {"actor_id"}, exclude_none=False
+        mode="json",
+        include=payload.model_fields_set - {"actor_id"},
+        exclude_none=False,
     )
     return await execute(
         board_service(request),
@@ -244,6 +265,45 @@ async def update_item(item_id: str, payload: ItemUpdate, request: Request):
             "item_id": item_id,
             "actor_id": payload.actor_id,
             "fields": fields,
+        },
+    )
+
+
+@app.patch("/api/items/{item_id}/occurrences/{occurrence_date}")
+async def update_occurrence(
+    item_id: str,
+    occurrence_date: date,
+    payload: OccurrenceUpdate,
+    request: Request,
+):
+    fields = payload.model_dump(
+        mode="json",
+        include=payload.model_fields_set - {"actor_id"},
+        exclude_none=False,
+    )
+    return await execute(
+        board_service(request),
+        {
+            "type": "update_occurrence",
+            "item_id": item_id,
+            "occurrence_date": occurrence_date.isoformat(),
+            "actor_id": payload.actor_id,
+            "fields": fields,
+        },
+    )
+
+
+@app.delete("/api/items/{item_id}/occurrences/{occurrence_date}")
+async def cancel_occurrence(
+    item_id: str, occurrence_date: date, actor_id: str, request: Request
+):
+    return await execute(
+        board_service(request),
+        {
+            "type": "cancel_occurrence",
+            "item_id": item_id,
+            "occurrence_date": occurrence_date.isoformat(),
+            "actor_id": actor_id,
         },
     )
 

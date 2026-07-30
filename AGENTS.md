@@ -18,6 +18,7 @@ types: events, tasks, and notes. Events can recur daily, weekly, or monthly.
 - `board_graph.py`: OpenRouter extraction and the multi-item ingestion graph.
 - `weather.py`: OpenWeather city lookup, five-day aggregation, and short cache.
 - `app.py`: FastAPI routes, Groq speech-to-text, and static file serving.
+- `python-dateutil`: server-side recurrence expansion for calendar date ranges.
 - `static/`: dependency-free bilingual browser UI.
 - `data/board.sqlite3`: runtime state; never commit it.
 - `BOARD_DB_PATH`: optional local database override for isolated tests.
@@ -31,12 +32,12 @@ types: events, tasks, and notes. Events can recur daily, weekly, or monthly.
 - Preserve the input language in generated titles and details.
 - Keep Chinese and English UI strings in `static/app.js`.
 - Keep weather optional: provider failures must not block board data.
-- Store one row per recurring event series and expand occurrences in the
-  calendar. Series edits and deletion apply to every occurrence.
-- Keep recurrence event-only and limited to daily, weekly, and monthly. Do not
-  add end dates or per-occurrence exceptions until a concrete requirement needs
-  them. Preserve the distinction between a fixed day-of-month and the last day
-  of each month.
+- Store one row per recurring event series and expand requested calendar ranges
+  on the server. Series edits and deletion apply to every occurrence.
+- Keep recurrence event-only and limited to daily, weekly, and monthly. Preserve
+  fixed day-of-month versus month-end rules and inclusive recurrence end dates.
+- Store cancelled or moved occurrences in `recurrence_exceptions`, keyed by the
+  original local occurrence date. Never materialize every future occurrence.
 - Do not add React, an ORM, authentication, or notifications until a concrete
   requirement needs them.
 - Never commit `.env`, API keys, audio, or local board data.

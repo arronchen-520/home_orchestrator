@@ -55,6 +55,9 @@ class ItemDraft(BaseModel):
         description="Event repetition: daily, weekly, monthly, or null",
     )
     monthly_on_last_day: bool = False
+    recurrence_until: date | None = Field(
+        default=None, description="Inclusive final recurrence date; YYYY-MM-DD"
+    )
 
     @model_validator(mode="after")
     def match_kind(self) -> ItemDraft:
@@ -63,10 +66,15 @@ class ItemDraft(BaseModel):
                 raise ValueError("Date-times require a timezone")
 
         if self.kind == "event":
+            first = self.start_date or (self.start_at.date() if self.start_at else None)
+            if self.recurrence_until is not None:
+                if self.recurrence is None:
+                    raise ValueError("A recurrence end date requires recurrence")
+                if first and self.recurrence_until < first:
+                    raise ValueError("Recurrence end date cannot precede its start")
             if self.monthly_on_last_day:
                 if self.recurrence != "monthly":
                     raise ValueError("Last-day recurrence must be monthly")
-                first = self.start_date or (self.start_at.date() if self.start_at else None)
                 if first and first.day != monthrange(first.year, first.month)[1]:
                     raise ValueError("Last-day recurrence must start on a month's last day")
             self.due_at = self.due_date = None
@@ -85,14 +93,22 @@ class ItemDraft(BaseModel):
                 if self.end_at is not None and self.end_at < self.start_at:
                     raise ValueError("Event end must be after its start")
         elif self.kind == "task":
-            if self.recurrence is not None or self.monthly_on_last_day:
+            if (
+                self.recurrence is not None
+                or self.monthly_on_last_day
+                or self.recurrence_until is not None
+            ):
                 raise ValueError("Only events can recur")
             self.start_at = self.end_at = self.start_date = None
             self.all_day = False
             if self.due_at is not None and self.due_date is not None:
                 raise ValueError("A task cannot have both due_at and due_date")
         else:
-            if self.recurrence is not None or self.monthly_on_last_day:
+            if (
+                self.recurrence is not None
+                or self.monthly_on_last_day
+                or self.recurrence_until is not None
+            ):
                 raise ValueError("Only events can recur")
             self.start_at = self.end_at = self.start_date = None
             self.due_at = self.due_date = None
@@ -136,6 +152,7 @@ Rules:
 - For "the last day of every month", also set monthly_on_last_day to true and
   resolve the first occurrence to the current or next month-end.
 - "Every month on the 31st" is not a last-day rule; leave monthly_on_last_day false.
+- If the input states when repetition ends, set recurrence_until to that inclusive date.
 - Treat recurring scheduled actions as events; recurrence is not supported for tasks or notes.
 - A recurring event still needs its first stated date or date-time.
 - Never invent a date, time, owner, or assignee.
@@ -234,6 +251,9 @@ class BoardService:
     async def get_board(self, result: dict | None = None) -> dict:
         return {**self.database.get_board(self.household_id), "result": result}
 
+    async def get_calendar(self, start_date: date, end_date: date) -> dict:
+        return self.database.get_calendar(self.household_id, start_date, end_date)
+
     def get_weather_location(self) -> dict | None:
         return self.database.get_weather_location(self.household_id)
 
@@ -280,6 +300,35 @@ class BoardService:
                 )
                 return await self.get_board(
                     {"action": "updated", "item_id": command["item_id"]}
+                )
+            if command_type == "update_occurrence":
+                self.database.update_occurrence(
+                    self.household_id,
+                    command["item_id"],
+                    command["occurrence_date"],
+                    command.get("actor_id"),
+                    command.get("fields", {}),
+                )
+                return await self.get_board(
+                    {
+                        "action": "occurrence_updated",
+                        "item_id": command["item_id"],
+                        "occurrence_date": command["occurrence_date"],
+                    }
+                )
+            if command_type == "cancel_occurrence":
+                self.database.cancel_occurrence(
+                    self.household_id,
+                    command["item_id"],
+                    command["occurrence_date"],
+                    command.get("actor_id"),
+                )
+                return await self.get_board(
+                    {
+                        "action": "occurrence_cancelled",
+                        "item_id": command["item_id"],
+                        "occurrence_date": command["occurrence_date"],
+                    }
                 )
             if command_type == "delete_item":
                 self.database.delete_item(

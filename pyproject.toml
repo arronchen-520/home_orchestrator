@@ -9,6 +9,7 @@ dependencies = [
     "langgraph>=1.2.10",
     "langgraph-checkpoint-sqlite>=3.1.1",
     "python-dotenv>=1.2.2",
+    "python-dateutil>=2.9.0.post0",
     "python-multipart>=0.0.32",
     "tzdata>=2026.3",
     "uvicorn>=0.52.0",

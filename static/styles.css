@@ -729,7 +729,8 @@ select:disabled {
   font-weight: 750;
 }
 
-.item-controls select {
+.item-controls select,
+.item-controls input {
   width: 100%;
   min-width: 0;
   font-size: 0.82rem;
