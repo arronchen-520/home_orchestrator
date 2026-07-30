@@ -49,6 +49,9 @@ class ItemDraft(BaseModel):
     due_date: date | None = Field(
         default=None, description="Task deadline when only a date is stated"
     )
+    reminder_at: datetime | None = Field(
+        default=None, description="One reminder time; ISO 8601 with timezone"
+    )
     all_day: bool = False
     recurrence: Recurrence | None = Field(
         default=None,
@@ -61,7 +64,7 @@ class ItemDraft(BaseModel):
 
     @model_validator(mode="after")
     def match_kind(self) -> ItemDraft:
-        for value in (self.start_at, self.end_at, self.due_at):
+        for value in (self.start_at, self.end_at, self.due_at, self.reminder_at):
             if value is not None and value.utcoffset() is None:
                 raise ValueError("Date-times require a timezone")
 
@@ -92,6 +95,12 @@ class ItemDraft(BaseModel):
                 self.start_date = None
                 if self.end_at is not None and self.end_at < self.start_at:
                     raise ValueError("Event end must be after its start")
+            if self.reminder_at is not None:
+                if self.all_day:
+                    if self.reminder_at.date() > self.start_date:
+                        raise ValueError("Reminder must not follow the event date")
+                elif self.reminder_at >= self.start_at:
+                    raise ValueError("Reminder must precede the event")
         elif self.kind == "task":
             if (
                 self.recurrence is not None
@@ -103,6 +112,11 @@ class ItemDraft(BaseModel):
             self.all_day = False
             if self.due_at is not None and self.due_date is not None:
                 raise ValueError("A task cannot have both due_at and due_date")
+            if self.reminder_at is not None:
+                if self.due_at is not None and self.reminder_at >= self.due_at:
+                    raise ValueError("Reminder must precede the task deadline")
+                if self.due_date is not None and self.reminder_at.date() > self.due_date:
+                    raise ValueError("Reminder must not follow the task due date")
         else:
             if (
                 self.recurrence is not None
@@ -112,7 +126,11 @@ class ItemDraft(BaseModel):
                 raise ValueError("Only events can recur")
             self.start_at = self.end_at = self.start_date = None
             self.due_at = self.due_date = None
+            self.reminder_at = None
             self.all_day = False
+        has_schedule = self.start_at or self.start_date or self.due_at or self.due_date
+        if self.kind != "note" and has_schedule and self.reminder_at is None:
+            raise ValueError("Dated events and tasks require a reminder")
         return self
 
 
@@ -155,7 +173,10 @@ Rules:
 - If the input states when repetition ends, set recurrence_until to that inclusive date.
 - Treat recurring scheduled actions as events; recurrence is not supported for tasks or notes.
 - A recurring event still needs its first stated date or date-time.
-- Never invent a date, time, owner, or assignee.
+- For every dated event or task, return one reminder_at as a concrete timezone-aware datetime.
+  If the input specifies one, resolve it exactly. Otherwise choose a sensible advance reminder
+  from the item's urgency and timing. Do not create a reminder for an item with no date or time.
+- Never invent a date, time, owner, or assignee, except for the requested reminder time.
 - Keep each title concise and put remaining useful text in details.
 
 {format_instructions}""",

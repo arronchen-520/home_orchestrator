@@ -104,6 +104,22 @@ def _occurrence_item(
                 start_at=exception["start_at"],
                 end_at=exception["end_at"],
             )
+    if item.get("reminder_at"):
+        base_start = (
+            datetime.combine(date.fromisoformat(item["start_date"]), time.min, occurrence.tzinfo)
+            if item["all_day"]
+            else datetime.fromisoformat(item["start_at"]).astimezone(occurrence.tzinfo)
+        )
+        effective_start = (
+            datetime.combine(date.fromisoformat(result["start_date"]), time.min, occurrence.tzinfo)
+            if result["all_day"]
+            else datetime.fromisoformat(result["start_at"]).astimezone(occurrence.tzinfo)
+        )
+        reminder_offset = (
+            datetime.fromisoformat(item["reminder_at"]).astimezone(occurrence.tzinfo)
+            - base_start
+        )
+        result["reminder_at"] = (effective_start + reminder_offset).isoformat()
     return result
 
 
@@ -166,6 +182,7 @@ class BoardDatabase:
                 start_date TEXT,
                 due_at TEXT,
                 due_date TEXT,
+                reminder_at TEXT,
                 all_day INTEGER NOT NULL DEFAULT 0 CHECK (all_day IN (0, 1)),
                 recurrence TEXT CHECK (
                     recurrence IS NULL OR recurrence IN ('daily', 'weekly', 'monthly')
@@ -236,6 +253,10 @@ class BoardDatabase:
                 )
                 """
             )
+        if "reminder_at" not in {
+            row["name"] for row in self.connection.execute("PRAGMA table_info(items)")
+        }:
+            self.connection.execute("ALTER TABLE items ADD COLUMN reminder_at TEXT")
         self.connection.execute(
             """
             UPDATE items SET assignment_state = 'accepted'
@@ -430,10 +451,10 @@ class BoardDatabase:
                     INSERT OR IGNORE INTO items (
                         id, household_id, submission_id, source_index, kind,
                         title, details, owner_id, assignment_state, status, start_at, end_at,
-                        start_date, due_at, due_date, all_day, recurrence,
+                        start_date, due_at, due_date, reminder_at, all_day, recurrence,
                         monthly_on_last_day, recurrence_until, created_by,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         str(uuid4()),
@@ -451,6 +472,7 @@ class BoardDatabase:
                         draft.get("start_date"),
                         draft.get("due_at"),
                         draft.get("due_date"),
+                        draft.get("reminder_at"),
                         int(draft.get("all_day", False)),
                         draft.get("recurrence"),
                         int(draft.get("monthly_on_last_day", False)),
@@ -488,6 +510,7 @@ class BoardDatabase:
             "start_date",
             "due_at",
             "due_date",
+            "reminder_at",
             "all_day",
             "recurrence_until",
         }
@@ -593,13 +616,27 @@ class BoardDatabase:
                         raise ValueError("Date-times require a timezone")
                 if item["due_date"]:
                     date.fromisoformat(item["due_date"])
+            if item["kind"] != "note" and item["reminder_at"]:
+                reminder = datetime.fromisoformat(item["reminder_at"])
+                if reminder.utcoffset() is None:
+                    raise ValueError("Date-times require a timezone")
+                if item["kind"] == "event":
+                    if item["all_day"]:
+                        if reminder.date() > date.fromisoformat(item["start_date"]):
+                            raise ValueError("Reminder must not follow the event date")
+                    elif reminder >= datetime.fromisoformat(item["start_at"]):
+                        raise ValueError("Reminder must precede the event")
+                elif item["due_at"] and reminder >= datetime.fromisoformat(item["due_at"]):
+                    raise ValueError("Reminder must precede the task deadline")
+                elif item["due_date"] and reminder.date() > date.fromisoformat(item["due_date"]):
+                    raise ValueError("Reminder must not follow the task due date")
 
             cursor.execute(
                 """
                 UPDATE items
                 SET title = ?, details = ?, owner_id = ?, assignment_state = ?, status = ?,
                     start_at = ?, end_at = ?, start_date = ?,
-                    due_at = ?, due_date = ?, all_day = ?,
+                    due_at = ?, due_date = ?, reminder_at = ?, all_day = ?,
                     recurrence_until = ?, updated_at = ?
                 WHERE id = ? AND household_id = ?
                 """,
@@ -614,6 +651,7 @@ class BoardDatabase:
                     item["start_date"],
                     item["due_at"],
                     item["due_date"],
+                    item["reminder_at"],
                     int(item["all_day"]),
                     item["recurrence_until"],
                     _now(),
@@ -919,7 +957,7 @@ class BoardDatabase:
             SELECT
                 i.id, i.submission_id, i.kind, i.title, i.details,
                 i.owner_id, i.assignment_state, i.status, i.start_at, i.end_at, i.start_date,
-                i.due_at, i.due_date, i.all_day, i.recurrence,
+                i.due_at, i.due_date, i.reminder_at, i.all_day, i.recurrence,
                 i.monthly_on_last_day, i.recurrence_until, i.created_by,
                 i.created_at, i.updated_at, s.original_text
             FROM items AS i

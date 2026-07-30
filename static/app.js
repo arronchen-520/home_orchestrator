@@ -84,6 +84,7 @@ const messages = {
     monthly: "每月",
     monthlyLastDay: "每月最后一天",
     recurrenceEnds: "重复结束",
+    reminder: "提醒时间",
     edit: "编辑",
     editItem: "编辑内容",
     title: "标题",
@@ -208,6 +209,7 @@ const messages = {
     monthly: "Monthly",
     monthlyLastDay: "Last day of every month",
     recurrenceEnds: "Recurrence ends",
+    reminder: "Reminder",
     edit: "Edit",
     editItem: "Edit item",
     title: "Title",
@@ -527,6 +529,9 @@ function itemCard(item, compact = false, index = 0) {
   } else if (item.kind === "task" && (item.due_at || item.due_date)) {
     const due = item.due_at || item.due_date;
     meta.append(createText("p", "", `${t("due")}: ${formatDateTime(due, Boolean(item.due_date))}`));
+  }
+  if (item.reminder_at) {
+    meta.append(createText("p", "", `${t("reminder")}: ${formatDateTime(item.reminder_at)}`));
   }
   meta.append(createText("p", "", `${t("createdBy")}: ${memberName(item.created_by)}`));
   card.append(meta);
@@ -950,10 +955,12 @@ function fillItemEditor(item, scope) {
     $("#editStartAt").value = toLocalDateTime(item.start_at);
     $("#editEndAt").value = toLocalDateTime(item.end_at);
     $("#editRecurrenceUntil").value = item.recurrence_until || "";
+    $("#editEventReminderAt").value = toLocalDateTime(item.reminder_at);
   } else if (item.kind === "task") {
     $("#editDueTimed").checked = Boolean(item.due_at);
     $("#editDueDate").value = item.due_date || "";
     $("#editDueAt").value = toLocalDateTime(item.due_at);
+    $("#editTaskReminderAt").value = toLocalDateTime(item.reminder_at);
   }
 
   const editingSeries = scope === "series" && Boolean(item.recurrence);
@@ -992,6 +999,8 @@ async function saveItemEditor(event) {
   };
 
   if (item.kind === "event") {
+    fields.reminder_at = $("#editEventReminderAt").value
+      ? new Date($("#editEventReminderAt").value).toISOString() : null;
     if ($("#editAllDay").checked) {
       fields.start_date = $("#editStartDate").value;
       fields.start_at = null;
@@ -1010,6 +1019,8 @@ async function saveItemEditor(event) {
       }
     }
   } else if (item.kind === "task") {
+    fields.reminder_at = $("#editTaskReminderAt").value
+      ? new Date($("#editTaskReminderAt").value).toISOString() : null;
     if ($("#editDueTimed").checked) {
       fields.due_at = $("#editDueAt").value
         ? new Date($("#editDueAt").value).toISOString()

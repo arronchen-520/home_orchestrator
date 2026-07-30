@@ -81,6 +81,7 @@ class ItemUpdate(BaseModel):
     start_date: date | None = None
     due_at: datetime | None = None
     due_date: date | None = None
+    reminder_at: datetime | None = None
     all_day: bool | None = None
     recurrence_until: date | None = None
 

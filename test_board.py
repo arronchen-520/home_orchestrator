@@ -23,6 +23,7 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                         kind="event",
                         title="Dentist",
                         start_at="2026-08-31T15:00:00-04:00",
+                        reminder_at="2026-08-31T14:30:00-04:00",
                         recurrence="monthly",
                         monthly_on_last_day=True,
                         recurrence_until="2026-11-30",
@@ -76,6 +77,7 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(calendar["items"][1]["title"], "Moved dentist")
             self.assertEqual(calendar["items"][1]["occurrence_date"], "2026-09-30")
+            self.assertEqual(calendar["items"][2]["reminder_at"], "2026-11-30T14:30:00-05:00")
             self.assertEqual(calendar["items"][0]["series_id"], event_id)
             database.close()
 
@@ -90,6 +92,24 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 recurrence="monthly",
                 monthly_on_last_day=True,
             )
+
+    def test_reminder_persists_for_events_and_tasks(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = BoardDatabase(Path(temp_dir) / "test.sqlite3")
+            database.setup()
+            actor_id = database.add_member("test-family", "Lin")
+            event_id, task_id = database.create_items(
+                "test-family", "submission", "reminders", "text", "America/Toronto", actor_id, None,
+                [
+                    {"kind": "event", "title": "Dentist", "start_at": "2026-08-01T15:00:00-04:00", "reminder_at": "2026-08-01T14:30:00-04:00"},
+                    {"kind": "task", "title": "Pay bill", "due_date": "2026-08-02", "reminder_at": "2026-08-02T09:00:00-04:00"},
+                ],
+            )
+            database.update_item("test-family", event_id, actor_id, {"reminder_at": "2026-08-01T14:00:00-04:00"})
+            reminders = {item["id"]: item["reminder_at"] for item in database.get_board("test-family")["items"]}
+            self.assertEqual(reminders[event_id], "2026-08-01T14:00:00-04:00")
+            self.assertEqual(reminders[task_id], "2026-08-02T09:00:00-04:00")
+            database.close()
 
     def test_member_role_and_removal_keep_existing_items(self):
         with tempfile.TemporaryDirectory() as temp_dir:
