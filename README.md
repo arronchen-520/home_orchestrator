@@ -23,8 +23,10 @@ uv run home-orchestrator
 
 Open <http://127.0.0.1:8000>.
 
-Board state is stored locally in `data/board.sqlite3`. The browser only stores
-the selected UI language and current family member.
+Board state is stored in domain tables inside `data/board.sqlite3`. LangGraph
+orchestrates AI ingestion and can split one input into multiple items; its
+checkpoints are not the board's source of truth. The browser only stores the
+selected UI language and current family member.
 
 共享板数据保存在 `data/board.sqlite3`。浏览器只保存界面语言和当前家庭成员。
 

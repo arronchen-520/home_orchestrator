@@ -291,7 +291,9 @@ function memberName(id) {
 
 function formatDateTime(value, allDay = false) {
   if (!value) return "";
-  const date = new Date(value);
+  const date = allDay && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? localDateFromKey(value)
+    : new Date(value);
   return new Intl.DateTimeFormat(state.language === "zh" ? "zh-CN" : "en-CA", {
     dateStyle: "medium",
     ...(allDay ? {} : { timeStyle: "short" }),
@@ -324,13 +326,15 @@ function itemCard(item, compact = false, index = 0) {
   const meta = document.createElement("div");
   meta.className = "item-meta";
   if (item.kind === "event") {
+    const starts = item.start_at || item.start_date;
     meta.append(createText(
       "p",
       "",
-      `${t("starts")}: ${formatDateTime(item.start_at, item.all_day)}${item.all_day ? ` · ${t("allDay")}` : ""}`,
+      `${t("starts")}: ${formatDateTime(starts, item.all_day)}${item.all_day ? ` · ${t("allDay")}` : ""}`,
     ));
-  } else if (item.kind === "task" && item.due_at) {
-    meta.append(createText("p", "", `${t("due")}: ${formatDateTime(item.due_at)}`));
+  } else if (item.kind === "task" && (item.due_at || item.due_date)) {
+    const due = item.due_at || item.due_date;
+    meta.append(createText("p", "", `${t("due")}: ${formatDateTime(due, Boolean(item.due_date))}`));
   }
   meta.append(createText("p", "", `${t("createdBy")}: ${memberName(item.created_by)}`));
   card.append(meta);
@@ -387,9 +391,11 @@ function filteredBoardItems() {
 }
 
 function happensThisWeek(item) {
-  const value = item.kind === "event" ? item.start_at : item.due_at;
+  const value = item.kind === "event"
+    ? item.start_at || item.start_date
+    : item.due_at || item.due_date;
   if (!value) return false;
-  const date = new Date(value);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? localDateFromKey(value) : new Date(value);
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   start.setDate(start.getDate() - start.getDay());
@@ -441,7 +447,12 @@ function dateKey(date) {
 }
 
 function itemDate(item) {
-  const value = item.kind === "event" ? item.start_at : item.kind === "task" ? item.due_at : null;
+  const value = item.kind === "event"
+    ? item.start_at || item.start_date
+    : item.kind === "task"
+      ? item.due_at || item.due_date
+      : null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return value;
   return value ? dateKey(new Date(value)) : null;
 }
 

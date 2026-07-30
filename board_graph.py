@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime
 from functools import lru_cache
 from typing import Literal, TypedDict
 from uuid import uuid4
@@ -14,8 +14,9 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field, model_validator
 
+from board_db import BoardDatabase
+
 ItemKind = Literal["event", "task", "note"]
-ItemStatus = Literal["unclaimed", "claimed", "done"]
 
 
 class ConfigurationError(RuntimeError):
@@ -25,43 +26,70 @@ class ConfigurationError(RuntimeError):
 class ItemDraft(BaseModel):
     kind: ItemKind = Field(
         description=(
-            "event for a fixed-time or all-day occurrence; task for an action or chore; "
+            "event for an occurrence; task for an action or chore; "
             "note for reference information"
         )
     )
     title: str = Field(min_length=1, max_length=120)
     details: str = Field(default="", max_length=2000)
     start_at: datetime | None = Field(
-        default=None, description="Required for events; ISO 8601 with timezone"
+        default=None, description="Timed event start; ISO 8601 with timezone"
     )
     end_at: datetime | None = Field(
-        default=None, description="Optional event end; ISO 8601 with timezone"
+        default=None, description="Optional timed event end; ISO 8601 with timezone"
+    )
+    start_date: date | None = Field(
+        default=None, description="All-day event date; YYYY-MM-DD"
     )
     due_at: datetime | None = Field(
-        default=None, description="Optional task deadline; ISO 8601 with timezone"
+        default=None, description="Task deadline with a stated time and timezone"
+    )
+    due_date: date | None = Field(
+        default=None, description="Task deadline when only a date is stated"
     )
     all_day: bool = False
 
     @model_validator(mode="after")
     def match_kind(self) -> ItemDraft:
+        for value in (self.start_at, self.end_at, self.due_at):
+            if value is not None and value.utcoffset() is None:
+                raise ValueError("Date-times require a timezone")
+
         if self.kind == "event":
-            if self.start_at is None:
-                raise ValueError("An event requires start_at")
-            self.due_at = None
+            self.due_at = self.due_date = None
+            if self.start_date is not None:
+                self.all_day = True
+            if self.all_day:
+                if self.start_date is None and self.start_at is not None:
+                    self.start_date = self.start_at.date()
+                if self.start_date is None:
+                    raise ValueError("An all-day event requires start_date")
+                self.start_at = self.end_at = None
+            else:
+                if self.start_at is None:
+                    raise ValueError("A timed event requires start_at")
+                self.start_date = None
+                if self.end_at is not None and self.end_at < self.start_at:
+                    raise ValueError("Event end must be after its start")
         elif self.kind == "task":
-            self.start_at = self.end_at = None
+            self.start_at = self.end_at = self.start_date = None
             self.all_day = False
+            if self.due_at is not None and self.due_date is not None:
+                raise ValueError("A task cannot have both due_at and due_date")
         else:
-            self.start_at = self.end_at = self.due_at = None
+            self.start_at = self.end_at = self.start_date = None
+            self.due_at = self.due_date = None
             self.all_day = False
         return self
 
 
-class BoardState(TypedDict, total=False):
+class ExtractionResult(BaseModel):
+    items: list[ItemDraft] = Field(min_length=1, max_length=20)
+
+
+class IngestionState(TypedDict, total=False):
     command: dict
-    members: list[dict]
-    items: list[dict]
-    draft: dict | None
+    drafts: list[dict]
     result: dict
 
 
@@ -71,21 +99,24 @@ def openrouter_chain():
     if not api_key:
         raise ConfigurationError("OPENROUTER_API_KEY is not configured")
 
-    parser = PydanticOutputParser(pydantic_object=ItemDraft)
+    parser = PydanticOutputParser(pydantic_object=ExtractionResult)
     prompt = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
-                """You classify short household board input in Chinese or English.
+                """You turn short household board input in Chinese or English into one or more items.
 
 Rules:
-- Preserve the language used by the person in title and details.
-- event: an appointment, gathering, or occurrence at a fixed time or on a specific day.
-- task: an action, chore, request, or shopping item. A task may have a deadline.
+- Split independent events, tasks, and notes into separate items.
+- Preserve the input language in each title and details.
+- event: an appointment, gathering, or occurrence.
+- task: an action, chore, request, or shopping item.
 - note: reference information with no action to perform.
 - Resolve relative dates using the supplied current time and IANA timezone.
-- Never invent an owner or assignee.
-- Keep the title concise and put remaining useful text in details.
+- Use start_date/due_date for date-only input and set all_day for date-only events.
+- Use start_at/due_at only when a time is stated.
+- Never invent a date, time, owner, or assignee.
+- Keep each title concise and put remaining useful text in details.
 
 {format_instructions}""",
             ),
@@ -105,184 +136,127 @@ Rules:
     return prompt | model | parser
 
 
-async def parse_with_openrouter(text: str, now: str, timezone_name: str) -> ItemDraft:
+async def parse_with_openrouter(
+    text: str, now: str, timezone_name: str
+) -> ExtractionResult:
     return await openrouter_chain().ainvoke(
         {"text": text, "now": now, "timezone_name": timezone_name}
     )
 
 
-def _member_ids(state: BoardState) -> set[str]:
-    return {member["id"] for member in state.get("members", [])}
+def build_ingestion_graph(database: BoardDatabase, checkpointer):
+    async def extract_items(state: IngestionState) -> dict:
+        command = state["command"]
+        timezone_name = command.get("timezone", "UTC")
+        try:
+            local_now = datetime.now(ZoneInfo(timezone_name))
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError("Invalid timezone") from exc
+        extraction = await parse_with_openrouter(
+            command["text"], local_now.isoformat(), timezone_name
+        )
+        return {
+            "drafts": [
+                item.model_dump(mode="json") for item in extraction.items
+            ]
+        }
 
+    def save_items(state: IngestionState) -> dict:
+        command = state["command"]
+        drafts = [
+            ItemDraft.model_validate(draft).model_dump(mode="json")
+            for draft in state["drafts"]
+        ]
+        item_ids = database.create_items(
+            household_id=command["household_id"],
+            submission_id=command["submission_id"],
+            text=command["text"],
+            source=command.get("source", "text"),
+            timezone_name=command.get("timezone", "UTC"),
+            actor_id=command["actor_id"],
+            owner_id=command.get("owner_id"),
+            drafts=drafts,
+        )
+        return {
+            "drafts": [],
+            "result": {
+                "action": "created",
+                "item_id": item_ids[0],
+                "item_ids": item_ids,
+            },
+        }
 
-def _require_actor(state: BoardState, actor_id: str | None) -> str:
-    if not actor_id or actor_id not in _member_ids(state):
-        raise ValueError("Choose a valid family member first")
-    return actor_id
-
-
-def _find_item(items: list[dict], item_id: str) -> tuple[int, dict]:
-    for index, item in enumerate(items):
-        if item["id"] == item_id:
-            return index, item
-    raise ValueError("Item not found")
-
-
-def route_command(state: BoardState) -> str:
-    command_type = state["command"].get("type")
-    routes = {
-        "add_item": "parse_item",
-        "add_member": "add_member",
-        "update_item": "update_item",
-        "delete_item": "delete_item",
-    }
-    if command_type not in routes:
-        raise ValueError("Unsupported command")
-    return routes[command_type]
-
-
-async def parse_item_node(state: BoardState) -> dict:
-    command = state["command"]
-    timezone_name = command.get("timezone", "UTC")
-    try:
-        local_now = datetime.now(ZoneInfo(timezone_name))
-    except ZoneInfoNotFoundError as exc:
-        raise ValueError("Invalid timezone") from exc
-    draft = await parse_with_openrouter(
-        command["text"], local_now.isoformat(), timezone_name
-    )
-    return {"draft": draft.model_dump(mode="json")}
-
-
-def save_item_node(state: BoardState) -> dict:
-    command = state["command"]
-    actor_id = _require_actor(state, command.get("actor_id"))
-    owner_id = command.get("owner_id")
-    if owner_id is not None and owner_id not in _member_ids(state):
-        raise ValueError("Invalid owner")
-
-    draft = ItemDraft.model_validate(state["draft"])
-    actionable = draft.kind != "note"
-    item = {
-        "id": str(uuid4()),
-        **draft.model_dump(mode="json"),
-        "owner_id": owner_id if actionable else None,
-        "status": ("claimed" if owner_id else "unclaimed") if actionable else None,
-        "created_by": actor_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    return {
-        "items": [*state.get("items", []), item],
-        "draft": None,
-        "result": {"action": "created", "item_id": item["id"]},
-    }
-
-
-def add_member_node(state: BoardState) -> dict:
-    name = state["command"].get("name", "").strip()
-    if not name or len(name) > 40:
-        raise ValueError("Member name must be 1 to 40 characters")
-    members = state.get("members", [])
-    if any(member["name"].casefold() == name.casefold() for member in members):
-        raise ValueError("That family member already exists")
-    member = {"id": str(uuid4()), "name": name}
-    return {
-        "members": [*members, member],
-        "result": {"action": "member_added", "member_id": member["id"]},
-    }
-
-
-def update_item_node(state: BoardState) -> dict:
-    command = state["command"]
-    actor_id = _require_actor(state, command.get("actor_id"))
-    fields = command.get("fields", {})
-    if not fields or set(fields) - {"owner_id", "status"}:
-        raise ValueError("Only owner and status can be changed")
-
-    items = [dict(item) for item in state.get("items", [])]
-    index, item = _find_item(items, command["item_id"])
-    if item["kind"] == "note":
-        raise ValueError("Notes do not have owners or status")
-
-    if "owner_id" in fields:
-        owner_id = fields["owner_id"]
-        if owner_id is not None and owner_id not in _member_ids(state):
-            raise ValueError("Invalid owner")
-        item["owner_id"] = owner_id
-        if item["status"] != "done":
-            item["status"] = "claimed" if owner_id else "unclaimed"
-
-    if "status" in fields:
-        status = fields["status"]
-        if status not in {"unclaimed", "claimed", "done"}:
-            raise ValueError("Invalid status")
-        if status == "unclaimed":
-            item["owner_id"] = None
-        elif not item["owner_id"]:
-            item["owner_id"] = actor_id
-        item["status"] = status
-
-    items[index] = item
-    return {
-        "items": items,
-        "result": {"action": "updated", "item_id": item["id"]},
-    }
-
-
-def delete_item_node(state: BoardState) -> dict:
-    command = state["command"]
-    _require_actor(state, command.get("actor_id"))
-    items = list(state.get("items", []))
-    index, item = _find_item(items, command["item_id"])
-    del items[index]
-    return {
-        "items": items,
-        "result": {"action": "deleted", "item_id": item["id"]},
-    }
-
-
-def build_graph(checkpointer):
-    builder = StateGraph(BoardState)
-    builder.add_node("parse_item", parse_item_node)
-    builder.add_node("save_item", save_item_node)
-    builder.add_node("add_member", add_member_node)
-    builder.add_node("update_item", update_item_node)
-    builder.add_node("delete_item", delete_item_node)
-    builder.add_conditional_edges(
-        START,
-        route_command,
-        {
-            "parse_item": "parse_item",
-            "add_member": "add_member",
-            "update_item": "update_item",
-            "delete_item": "delete_item",
-        },
-    )
-    builder.add_edge("parse_item", "save_item")
-    builder.add_edge("save_item", END)
-    builder.add_edge("add_member", END)
-    builder.add_edge("update_item", END)
-    builder.add_edge("delete_item", END)
+    builder = StateGraph(IngestionState)
+    builder.add_node("extract_items", extract_items)
+    builder.add_node("save_items", save_items)
+    builder.add_edge(START, "extract_items")
+    builder.add_edge("extract_items", "save_items")
+    builder.add_edge("save_items", END)
     return builder.compile(checkpointer=checkpointer)
 
 
 class BoardService:
-    def __init__(self, checkpointer, thread_id: str = "family-default"):
-        self.graph = build_graph(checkpointer)
-        self.config = {"configurable": {"thread_id": thread_id}}
-        # ponytail: one-process lock; move board rows to transactional storage for multi-worker use.
+    def __init__(
+        self,
+        database: BoardDatabase,
+        checkpointer,
+        household_id: str = "family-default",
+    ):
+        self.database = database
+        self.household_id = household_id
+        self.graph = build_ingestion_graph(database, checkpointer)
+        # ponytail: one-process lock; SQLite transactions become the write boundary.
         self._lock = asyncio.Lock()
 
-    async def get_board(self) -> dict:
-        snapshot = await self.graph.aget_state(self.config)
-        values = snapshot.values or {}
-        return {
-            "members": values.get("members", []),
-            "items": values.get("items", []),
-            "result": values.get("result"),
-        }
+    async def get_board(self, result: dict | None = None) -> dict:
+        return {**self.database.get_board(self.household_id), "result": result}
 
     async def execute(self, command: dict) -> dict:
         async with self._lock:
-            await self.graph.ainvoke({"command": command}, self.config)
-            return await self.get_board()
+            command_type = command.get("type")
+            if command_type == "add_item":
+                self.database.require_member(
+                    self.household_id, command.get("actor_id")
+                )
+                if command.get("owner_id") is not None:
+                    self.database.require_member(
+                        self.household_id, command["owner_id"]
+                    )
+                submission_id = str(uuid4())
+                graph_command = {
+                    **command,
+                    "household_id": self.household_id,
+                    "submission_id": submission_id,
+                }
+                state = await self.graph.ainvoke(
+                    {"command": graph_command},
+                    {"configurable": {"thread_id": submission_id}},
+                )
+                return await self.get_board(state["result"])
+            if command_type == "add_member":
+                member_id = self.database.add_member(
+                    self.household_id, command.get("name", "")
+                )
+                return await self.get_board(
+                    {"action": "member_added", "member_id": member_id}
+                )
+            if command_type == "update_item":
+                self.database.update_item(
+                    self.household_id,
+                    command["item_id"],
+                    command.get("actor_id"),
+                    command.get("fields", {}),
+                )
+                return await self.get_board(
+                    {"action": "updated", "item_id": command["item_id"]}
+                )
+            if command_type == "delete_item":
+                self.database.delete_item(
+                    self.household_id,
+                    command["item_id"],
+                    command.get("actor_id"),
+                )
+                return await self.get_board(
+                    {"action": "deleted", "item_id": command["item_id"]}
+                )
+            raise ValueError("Unsupported command")

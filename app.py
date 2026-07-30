@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from pydantic import BaseModel, Field
 
+from board_db import BoardDatabase
 from board_graph import BoardService, ConfigurationError
 
 load_dotenv()
@@ -29,16 +30,27 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     DATA_DIR.mkdir(exist_ok=True)
-    database = Path(os.getenv("BOARD_DB_PATH", DATA_DIR / "board.sqlite3"))
-    if not database.is_absolute():
-        database = ROOT / database
-    database.parent.mkdir(parents=True, exist_ok=True)
-    async with AsyncSqliteSaver.from_conn_string(str(database)) as saver:
+    database_path = Path(os.getenv("BOARD_DB_PATH", DATA_DIR / "board.sqlite3"))
+    if not database_path.is_absolute():
+        database_path = ROOT / database_path
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    database = BoardDatabase(database_path)
+    database.setup()
+    household_id = os.getenv("HOUSEHOLD_ID", "family-default")
+    async with AsyncSqliteSaver.from_conn_string(str(database_path)) as saver:
         await saver.setup()
-        app.state.board = BoardService(
-            saver, os.getenv("HOUSEHOLD_ID", "family-default")
+        legacy = await saver.aget_tuple(
+            {"configurable": {"thread_id": household_id}}
         )
-        yield
+        database.import_legacy_state(
+            household_id,
+            legacy.checkpoint.get("channel_values", {}) if legacy else {},
+        )
+        app.state.board = BoardService(database, saver, household_id)
+        try:
+            yield
+        finally:
+            database.close()
 
 
 app = FastAPI(title="Home Orchestrator", lifespan=lifespan)
@@ -108,6 +120,7 @@ async def add_text(payload: TextInput, request: Request):
             "actor_id": payload.actor_id,
             "owner_id": payload.owner_id,
             "timezone": payload.timezone,
+            "source": "text",
         },
     )
 
@@ -166,6 +179,7 @@ async def add_audio(
             "actor_id": actor_id,
             "owner_id": owner_id or None,
             "timezone": timezone_name,
+            "source": "audio",
         },
     )
 
