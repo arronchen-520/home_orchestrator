@@ -61,8 +61,13 @@ const messages = {
     due: "截止",
     starts: "时间",
     allDay: "全天",
+    recurs: "重复",
+    daily: "每天",
+    weekly: "每周",
+    monthly: "每月",
     delete: "删除",
     confirmDelete: "确定删除这项内容吗？",
+    confirmDeleteSeries: "确定删除整个重复日程吗？",
     empty: "这里还没有内容",
     chooseMember: "请先添加并选择一位家庭成员",
     added: "已添加",
@@ -142,8 +147,13 @@ const messages = {
     due: "Due",
     starts: "Time",
     allDay: "All day",
+    recurs: "Repeats",
+    daily: "Daily",
+    weekly: "Weekly",
+    monthly: "Monthly",
     delete: "Delete",
     confirmDelete: "Delete this item?",
+    confirmDeleteSeries: "Delete this entire recurring series?",
     empty: "Nothing here yet",
     chooseMember: "Add and choose a family member first",
     added: "Added",
@@ -317,7 +327,7 @@ function itemCard(item, compact = false, index = 0) {
   const badge = createText("span", `badge ${item.kind}`, t(item.kind));
   const remove = createText("button", "delete-button", t("delete"));
   remove.type = "button";
-  remove.addEventListener("click", () => removeItem(item.id));
+  remove.addEventListener("click", () => removeItem(item));
   top.append(badge, remove);
   card.append(top, createText("h3", "", item.title));
 
@@ -326,12 +336,17 @@ function itemCard(item, compact = false, index = 0) {
   const meta = document.createElement("div");
   meta.className = "item-meta";
   if (item.kind === "event") {
-    const starts = item.start_at || item.start_date;
+    const starts = compact && item.recurrence
+      ? occurrenceStart(item, state.selectedDate)
+      : item.start_at || item.start_date;
     meta.append(createText(
       "p",
       "",
       `${t("starts")}: ${formatDateTime(starts, item.all_day)}${item.all_day ? ` · ${t("allDay")}` : ""}`,
     ));
+    if (item.recurrence) {
+      meta.append(createText("p", "", `${t("recurs")}: ${t(item.recurrence)}`));
+    }
   } else if (item.kind === "task" && (item.due_at || item.due_date)) {
     const due = item.due_at || item.due_date;
     meta.append(createText("p", "", `${t("due")}: ${formatDateTime(due, Boolean(item.due_date))}`));
@@ -391,17 +406,15 @@ function filteredBoardItems() {
 }
 
 function happensThisWeek(item) {
-  const value = item.kind === "event"
-    ? item.start_at || item.start_date
-    : item.due_at || item.due_date;
-  if (!value) return false;
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? localDateFromKey(value) : new Date(value);
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   start.setDate(start.getDate() - start.getDay());
-  const end = new Date(start);
-  end.setDate(start.getDate() + 7);
-  return date >= start && date < end;
+  for (let index = 0; index < 7; index += 1) {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    if (occursOnDate(item, dateKey(date))) return true;
+  }
+  return false;
 }
 
 function renderBoard() {
@@ -456,6 +469,33 @@ function itemDate(item) {
   return value ? dateKey(new Date(value)) : null;
 }
 
+function occursOnDate(item, key) {
+  const first = itemDate(item);
+  if (!first || key < first) return false;
+  if (!item.recurrence) return key === first;
+  if (item.recurrence === "daily") return true;
+
+  const start = localDateFromKey(first);
+  const target = localDateFromKey(key);
+  if (item.recurrence === "weekly") {
+    return Math.round((target - start) / 86400000) % 7 === 0;
+  }
+  return target.getDate() === start.getDate();
+}
+
+function occurrenceStart(item, key) {
+  if (item.all_day) return key;
+  const first = new Date(item.start_at);
+  const occurrence = localDateFromKey(key);
+  occurrence.setHours(
+    first.getHours(),
+    first.getMinutes(),
+    first.getSeconds(),
+    first.getMilliseconds(),
+  );
+  return occurrence.toISOString();
+}
+
 function localDateFromKey(key) {
   return new Date(`${key}T12:00:00`);
 }
@@ -467,7 +507,7 @@ function startOfWeek(date) {
 }
 
 function itemsForDate(key) {
-  return state.board.items.filter((item) => itemDate(item) === key);
+  return state.board.items.filter((item) => occursOnDate(item, key));
 }
 
 function renderCalendarDay(grid, date, locale, outside = false) {
@@ -620,11 +660,12 @@ async function updateItem(itemId, fields) {
   }
 }
 
-async function removeItem(itemId) {
-  if (!requireActor() || !window.confirm(t("confirmDelete"))) return;
+async function removeItem(item) {
+  const message = item.recurrence ? "confirmDeleteSeries" : "confirmDelete";
+  if (!requireActor() || !window.confirm(t(message))) return;
   try {
     state.board = await api(
-      `/api/items/${itemId}?actor_id=${encodeURIComponent(selectedActor())}`,
+      `/api/items/${item.id}?actor_id=${encodeURIComponent(selectedActor())}`,
       { method: "DELETE" },
     );
     render();

@@ -37,6 +37,7 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                             kind="event",
                             title="Dentist appointment",
                             start_at="2026-08-01T15:00:00-04:00",
+                            recurrence="weekly",
                         ),
                         ItemDraft(
                             kind="note",
@@ -66,6 +67,7 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertEqual(task["due_date"], "2026-08-01")
                 self.assertEqual(event["start_at"], "2026-08-01T15:00:00-04:00")
+                self.assertEqual(event["recurrence"], "weekly")
                 self.assertEqual(
                     {item["original_text"] for item in board["items"]},
                     {original_text},
@@ -89,6 +91,7 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
             restored = database.get_board("test-family")
             self.assertEqual(len(restored["items"]), 3)
             self.assertEqual(restored["items"][0]["status"], "claimed")
+            self.assertEqual(restored["items"][1]["recurrence"], "weekly")
             database.close()
 
             connection = sqlite3.connect(database_path)
@@ -99,6 +102,10 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 )
             finally:
                 connection.close()
+
+    def test_recurrence_is_limited_to_events(self):
+        with self.assertRaisesRegex(ValueError, "Only events can recur"):
+            ItemDraft(kind="task", title="Take out trash", recurrence="weekly")
 
 
 if __name__ == "__main__":

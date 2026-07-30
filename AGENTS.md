@@ -3,8 +3,8 @@
 ## Goal
 
 Build the smallest useful bilingual family board. SQLite domain tables are the
-source of truth; LangGraph orchestrates AI ingestion. Phase 1 has three item
-types: events, tasks, and notes.
+source of truth; LangGraph orchestrates AI ingestion. The board has three item
+types: events, tasks, and notes. Events can recur daily, weekly, or monthly.
 
 ## Commands
 
@@ -29,7 +29,12 @@ types: events, tasks, and notes.
 - Keep AI owner assignment impossible; owner is always a user choice.
 - Preserve the input language in generated titles and details.
 - Keep Chinese and English UI strings in `static/app.js`.
-- Do not add React, an ORM, authentication, notifications, or recurrence until
-  a concrete Phase 2 requirement needs them.
+- Store one row per recurring event series and expand occurrences in the
+  calendar. Series edits and deletion apply to every occurrence.
+- Keep recurrence event-only and limited to daily, weekly, and monthly. Do not
+  add end dates or per-occurrence exceptions until a concrete requirement needs
+  them.
+- Do not add React, an ORM, authentication, or notifications until a concrete
+  requirement needs them.
 - Never commit `.env`, API keys, audio, or local board data.
 - Add one focused runnable test for non-trivial state behavior.

@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field, model_validator
 from board_db import BoardDatabase
 
 ItemKind = Literal["event", "task", "note"]
+Recurrence = Literal["daily", "weekly", "monthly"]
 
 
 class ConfigurationError(RuntimeError):
@@ -48,6 +49,10 @@ class ItemDraft(BaseModel):
         default=None, description="Task deadline when only a date is stated"
     )
     all_day: bool = False
+    recurrence: Recurrence | None = Field(
+        default=None,
+        description="Event repetition: daily, weekly, monthly, or null",
+    )
 
     @model_validator(mode="after")
     def match_kind(self) -> ItemDraft:
@@ -72,11 +77,15 @@ class ItemDraft(BaseModel):
                 if self.end_at is not None and self.end_at < self.start_at:
                     raise ValueError("Event end must be after its start")
         elif self.kind == "task":
+            if self.recurrence is not None:
+                raise ValueError("Only events can recur")
             self.start_at = self.end_at = self.start_date = None
             self.all_day = False
             if self.due_at is not None and self.due_date is not None:
                 raise ValueError("A task cannot have both due_at and due_date")
         else:
+            if self.recurrence is not None:
+                raise ValueError("Only events can recur")
             self.start_at = self.end_at = self.start_date = None
             self.due_at = self.due_date = None
             self.all_day = False
@@ -115,6 +124,9 @@ Rules:
 - Resolve relative dates using the supplied current time and IANA timezone.
 - Use start_date/due_date for date-only input and set all_day for date-only events.
 - Use start_at/due_at only when a time is stated.
+- For an event repeated every day, week, or month, set recurrence to daily, weekly, or monthly.
+- Treat recurring scheduled actions as events; recurrence is not supported for tasks or notes.
+- A recurring event still needs its first stated date or date-time.
 - Never invent a date, time, owner, or assignee.
 - Keep each title concise and put remaining useful text in details.
 
