@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+import base64
+import binascii
+import hashlib
+import hmac
+import json
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from pathlib import Path
@@ -10,8 +16,8 @@ from typing import Annotated, Literal
 import httpx
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -29,20 +35,98 @@ ROOT = Path(__file__).parent
 DATA_DIR = ROOT / "data"
 STATIC_DIR = ROOT / "static"
 MAX_AUDIO_BYTES = 10 * 1024 * 1024
+SESSION_COOKIE = "hearthbook_session"
+SESSION_SECONDS = 30 * 24 * 60 * 60
+LOGIN_WINDOW_SECONDS = 10 * 60
+LOGIN_ATTEMPT_LIMIT = 5
 logger = logging.getLogger(__name__)
+
+
+def household_codes() -> dict[str, str]:
+    raw = os.getenv("HOUSEHOLD_CODES_JSON", "").strip()
+    if not raw:
+        return {}
+    try:
+        codes = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("HOUSEHOLD_CODES_JSON must be a JSON object") from exc
+    if (
+        not isinstance(codes, dict)
+        or not codes
+        or any(
+            not isinstance(household_id, str)
+            or not household_id.strip()
+            or not isinstance(code, str)
+            or len(code) < 8
+            for household_id, code in codes.items()
+        )
+        or len(set(codes.values())) != len(codes)
+    ):
+        raise RuntimeError(
+            "HOUSEHOLD_CODES_JSON needs unique access codes of at least 8 characters"
+        )
+    return codes
+
+
+def session_token(household_id: str, secret: str) -> str:
+    payload = json.dumps(
+        {"household_id": household_id, "expires": int(time.time()) + SESSION_SECONDS},
+        separators=(",", ":"),
+    ).encode()
+    body = base64.urlsafe_b64encode(payload).rstrip(b"=")
+    signature = hmac.new(secret.encode(), body, hashlib.sha256).digest()
+    return (
+        body.decode()
+        + "."
+        + base64.urlsafe_b64encode(signature).rstrip(b"=").decode()
+    )
+
+
+def token_household(token: str, secret: str, codes: dict[str, str]) -> str | None:
+    try:
+        body, encoded_signature = token.split(".", 1)
+        body_bytes = body.encode()
+        signature = base64.urlsafe_b64decode(
+            encoded_signature + "=" * (-len(encoded_signature) % 4)
+        )
+        expected = hmac.new(secret.encode(), body_bytes, hashlib.sha256).digest()
+        if not hmac.compare_digest(signature, expected):
+            return None
+        payload = json.loads(
+            base64.urlsafe_b64decode(body + "=" * (-len(body) % 4))
+        )
+        household_id = payload["household_id"]
+        if payload["expires"] < time.time() or household_id not in codes:
+            return None
+        return household_id
+    except (binascii.Error, KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     DATA_DIR.mkdir(exist_ok=True)
+    codes = household_codes()
+    secret = os.getenv("SESSION_SECRET", "")
+    if codes and len(secret) < 32:
+        raise RuntimeError(
+            "SESSION_SECRET must be at least 32 characters when access codes are enabled"
+        )
     database_path = Path(os.getenv("BOARD_DB_PATH", DATA_DIR / "board.sqlite3"))
     if not database_path.is_absolute():
         database_path = ROOT / database_path
     database_path.parent.mkdir(parents=True, exist_ok=True)
     database = BoardDatabase(database_path)
     database.setup()
-    household_id = os.getenv("HOUSEHOLD_ID", "family-default")
-    app.state.board = BoardService(database, household_id)
+    app.state.database = database
+    app.state.household_codes = codes
+    app.state.session_secret = secret
+    app.state.boards = {}
+    # ponytail: process-local limiter; use a shared store only if running replicas.
+    app.state.login_attempts = {}
+    if not codes:
+        household_id = os.getenv("HOUSEHOLD_ID", "family-default")
+        app.state.boards[household_id] = BoardService(database, household_id)
     app.state.weather = WeatherService(os.getenv("OPENWEATHER_API_KEY"))
     try:
         yield
@@ -52,6 +136,26 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Home Orchestrator", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.middleware("http")
+async def require_household_session(request: Request, call_next):
+    codes = request.app.state.household_codes
+    if request.url.path.startswith("/api/") and request.url.path != "/api/session":
+        if codes:
+            household_id = token_household(
+                request.cookies.get(SESSION_COOKIE, ""),
+                request.app.state.session_secret,
+                codes,
+            )
+            if household_id is None:
+                return JSONResponse(
+                    {"detail": "Household access required"}, status_code=401
+                )
+        else:
+            household_id = os.getenv("HOUSEHOLD_ID", "family-default")
+        request.state.household_id = household_id
+    return await call_next(request)
 
 
 class TextInput(BaseModel):
@@ -78,6 +182,10 @@ class AssistantInput(BaseModel):
 class MemberInput(BaseModel):
     name: str = Field(min_length=1, max_length=40)
     role: str = Field(default="", max_length=40)
+
+
+class AccessCodeInput(BaseModel):
+    code: str = Field(min_length=1, max_length=200)
 
 
 class HouseholdLocationInput(BaseModel):
@@ -116,7 +224,12 @@ class OccurrenceUpdate(BaseModel):
 
 
 def board_service(request: Request) -> BoardService:
-    return request.app.state.board
+    household_id = request.state.household_id
+    service = request.app.state.boards.get(household_id)
+    if service is None:
+        service = BoardService(request.app.state.database, household_id)
+        request.app.state.boards[household_id] = service
+    return service
 
 
 def weather_service(request: Request) -> WeatherService:
@@ -145,6 +258,64 @@ async def execute(service: BoardService, command: dict) -> dict:
 @app.get("/", include_in_schema=False)
 async def index():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/api/session")
+async def get_session(request: Request):
+    codes = request.app.state.household_codes
+    authenticated = not codes or token_household(
+        request.cookies.get(SESSION_COOKIE, ""),
+        request.app.state.session_secret,
+        codes,
+    ) is not None
+    return {"required": bool(codes), "authenticated": authenticated}
+
+
+@app.post("/api/session")
+async def create_session(payload: AccessCodeInput, request: Request, response: Response):
+    codes = request.app.state.household_codes
+    if not codes:
+        return {"authenticated": True}
+
+    client = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    attempts = [
+        attempt
+        for attempt in request.app.state.login_attempts.get(client, [])
+        if now - attempt < LOGIN_WINDOW_SECONDS
+    ]
+    if len(attempts) >= LOGIN_ATTEMPT_LIMIT:
+        raise HTTPException(status_code=429, detail="Too many attempts. Try later.")
+
+    household_id = next(
+        (
+            candidate
+            for candidate, code in codes.items()
+            if hmac.compare_digest(payload.code.encode(), code.encode())
+        ),
+        None,
+    )
+    if household_id is None:
+        attempts.append(now)
+        request.app.state.login_attempts[client] = attempts
+        raise HTTPException(status_code=401, detail="Invalid access code")
+
+    request.app.state.login_attempts.pop(client, None)
+    response.set_cookie(
+        SESSION_COOKIE,
+        session_token(household_id, request.app.state.session_secret),
+        max_age=SESSION_SECONDS,
+        httponly=True,
+        secure=request.url.scheme == "https",
+        samesite="lax",
+    )
+    return {"authenticated": True}
+
+
+@app.delete("/api/session")
+async def delete_session(response: Response):
+    response.delete_cookie(SESSION_COOKIE, httponly=True, samesite="lax")
+    return {"authenticated": False}
 
 
 @app.get("/api/board")
@@ -394,7 +565,13 @@ async def delete_item(item_id: str, actor_id: str, request: Request):
 
 
 def main():
-    uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
+    port = os.getenv("PORT")
+    uvicorn.run(
+        "app:app",
+        host="0.0.0.0" if port else "127.0.0.1",
+        port=int(port or 8000),
+        reload=not port,
+    )
 
 
 if __name__ == "__main__":

@@ -214,6 +214,17 @@
       </section>
     </main>
 
+    <dialog id="accessDialog">
+      <form id="accessForm" class="setup-form">
+        <h2 data-i18n="accessTitle">打开家庭看板</h2>
+        <p data-i18n="accessHelp">输入家人分享给你的访问码。</p>
+        <label for="accessCode" data-i18n="accessCode">家庭访问码</label>
+        <input id="accessCode" type="password" maxlength="200" required autocomplete="current-password">
+        <p id="accessError" class="form-error" role="alert" hidden></p>
+        <button id="accessButton" class="button primary" type="submit" data-i18n="unlock">打开看板</button>
+      </form>
+    </dialog>
+
     <dialog id="householdDialog">
       <form method="dialog" class="dialog-header">
         <h2 data-i18n="citySetupTitle">选择家庭城市</h2>
@@ -251,6 +262,7 @@
         <input id="manageCity" maxlength="120" required autocomplete="address-level2" data-i18n-placeholder="cityPlaceholder" placeholder="Toronto, CA">
         <button class="button secondary" type="submit" data-i18n="saveCity">保存城市</button>
       </form>
+      <button id="logoutButton" class="button ghost" type="button" data-i18n="switchHousehold" hidden>切换家庭</button>
     </dialog>
 
     <dialog id="itemEditor">

@@ -38,6 +38,21 @@ handles AI input and can split one input into multiple items. Its checkpoints
 are not the board's source of truth. The browser only stores the selected UI
 language and current family member.
 
+For small shared tests, keep one SQLite file and give each household a separate
+access code. Set these environment variables on the server:
+
+```text
+BOARD_DB_PATH=/data/board.sqlite3
+HOUSEHOLD_CODES_JSON={"family-a":"replace-with-code-a","family-b":"replace-with-code-b"}
+SESSION_SECRET=replace-with-a-random-secret-of-at-least-32-characters
+```
+
+Mount a persistent Railway volume at `/data`. Generate each code and the
+session secret with `uv run python -c "import secrets; print(secrets.token_urlsafe(24))"`.
+Use `uv run home-orchestrator` as the start command.
+When `HOUSEHOLD_CODES_JSON` is empty, the app keeps its original local
+single-household behavior.
+
 On first launch, enter the household city, for example `Toronto, CA`.
 OpenWeather finds and saves the location, then shows a cached five-day
 forecast in Calendar.

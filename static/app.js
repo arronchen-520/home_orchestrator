@@ -47,6 +47,13 @@ const messages = {
     reject: "拒绝",
     familyMembers: "家庭成员",
     familyManage: "家庭管理",
+    accessTitle: "打开家庭看板",
+    accessHelp: "输入家人分享给你的访问码。",
+    accessCode: "家庭访问码",
+    unlock: "打开看板",
+    unlocking: "正在打开…",
+    invalidAccess: "访问码不正确",
+    switchHousehold: "切换家庭",
     citySetupTitle: "选择家庭城市",
     citySetupHelp: "天气会显示在日历上。输入城市和国家，例如 Toronto, CA。",
     cityLabel: "家庭城市",
@@ -197,6 +204,13 @@ const messages = {
     reject: "Decline",
     familyMembers: "Family members",
     familyManage: "Manage family",
+    accessTitle: "Open your family board",
+    accessHelp: "Enter the access code shared by your family.",
+    accessCode: "Household access code",
+    unlock: "Open board",
+    unlocking: "Opening…",
+    invalidAccess: "That access code is not valid",
+    switchHousehold: "Switch household",
     citySetupTitle: "Choose your household city",
     citySetupHelp: "Weather will appear in Calendar. Enter a city and country, such as Toronto, CA.",
     cityLabel: "Household city",
@@ -328,6 +342,7 @@ const state = {
 const $ = (selector) => document.querySelector(selector);
 const actorSelect = $("#actorSelect");
 const ownerSelect = $("#newOwnerSelect");
+const accessDialog = $("#accessDialog");
 const householdDialog = $("#householdDialog");
 const membersDialog = $("#membersDialog");
 const itemEditor = $("#itemEditor");
@@ -347,10 +362,13 @@ async function api(path, options = {}) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const detail = data.detail || "";
-    if (detail.includes("OPENROUTER_API_KEY")) throw new Error(t("openrouterMissing"));
-    if (detail.includes("GROQ_API_KEY")) throw new Error(t("groqMissing"));
-    if (detail.includes("OPENWEATHER_API_KEY")) throw new Error(t("openweatherMissing"));
-    throw new Error(detail || t("networkError"));
+    let message = detail || t("networkError");
+    if (detail.includes("OPENROUTER_API_KEY")) message = t("openrouterMissing");
+    if (detail.includes("GROQ_API_KEY")) message = t("groqMissing");
+    if (detail.includes("OPENWEATHER_API_KEY")) message = t("openweatherMissing");
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
   return data;
 }
@@ -1135,6 +1153,28 @@ async function loadBoard() {
     await loadWeather();
     if (!state.board.members.length && !membersDialog.open) membersDialog.showModal();
   } catch (error) {
+    if (error.status === 401) {
+      state.board = { household: {}, members: [], items: [] };
+      state.calendarItems = [];
+      state.weekItems = [];
+      document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
+      accessDialog.showModal();
+      return;
+    }
+    showToast(error.message || t("networkError"), true);
+  }
+}
+
+async function loadSession() {
+  try {
+    const session = await api("/api/session");
+    $("#logoutButton").hidden = !session.required;
+    if (session.required && !session.authenticated) {
+      accessDialog.showModal();
+      return;
+    }
+    await loadBoard();
+  } catch (error) {
     showToast(error.message || t("networkError"), true);
   }
 }
@@ -1474,6 +1514,36 @@ $("#memberForm").addEventListener("submit", async (event) => {
   }
 });
 
+$("#accessForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("#accessButton");
+  const error = $("#accessError");
+  button.disabled = true;
+  button.textContent = t("unlocking");
+  error.hidden = true;
+  try {
+    await api("/api/session", {
+      method: "POST",
+      body: JSON.stringify({ code: $("#accessCode").value }),
+    });
+    $("#accessCode").value = "";
+    accessDialog.close();
+    await loadSession();
+  } catch (problem) {
+    error.textContent = problem.status === 401 ? t("invalidAccess") : problem.message;
+    error.hidden = false;
+  } finally {
+    button.disabled = false;
+    button.textContent = t("unlock");
+  }
+});
+accessDialog.addEventListener("cancel", (event) => event.preventDefault());
+$("#logoutButton").addEventListener("click", async () => {
+  await api("/api/session", { method: "DELETE" });
+  localStorage.removeItem("home-actor");
+  window.location.reload();
+});
+
 actorSelect.addEventListener("change", () => {
   localStorage.setItem("home-actor", actorSelect.value);
   resetIntake();
@@ -1678,4 +1748,4 @@ recordButton.addEventListener("click", async () => {
 });
 
 applyLanguage();
-loadBoard();
+loadSession();
