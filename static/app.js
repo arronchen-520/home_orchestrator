@@ -7,7 +7,7 @@ const messages = {
     itemTypes: "内容类型",
     family: "家庭成员",
     eyebrow: "记事本",
-    heading: "有什么想记录的吗？",
+    heading: "想记录什么？",
     subheading: "输入文字或说一句话，就能添加日程、待办或笔记。",
     inputLabel: "要添加什么？",
     inputPlaceholder: "例如：周六下午三点带孩子看牙医",

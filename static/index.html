@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="A bilingual shared family board">
-    <meta name="theme-color" content="#f3f1ec">
+    <meta name="theme-color" content="#f5f5f7">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Hearthbook">
@@ -32,6 +32,20 @@
         <button id="languageButton" class="button ghost compact" type="button" data-i18n-aria="switchLanguage" aria-label="Switch language">
           EN
         </button>
+        <button
+          id="assistantButton"
+          class="assistant-launcher"
+          type="button"
+          aria-controls="assistantPanel"
+          aria-expanded="false"
+          data-i18n-aria="openAssistant"
+          aria-label="Open family assistant"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-5.2 4v-4.7A2.5 2.5 0 0 1 4 13.5z"/>
+            <path d="M8 8h8M8 11.5h5"/>
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -47,8 +61,6 @@
             <span><i class="legend-dot note-dot"></i><span data-i18n="note">笔记</span></span>
           </div>
         </div>
-        <div class="hero-glow glow-one" aria-hidden="true"></div>
-        <div class="hero-glow glow-two" aria-hidden="true"></div>
         <form id="inputForm" class="capture-panel">
           <label for="textInput" data-i18n="inputLabel">要添加什么？</label>
           <textarea
@@ -423,21 +435,6 @@
         </button>
       </form>
     </aside>
-    <button
-      id="assistantButton"
-      class="assistant-launcher"
-      type="button"
-      aria-controls="assistantPanel"
-      aria-expanded="false"
-      data-i18n-aria="openAssistant"
-      aria-label="Open family assistant"
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-5.2 4v-4.7A2.5 2.5 0 0 1 4 13.5z"/>
-        <path d="M8 8h8M8 11.5h5"/>
-      </svg>
-    </button>
-
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="/static/app.js" defer></script>
   </body>
