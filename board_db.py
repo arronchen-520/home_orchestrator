@@ -91,7 +91,7 @@ def _occurrence_item(
         result["start_at"] = occurrence.isoformat()
         result["end_at"] = (occurrence + duration).isoformat() if duration else None
     if exception:
-        for field in ("title", "details"):
+        for field in ("title", "details", "preparation"):
             if exception[field] is not None:
                 result[field] = exception[field]
         if exception["start_date"] is not None:
@@ -212,6 +212,7 @@ class BoardDatabase:
                 start_date TEXT,
                 title TEXT,
                 details TEXT,
+                preparation TEXT,
                 updated_at TEXT NOT NULL,
                 PRIMARY KEY (series_id, occurrence_date)
             );
@@ -295,6 +296,15 @@ class BoardDatabase:
             row["name"] for row in self.connection.execute("PRAGMA table_info(items)")
         }:
             self.connection.execute("ALTER TABLE items ADD COLUMN preparation TEXT")
+        if "preparation" not in {
+            row["name"]
+            for row in self.connection.execute(
+                "PRAGMA table_info(recurrence_exceptions)"
+            )
+        }:
+            self.connection.execute(
+                "ALTER TABLE recurrence_exceptions ADD COLUMN preparation TEXT"
+            )
         self.connection.execute(
             """
             UPDATE items SET assignment_state = 'accepted'
@@ -1361,7 +1371,14 @@ class BoardDatabase:
         actor_id: str,
         fields: dict,
     ) -> None:
-        allowed = {"title", "details", "start_at", "end_at", "start_date"}
+        allowed = {
+            "title",
+            "details",
+            "preparation",
+            "start_at",
+            "end_at",
+            "start_date",
+        }
         if not fields or set(fields) - allowed:
             raise ValueError("Invalid occurrence fields")
         with self.connection:
@@ -1372,7 +1389,7 @@ class BoardDatabase:
             )
             existing = cursor.execute(
                 """
-                SELECT start_at, end_at, start_date, title, details
+                SELECT start_at, end_at, start_date, title, details, preparation
                 FROM recurrence_exceptions
                 WHERE series_id = ? AND occurrence_date = ?
                 """,
@@ -1384,6 +1401,7 @@ class BoardDatabase:
                 "start_date": None,
                 "title": None,
                 "details": None,
+                "preparation": None,
             }
             values.update(fields)
             if values["title"] is not None:
@@ -1392,6 +1410,8 @@ class BoardDatabase:
                     raise ValueError("Title must be 1 to 120 characters")
             if values["details"] is not None and len(values["details"]) > 2000:
                 raise ValueError("Details must be 2000 characters or fewer")
+            if values["preparation"] is not None and len(values["preparation"]) > 500:
+                raise ValueError("Preparation must be 500 characters or fewer")
             if values["start_at"] and values["start_date"]:
                 raise ValueError("Choose a date or a date-time, not both")
             if values["end_at"] and not values["start_at"]:
@@ -1415,8 +1435,8 @@ class BoardDatabase:
                 """
                 INSERT INTO recurrence_exceptions (
                     series_id, occurrence_date, cancelled, start_at, end_at,
-                    start_date, title, details, updated_at
-                ) VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?)
+                    start_date, title, details, preparation, updated_at
+                ) VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(series_id, occurrence_date) DO UPDATE SET
                     cancelled = 0,
                     start_at = excluded.start_at,
@@ -1424,6 +1444,7 @@ class BoardDatabase:
                     start_date = excluded.start_date,
                     title = excluded.title,
                     details = excluded.details,
+                    preparation = excluded.preparation,
                     updated_at = excluded.updated_at
                 """,
                 (
@@ -1434,6 +1455,7 @@ class BoardDatabase:
                     values["start_date"],
                     values["title"],
                     values["details"],
+                    values["preparation"],
                     _now(),
                 ),
             )
@@ -1463,6 +1485,7 @@ class BoardDatabase:
                     start_date = NULL,
                     title = NULL,
                     details = NULL,
+                    preparation = NULL,
                     updated_at = excluded.updated_at
                 """,
                 (series_id, occurrence.date().isoformat(), _now()),

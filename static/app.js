@@ -105,8 +105,7 @@ const messages = {
     dueDate: "截止日期",
     seriesEditWarning: "修改系列开始时间会清除已有的单次例外。",
     saveChanges: "保存修改",
-    editOccurrence: "修改这一次",
-    cancelOccurrence: "取消这一次",
+    cancel: "取消",
     confirmCancelOccurrence: "确定只取消这一次日程吗？",
     occurrenceTitlePrompt: "修改这一次的标题",
     occurrenceDatePrompt: "修改这一次的日期或时间",
@@ -262,8 +261,7 @@ const messages = {
     dueDate: "Due date",
     seriesEditWarning: "Changing the series start clears existing occurrence exceptions.",
     saveChanges: "Save changes",
-    editOccurrence: "Edit this occurrence",
-    cancelOccurrence: "Cancel this occurrence",
+    cancel: "Cancel",
     confirmCancelOccurrence: "Cancel only this occurrence?",
     occurrenceTitlePrompt: "Edit this occurrence's title",
     occurrenceDatePrompt: "Edit this occurrence's date or time",
@@ -765,10 +763,10 @@ function itemCard(item, compact = false, index = 0) {
     actions.append(accept, reject);
   }
   if (compact && item.is_occurrence) {
-    const edit = createText("button", "delete-button", t("editOccurrence"));
+    const edit = createText("button", "delete-button", t("edit"));
     edit.type = "button";
     edit.addEventListener("click", () => editOccurrence(item));
-    const cancel = createText("button", "delete-button", t("cancelOccurrence"));
+    const cancel = createText("button", "delete-button", t("cancel"));
     cancel.type = "button";
     cancel.addEventListener("click", () => cancelOccurrence(item));
     actions.append(edit, cancel);
@@ -1255,7 +1253,7 @@ function fillItemEditor(item, scope) {
   $("#editTitle").value = item.title;
   $("#editDetails").value = item.details || "";
   $("#editPreparation").value = item.preparation || "";
-  $("#editPreparationField").hidden = item.kind === "note" || scope === "occurrence";
+  $("#editPreparationField").hidden = item.kind === "note";
   $("#editEventFields").hidden = item.kind !== "event";
   $("#editTaskFields").hidden = item.kind !== "task";
 
@@ -1307,8 +1305,10 @@ async function saveItemEditor(event) {
     title: $("#editTitle").value,
     details: $("#editDetails").value,
   };
-  if (item.kind !== "note" && scope !== "occurrence") {
-    fields.preparation = $("#editPreparation").value || null;
+  if (item.kind !== "note") {
+    fields.preparation = scope === "occurrence"
+      ? $("#editPreparation").value
+      : $("#editPreparation").value || null;
   }
 
   if (item.kind === "event") {

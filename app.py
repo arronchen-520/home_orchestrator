@@ -218,6 +218,7 @@ class OccurrenceUpdate(BaseModel):
     actor_id: str
     title: str | None = Field(default=None, min_length=1, max_length=120)
     details: str | None = Field(default=None, max_length=2000)
+    preparation: str | None = Field(default=None, max_length=500)
     start_at: datetime | None = None
     end_at: datetime | None = None
     start_date: date | None = None

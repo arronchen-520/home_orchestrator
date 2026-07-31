@@ -309,6 +309,12 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                     }
             )
             event_id = board["items"][0]["id"]
+            database.update_item(
+                "test-family",
+                event_id,
+                actor_id,
+                {"preparation": "Bring insurance card"},
+            )
             await service.execute(
                 {
                     "type": "update_occurrence",
@@ -317,6 +323,7 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                     "actor_id": actor_id,
                     "fields": {
                         "title": "Moved dentist",
+                        "preparation": "Bring new insurance card",
                         "start_at": "2026-10-01T16:00:00-04:00",
                     },
                 }
@@ -342,6 +349,12 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 ["2026-08-31", "2026-10-01", "2026-11-30"],
             )
             self.assertEqual(calendar["items"][1]["title"], "Moved dentist")
+            self.assertEqual(
+                calendar["items"][1]["preparation"], "Bring new insurance card"
+            )
+            self.assertEqual(
+                calendar["items"][2]["preparation"], "Bring insurance card"
+            )
             self.assertEqual(calendar["items"][1]["occurrence_date"], "2026-09-30")
             self.assertEqual(calendar["items"][2]["reminder_at"], "2026-11-30T14:30:00-05:00")
             self.assertEqual(calendar["items"][0]["series_id"], event_id)
