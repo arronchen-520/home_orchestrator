@@ -1,65 +1,62 @@
-# Home Orchestrator
+# Hearthbook
 
-A bilingual family board built with LangGraph, FastAPI, Supabase, OpenRouter,
-and Deepgram. Type or speak in Chinese or English to add events, tasks, and notes.
+Hearthbook is a mobile-first bilingual family assistant. Speak or type once to
+record a plan, ask about the household, or continue a conversation. The home
+screen shows a deterministic summary of what happens, is due, is overdue, or
+needs a reminder today.
 
-The intake assistant asks up to two questions when important details are
-missing. Before saving, it shows schedule conflicts and lets you review each
-item, change or clear the suggested owner, and accept or reject a suggested
-preparation.
+Hearthbook 是一个移动端优先的双语家庭助手。用户通过同一个语音或文字入口记录
+安排、查询家庭事项或继续对话；首页可靠展示今天发生、今天到期、已经过期，以及
+今天需要提醒的内容。
 
-The family assistant in the bottom-right answers questions about schedules,
-tasks, reminders, preparations, and notes. It can suggest one item update for
-you to confirm. Its AI-generated SQL runs only against a household-scoped
-read-only snapshot.
+## Product model
 
-这是一个本地运行的中英双语家庭共享板。输入文字或说一句话，就能添加日程、
-待办和笔记。
+- Events, tasks, and standalone notes share one household database.
+- Dated tasks appear in Calendar; undated tasks stay in “Unscheduled”.
+- Events may recur daily, weekly, or monthly, including month-end rules.
+- Events and tasks have append-only follow-up notes.
+- `remind_member_id` means who should be reminded. There is no ownership,
+  assignment, claim, or kanban workflow.
+- Tasks use `completed_at` instead of workflow columns.
+- Every message is routed to a capture, query, or conversation node.
+- Capture writes require review. Queries use a household-scoped, read-only
+  in-memory SQLite projection.
 
-Events and tasks share one board with filters for member, owner, type, and
-text. The calendar has month and week views. Notes have their own section.
+## Architecture
 
-日程和待办放在同一张看板里，可按“只看我的”、负责人、类型和文字筛选。
-日历有月视图和周视图，笔记放在单独的页面。
+- `app.py`: FastAPI setup, authentication middleware, and security headers.
+- `auth.py`: Supabase Auth and household onboarding routes.
+- `board_api.py`: Today, calendar, item, follow-up, member, and weather routes.
+- `conversation_api.py`: shared text/audio conversation endpoints.
+- `board_graph.py`: LangGraph router and specialist capture/query/chat nodes.
+- `board_db.py`: Supabase Data API operations and deterministic summaries.
+- `recurrence.py`: recurrence expansion and occurrence exceptions.
+- `static/`: dependency-free mobile bilingual UI.
+- `supabase/migrations/`: Postgres schema, RPC transactions, and RLS.
 
-## Run / 运行
+## Run
 
 ```powershell
 Copy-Item .env.example .env
-# Add OPENROUTER_API_KEY, DEEPGRAM_API_KEY, and OPENWEATHER_API_KEY to .env
+# Fill the required values locally. Never commit .env.
 uv sync
 uv run python app.py
 ```
 
 Open <http://127.0.0.1:8000>.
 
-Board data is stored in Supabase Postgres. Supabase Auth provides email/password
-sessions, and Postgres RLS limits every query to one of the signed-in user's
-households. An account can create or join multiple households and switch the
-active household from Family management.
-LangGraph handles AI input and can split one input into multiple items.
+Required: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and
+`OPENROUTER_API_KEY`. Voice needs `DEEPGRAM_API_KEY`; weather needs
+`OPENWEATHER_API_KEY`.
 
-Configure these environment variables locally and on the server:
+Apply `supabase/migrations/` in filename order. The mobile refactor migration
+intentionally replaces the previous application tables.
 
-```text
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
-```
-
-Apply the SQL files in `supabase/migrations/` in filename order using the
-Supabase SQL Editor. Railway does not need a database URL or persistent volume;
-use `uv run python app.py` as its Start Command.
-
-On first launch, enter the household city, for example `Toronto, CA`.
-OpenWeather finds and saves the location, then shows a cached five-day
-forecast in Calendar.
-
-共享板数据保存在 Supabase Postgres。浏览器只保存界面语言和当前家庭成员。
-
-## Test / 测试
+## Test
 
 ```powershell
 uv run python -m unittest -v
 ```
 
-Tests use a fake AI response and do not call OpenRouter or Deepgram.
+Tests use local fakes and do not call AI, transcription, weather, or Supabase
+providers.

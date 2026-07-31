@@ -21,8 +21,9 @@ class SupabaseAuthTest(unittest.TestCase):
                 "submissions",
                 "items",
                 "recurrence_exceptions",
-                "chat_sessions",
-                "chat_messages",
+                "item_notes",
+                "conversation_sessions",
+                "conversation_messages",
             )
         }
         store["households"].append(
@@ -69,11 +70,14 @@ class SupabaseAuthTest(unittest.TestCase):
             TestClient(app_module.app, base_url="https://testserver") as browser,
         ):
             response = browser.get("/api/board")
+            today = browser.get("/api/today?date=2026-08-01&timezone=UTC")
             self.assertFalse(hasattr(app_module.app.state, "database_url"))
 
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["household"]["name"], "Test home")
         self.assertEqual(response.json()["members"][0]["name"], "Alice")
+        self.assertEqual(today.status_code, 200, today.text)
+        self.assertEqual(today.json()["items"], [])
         self.assertEqual(response.headers["x-frame-options"], "DENY")
         self.assertIn("default-src 'self'", response.headers["content-security-policy"])
 
@@ -90,8 +94,9 @@ class SupabaseAuthTest(unittest.TestCase):
             "submissions",
             "items",
             "recurrence_exceptions",
-            "chat_sessions",
-            "chat_messages",
+            "item_notes",
+            "conversation_sessions",
+            "conversation_messages",
         ):
             self.assertIn(f"alter table public.{table} enable row level security", schema)
         self.assertIn(
@@ -100,6 +105,11 @@ class SupabaseAuthTest(unittest.TestCase):
         self.assertIn(
             "revoke all on function public.create_board_items", schema
         )
+        latest = sorted(migrations.glob("*.sql"))[-1].read_text(encoding="utf-8").lower()
+        for removed in ("owner_id", "assignment_state", "unclaimed", "claimed"):
+            self.assertNotIn(removed, latest)
+        for current in ("remind_member_id", "completed_at", "item_notes", "conversation_sessions"):
+            self.assertIn(current, latest)
 
 
 if __name__ == "__main__":

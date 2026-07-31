@@ -1,1859 +1,666 @@
-const messages = {
+"use strict";
+
+const copy = {
   zh: {
-    iAm: "我是",
-    currentMember: "当前家庭成员",
-    switchLanguage: "切换语言",
-    boardViews: "共享板视图",
-    itemTypes: "内容类型",
-    family: "家庭成员",
-    eyebrow: "记事本",
-    heading: "想记录什么？",
-    subheading: "输入文字或说一句话，就能添加日程、待办或笔记。",
-    inputLabel: "要添加什么？",
-    inputPlaceholder: "例如：周六下午三点带孩子看牙医",
-    sortHint: "有时间的放进日历，要做的放进待办，其他信息存为笔记。",
-    optionalOwner: "负责人（可选）",
-    unassigned: "未分配",
-    record: "语音",
-    stop: "停止",
-    add: "添加",
-    board: "共享板",
-    calendar: "日历",
-    notes: "笔记",
-    workEyebrow: "家庭看板",
-    boardTitle: "大家要做的事",
-    boardDescription: "日程和待办都在这里。认领后可以更新进度，笔记在单独页面。",
-    myBoardTitle: "我要做的事",
-    myBoardDescription: "这里只显示分配给我的日程和待办。",
-    openItems: "未完成",
-    mineItems: "我的",
-    thisWeek: "本周",
-    everyone: "全部",
-    justMine: "只看我的",
-    scopeFilter: "看板范围",
-    search: "搜索",
-    searchPlaceholder: "搜索日程或待办",
-    type: "类型",
-    allTypes: "全部类型",
-    tasksOnly: "只看待办",
-    eventsOnly: "只看日程",
-    allOwners: "全部负责人",
-    emptyFiltered: "没有符合当前筛选的内容",
-    unclaimed: "未认领",
-    claimed: "已认领",
-    done: "完成",
-    pendingAssignment: "等待接受",
-    accept: "接受",
-    reject: "拒绝",
-    familyMembers: "家庭成员",
-    familyManage: "家庭管理",
-    currentHousehold: "当前家庭",
-    addHousehold: "创建或加入其他家庭",
-    authTitle: "登录 Hearthbook",
-    authHelp: "使用邮箱创建账号或登录。",
-    email: "邮箱",
-    password: "密码",
-    login: "登录",
-    signup: "创建账号",
-    signingIn: "正在登录…",
-    confirmationSent: "账号已创建，请先打开确认邮件，再回来登录。",
-    logout: "退出登录",
-    householdSetupTitle: "设置家庭",
-    householdSetupHelp: "创建一个新家庭，或用邀请代码加入家人。",
-    householdName: "家庭名称",
-    yourName: "你的名字",
-    createHousehold: "创建家庭",
-    orJoin: "或者加入已有家庭",
-    inviteCode: "家庭邀请码",
-    joinHousehold: "加入家庭",
-    citySetupTitle: "选择家庭城市",
-    citySetupHelp: "天气会显示在日历上。输入城市和国家，例如 Toronto, CA。",
-    cityLabel: "家庭城市",
-    cityPlaceholder: "例如 Toronto, CA",
-    saveCity: "保存城市",
-    savingCity: "正在确认城市…",
-    editCity: "修改家庭城市",
-    cityNotFound: "找不到这个城市，请尝试加上国家代码",
-    weatherData: "天气数据由 OpenWeather 提供",
-    precipitation: "降雨概率",
-    weatherUnavailable: "暂时无法加载天气",
-    memberHelp: "添加家庭成员后，每个人使用前在右上角选择自己。",
-    memberName: "成员姓名",
-    memberRole: "身份（例如：爸爸）",
-    removeMember: "删除",
-    addMember: "添加成员",
-    previousPeriod: "上一段时间",
-    nextPeriod: "下一段时间",
-    calendarView: "日历视图",
-    month: "月",
-    week: "周",
-    close: "关闭",
-    event: "日程",
-    task: "待办",
-    note: "笔记",
-    owner: "负责人",
-    status: "状态",
-    createdBy: "添加人",
-    due: "截止",
-    starts: "时间",
-    allDay: "全天",
-    recurs: "重复",
-    daily: "每天",
-    weekly: "每周",
-    monthly: "每月",
-    monthlyLastDay: "每月最后一天",
-    recurrenceEnds: "重复结束",
-    reminder: "提醒时间",
-    edit: "编辑",
-    editItem: "编辑内容",
-    title: "标题",
-    details: "详情",
-    editScope: "修改范围",
-    thisOccurrence: "只修改这一次",
-    entireSeries: "修改整个系列",
-    date: "日期",
-    ends: "结束",
-    specificTime: "指定时间",
-    dueDate: "截止日期",
-    seriesEditWarning: "修改系列开始时间会清除已有的单次例外。",
-    saveChanges: "保存修改",
-    cancel: "取消",
-    confirmCancelOccurrence: "确定只取消这一次日程吗？",
-    occurrenceTitlePrompt: "修改这一次的标题",
-    occurrenceDatePrompt: "修改这一次的日期或时间",
-    delete: "删除",
-    confirmDelete: "确定删除这项内容吗？",
-    confirmDeleteSeries: "确定删除整个重复日程吗？",
-    empty: "这里还没有内容",
-    chooseMember: "请先添加并选择一位家庭成员",
-    added: "已添加",
-    reply: "回复",
-    analyzing: "正在整理…",
-    preparation: "准备工作",
-    acceptPreparation: "接受这项准备工作",
-    assumptions: "采用的理解",
-    conflicts: "需要注意",
-    confirmCreate: "确认创建",
-    startOver: "重新开始",
-    suggestedOwner: "负责人（可修改）",
-    timeConflict: "与“{title}”在 {date} 时间冲突",
-    duplicateConflict: "可能与“{title}”重复",
-    updated: "已更新",
-    deleted: "已删除",
-    recording: "正在录音，再按一次停止",
-    processing: "正在整理…",
-    microphoneError: "无法使用麦克风",
-    networkError: "操作失败，请检查服务和 API 配置",
-    openrouterMissing: "请在 .env 配置 OPENROUTER_API_KEY",
-    deepgramMissing: "请在 .env 配置 DEEPGRAM_API_KEY",
-    openweatherMissing: "请在 .env 配置 OPENWEATHER_API_KEY",
-    noSpeech: "没有识别到语音",
-    assistantEyebrow: "家庭助手",
-    assistantTitle: "问问家庭安排",
-    assistantInputLabel: "询问日程、待办或笔记",
-    assistantPlaceholder: "例如：这周末有什么安排？",
-    openAssistant: "打开家庭助手",
-    closeAssistant: "关闭家庭助手",
-    newChat: "新对话",
-    send: "发送",
-    assistantWelcome: "你可以问家庭日程、待办、提醒、准备工作或笔记。",
-    assistantThinking: "正在查找…",
-    assistantConfirmAction: "确认修改",
-    assistantCancelAction: "取消",
-    assistantActionDone: "看板已更新。",
-    assistantActionCancelled: "已取消这次修改。",
-    today: "今天",
-    notesEyebrow: "家庭信息",
-    notesTitle: "常用信息",
-    notesDescription: "门锁密码、购物偏好、学校信息等，都可以记在这里。",
+    currentMember: "当前家庭成员", settings: "设置", homeTitle: "今天家里有什么事？",
+    homeSubtitle: "说一句就好：记录、查询，或者聊聊。", voiceTitle: "家庭助手",
+    tapToTalk: "点一下，说出来", stopRecording: "说完了，点这里", preferTyping: "不方便说话？输入文字",
+    messageLabel: "输入记录、问题或消息", messagePlaceholder: "例如：周六三点看牙，提醒妈妈",
+    send: "发送", conversation: "对话", clear: "清空", remindWho: "提醒谁",
+    preparation: "准备事项", cancel: "取消", confirm: "确认", todayEyebrow: "别漏掉",
+    todayTitle: "今天", refresh: "刷新", plans: "安排", calendar: "日历", chooseMonth: "选择月份",
+    unscheduled: "未安排时间", familyMemory: "家庭记忆", notes: "笔记",
+    notesHelp: "门锁密码、购物偏好、学校信息，都放在这里。", home: "首页",
+    close: "关闭", title: "标题", details: "详情", delete: "删除", save: "保存",
+    followups: "补充记录", addFollowup: "添加补充记录", followupPlaceholder: "补充最新情况…",
+    add: "添加", logout: "退出登录", authTitle: "登录 Hearthbook", email: "邮箱",
+    password: "密码", login: "登录", signup: "创建账号", householdSetup: "设置家庭",
+    householdName: "家庭名称", yourName: "你的名字", createHousehold: "创建家庭",
+    orJoin: "或者加入已有家庭", inviteCode: "家庭邀请码", joinHousehold: "加入家庭",
+    event: "日程", task: "待办", note: "笔记", allDay: "全天", due: "截止",
+    starts: "开始", reminder: "提醒", remind: "提醒", done: "已完成", markDone: "标记完成", markOpen: "恢复待办",
+    emptyToday: "今天没有安排或提醒。", emptyCalendar: "这个月还没有安排。",
+    emptyUnscheduled: "没有未安排的待办。", emptyNotes: "还没有家庭笔记。",
+    emptyConversation: "从一句话开始。", listening: "正在听…", thinking: "想一想…",
+    saved: "已保存", deleted: "已删除", added: "已添加", confirmed: "已确认",
+    deleteConfirm: "确定删除这条内容吗？", chooseMember: "请先选择你是谁。",
+    microphoneError: "无法使用麦克风，可以改用文字输入。", networkError: "暂时连接不上，请稍后再试。",
+    noSpeech: "没有录到声音，请再试一次。", familyMembers: "家庭成员", invite: "邀请码",
+    recurrence: "重复", daily: "每天", weekly: "每周", monthly: "每月", overdue: "已过期",
   },
   en: {
-    iAm: "I am",
-    currentMember: "Current family member",
-    switchLanguage: "Switch language",
-    boardViews: "Board views",
-    itemTypes: "Item types",
-    family: "Family",
-    eyebrow: "Family plans",
-    heading: "What's happening at home?",
-    subheading: "Type or say something to add an event, task, or note.",
-    inputLabel: "What would you like to add?",
-    inputPlaceholder: "For example: Dentist for the kids Saturday at 3 PM",
-    sortHint: "Timed plans go on the calendar. Actions become tasks. Other information goes in notes.",
-    optionalOwner: "Owner (optional)",
-    unassigned: "Unassigned",
-    record: "Voice",
-    stop: "Stop",
-    add: "Add",
-    board: "Board",
-    calendar: "Calendar",
-    notes: "Notes",
-    workEyebrow: "Family board",
-    boardTitle: "Plans and tasks",
-    boardDescription: "Events and tasks are here. Claim one or update its status. Notes stay separate.",
-    myBoardTitle: "My items",
-    myBoardDescription: "Only events and tasks assigned to me are shown here.",
-    openItems: "Open",
-    mineItems: "Mine",
-    thisWeek: "This week",
-    everyone: "Everyone",
-    justMine: "Just mine",
-    scopeFilter: "Board scope",
-    search: "Search",
-    searchPlaceholder: "Search events or tasks",
-    type: "Type",
-    allTypes: "All types",
-    tasksOnly: "Tasks only",
-    eventsOnly: "Events only",
-    allOwners: "All owners",
-    emptyFiltered: "Nothing matches these filters",
-    unclaimed: "Unclaimed",
-    claimed: "Claimed",
-    done: "Done",
-    pendingAssignment: "Awaiting acceptance",
-    accept: "Accept",
-    reject: "Decline",
-    familyMembers: "Family members",
-    familyManage: "Manage family",
-    currentHousehold: "Current household",
-    addHousehold: "Create or join another household",
-    authTitle: "Sign in to Hearthbook",
-    authHelp: "Create an account or sign in with your email.",
-    email: "Email",
-    password: "Password",
-    login: "Sign in",
-    signup: "Create account",
-    signingIn: "Signing in…",
-    confirmationSent: "Account created. Confirm your email, then return to sign in.",
-    logout: "Sign out",
-    householdSetupTitle: "Set up your household",
-    householdSetupHelp: "Create a household or join your family with an invite code.",
-    householdName: "Household name",
-    yourName: "Your name",
-    createHousehold: "Create household",
-    orJoin: "Or join an existing household",
-    inviteCode: "Household invite code",
-    joinHousehold: "Join household",
-    citySetupTitle: "Choose your household city",
-    citySetupHelp: "Weather will appear in Calendar. Enter a city and country, such as Toronto, CA.",
-    cityLabel: "Household city",
-    cityPlaceholder: "For example, Toronto, CA",
-    saveCity: "Save city",
-    savingCity: "Checking city…",
-    editCity: "Edit household city",
-    cityNotFound: "City not found. Try adding the country code.",
-    weatherData: "Weather data provided by OpenWeather",
-    precipitation: "Chance of rain",
-    weatherUnavailable: "Weather is temporarily unavailable",
-    memberHelp: "Add family members, then choose your name in the top-right before using the board.",
-    memberName: "Member name",
-    memberRole: "Role (for example, Dad)",
-    removeMember: "Remove",
-    addMember: "Add member",
-    previousPeriod: "Previous period",
-    nextPeriod: "Next period",
-    calendarView: "Calendar view",
-    month: "Month",
-    week: "Week",
-    close: "Close",
-    event: "Event",
-    task: "Task",
-    note: "Note",
-    owner: "Owner",
-    status: "Status",
-    createdBy: "Added by",
-    due: "Due",
-    starts: "Time",
-    allDay: "All day",
-    recurs: "Repeats",
-    daily: "Daily",
-    weekly: "Weekly",
-    monthly: "Monthly",
-    monthlyLastDay: "Last day of every month",
-    recurrenceEnds: "Recurrence ends",
-    reminder: "Reminder",
-    edit: "Edit",
-    editItem: "Edit item",
-    title: "Title",
-    details: "Details",
-    editScope: "Edit scope",
-    thisOccurrence: "Only this occurrence",
-    entireSeries: "Entire series",
-    date: "Date",
-    ends: "Ends",
-    specificTime: "Specific time",
-    dueDate: "Due date",
-    seriesEditWarning: "Changing the series start clears existing occurrence exceptions.",
-    saveChanges: "Save changes",
-    cancel: "Cancel",
-    confirmCancelOccurrence: "Cancel only this occurrence?",
-    occurrenceTitlePrompt: "Edit this occurrence's title",
-    occurrenceDatePrompt: "Edit this occurrence's date or time",
-    delete: "Delete",
-    confirmDelete: "Delete this item?",
-    confirmDeleteSeries: "Delete this entire recurring series?",
-    empty: "Nothing here yet",
-    chooseMember: "Add and choose a family member first",
-    added: "Added",
-    reply: "Reply",
-    analyzing: "Working on it…",
-    preparation: "Preparation",
-    acceptPreparation: "Accept this preparation",
-    assumptions: "Assumptions",
-    conflicts: "Needs attention",
-    confirmCreate: "Confirm and create",
-    startOver: "Start over",
-    suggestedOwner: "Owner (editable)",
-    timeConflict: "Overlaps \"{title}\" on {date}",
-    duplicateConflict: "May duplicate \"{title}\"",
-    updated: "Updated",
-    deleted: "Deleted",
-    recording: "Recording. Press again to stop.",
-    processing: "Organizing…",
-    microphoneError: "Microphone is unavailable",
-    networkError: "Action failed. Check the service and API configuration.",
-    openrouterMissing: "Configure OPENROUTER_API_KEY in .env",
-    deepgramMissing: "Configure DEEPGRAM_API_KEY in .env",
-    openweatherMissing: "Configure OPENWEATHER_API_KEY in .env",
-    noSpeech: "No speech was detected",
-    assistantEyebrow: "Family assistant",
-    assistantTitle: "Ask about home plans",
-    assistantInputLabel: "Ask about schedules, tasks, or notes",
-    assistantPlaceholder: "For example: What is happening this weekend?",
-    openAssistant: "Open family assistant",
-    closeAssistant: "Close family assistant",
-    newChat: "New chat",
-    send: "Send",
-    assistantWelcome: "Ask about family events, tasks, reminders, preparations, or notes.",
-    assistantThinking: "Checking the board…",
-    assistantConfirmAction: "Confirm change",
-    assistantCancelAction: "Cancel",
-    assistantActionDone: "I updated the board.",
-    assistantActionCancelled: "That change was cancelled.",
-    today: "Today",
-    notesEyebrow: "Family notes",
-    notesTitle: "Useful information",
-    notesDescription: "Keep door codes, shopping preferences, school details, and other household information here.",
+    currentMember: "Current family member", settings: "Settings", homeTitle: "What's happening at home today?",
+    homeSubtitle: "Say it once—to remember, ask, or chat.", voiceTitle: "Family assistant",
+    tapToTalk: "Tap and say what's on your mind", stopRecording: "Tap when you're done", preferTyping: "Can't talk? Type instead",
+    messageLabel: "Type a plan, question, or message", messagePlaceholder: "Example: Dentist Saturday at 3, remind Mom",
+    send: "Send", conversation: "Conversation", clear: "Clear", remindWho: "Remind",
+    preparation: "Preparation", cancel: "Cancel", confirm: "Confirm", todayEyebrow: "Don't miss",
+    todayTitle: "Today", refresh: "Refresh", plans: "Plans", calendar: "Calendar", chooseMonth: "Choose month",
+    unscheduled: "Unscheduled", familyMemory: "Family memory", notes: "Notes",
+    notesHelp: "Keep door codes, shopping preferences, and school information here.", home: "Home",
+    close: "Close", title: "Title", details: "Details", delete: "Delete", save: "Save",
+    followups: "Follow-ups", addFollowup: "Add a follow-up", followupPlaceholder: "Add the latest update…",
+    add: "Add", logout: "Log out", authTitle: "Sign in to Hearthbook", email: "Email",
+    password: "Password", login: "Sign in", signup: "Create account", householdSetup: "Set up your household",
+    householdName: "Household name", yourName: "Your name", createHousehold: "Create household",
+    orJoin: "Or join an existing household", inviteCode: "Household invite code", joinHousehold: "Join household",
+    event: "Event", task: "Task", note: "Note", allDay: "All day", due: "Due",
+    starts: "Starts", reminder: "Reminder", remind: "Remind", done: "Done", markDone: "Mark done", markOpen: "Mark open",
+    emptyToday: "Nothing is scheduled or due today.", emptyCalendar: "No plans this month.",
+    emptyUnscheduled: "No unscheduled tasks.", emptyNotes: "No family notes yet.",
+    emptyConversation: "Start with one sentence.", listening: "Listening…", thinking: "Thinking…",
+    saved: "Saved", deleted: "Deleted", added: "Added", confirmed: "Confirmed",
+    deleteConfirm: "Delete this item?", chooseMember: "Choose who you are first.",
+    microphoneError: "The microphone isn't available. You can type instead.", networkError: "Can't connect right now. Try again shortly.",
+    noSpeech: "No audio was captured. Please try again.", familyMembers: "Family members", invite: "Invite code",
+    recurrence: "Repeats", daily: "Daily", weekly: "Weekly", monthly: "Monthly", overdue: "Overdue",
   },
-};
-
-const state = {
-  board: { household: {}, members: [], items: [] },
-  calendarItems: [],
-  weekItems: [],
-  weather: null,
-  language: localStorage.getItem("home-language")
-    || (navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en"),
-  month: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-  selectedDate: dateKey(new Date()),
-  calendarMode: localStorage.getItem("home-calendar-mode") === "week" ? "week" : "month",
-  boardScope: "all",
-  typeFilter: "all",
-  ownerFilter: "all",
-  search: "",
-  recorder: null,
-  recordingTimer: null,
-  intake: null,
-  assistant: null,
-  assistantPending: "",
-  assistantError: "",
-  editingItem: null,
-  editingOccurrence: null,
-  households: [],
-  activeHouseholdId: "",
 };
 
 const $ = (selector) => document.querySelector(selector);
-const actorSelect = $("#actorSelect");
-const ownerSelect = $("#newOwnerSelect");
-const authDialog = $("#authDialog");
-const onboardingDialog = $("#onboardingDialog");
-const householdDialog = $("#householdDialog");
-const membersDialog = $("#membersDialog");
-const itemEditor = $("#itemEditor");
-const recordButton = $("#recordButton");
+const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+const state = {
+  language: localStorage.getItem("hearthbook-language") || (navigator.language.startsWith("zh") ? "zh" : "en"),
+  board: { household: {}, members: [], items: [] },
+  today: [], calendar: [], messages: [], pending: null, selectedItem: null,
+  sessionId: localStorage.getItem("hearthbook-session") || null,
+  recorder: null, recordingTimer: null,
+};
 
-function t(key) {
-  return messages[state.language][key] || key;
-}
+function t(key) { return copy[state.language][key] || key; }
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
-    headers: options.body instanceof FormData
-      ? options.headers
-      : { "Content-Type": "application/json", ...options.headers },
     ...options,
+    headers: options.body instanceof FormData ? options.headers : { "Content-Type": "application/json", ...options.headers },
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const detail = data.detail || "";
-    let message = detail || t("networkError");
-    if (detail.includes("OPENROUTER_API_KEY")) message = t("openrouterMissing");
-    if (detail.includes("DEEPGRAM_API_KEY")) message = t("deepgramMissing");
-    if (detail.includes("OPENWEATHER_API_KEY")) message = t("openweatherMissing");
-    const error = new Error(message);
+    const safeDetail = response.status < 500 && typeof data.detail === "string" ? data.detail : "";
+    const error = new Error(safeDetail || t("networkError"));
     error.status = response.status;
     throw error;
   }
   return data;
 }
 
-function showToast(text, error = false) {
+function showToast(message, isError = false) {
   const toast = $("#toast");
-  toast.textContent = text;
-  toast.classList.toggle("error", error);
+  toast.textContent = message;
+  toast.classList.toggle("error", isError);
   toast.hidden = false;
   clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => { toast.hidden = true; }, 3500);
+  showToast.timer = setTimeout(() => { toast.hidden = true; }, 3200);
 }
 
-function applyLanguage() {
-  document.documentElement.lang = state.language === "zh" ? "zh-CN" : "en";
-  document.querySelectorAll("[data-i18n]").forEach((element) => {
-    element.textContent = t(element.dataset.i18n);
-  });
-  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
-    element.placeholder = t(element.dataset.i18nPlaceholder);
-  });
-  document.querySelectorAll("[data-i18n-aria]").forEach((element) => {
-    element.setAttribute("aria-label", t(element.dataset.i18nAria));
-  });
-  $("#languageButton").textContent = state.language === "zh" ? "EN" : "中";
-  render();
-  renderIntake();
-  renderAssistant();
+function dateKey(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function selectedActor() {
-  return actorSelect.value || "";
+function localDate(key) {
+  const [year, month, day] = key.split("-").map(Number);
+  return new Date(year, month - 1, day);
 }
 
-function requireActor() {
-  if (selectedActor()) return true;
-  showToast(t("chooseMember"), true);
-  membersDialog.showModal();
-  return false;
-}
-
-function fillMemberSelect(select, includeUnassigned, selectedValue = "") {
-  select.replaceChildren();
-  if (includeUnassigned) {
-    select.add(new Option(t("unassigned"), ""));
-  }
-  state.board.members.forEach((member) => {
-    select.add(new Option(member.role ? `${member.name} (${member.role})` : member.name, member.id));
-  });
-  if ([...select.options].some((option) => option.value === selectedValue)) {
-    select.value = selectedValue;
-  }
-}
-
-function renderMembers() {
-  const savedActor = localStorage.getItem("home-actor") || selectedActor();
-  fillMemberSelect(actorSelect, false, savedActor);
-  if (!actorSelect.value && state.board.members.length) {
-    actorSelect.value = state.board.members[0].id;
-    localStorage.setItem("home-actor", actorSelect.value);
-  }
-  fillMemberSelect(ownerSelect, true, ownerSelect.value);
-  const ownerFilter = $("#ownerFilter");
-  const savedFilter = state.ownerFilter;
-  ownerFilter.replaceChildren(
-    new Option(t("allOwners"), "all"),
-    new Option(t("unassigned"), "unassigned"),
-  );
-  state.board.members.forEach((member) => {
-    ownerFilter.add(new Option(member.name, member.id));
-  });
-  if ([...ownerFilter.options].some((option) => option.value === savedFilter)) {
-    ownerFilter.value = savedFilter;
-  } else {
-    state.ownerFilter = "all";
-  }
-
-  const list = $("#memberList");
-  list.replaceChildren();
-  state.board.members.forEach((member) => {
-    const item = document.createElement("li");
-    item.append(createText("span", "", member.role ? `${member.name} · ${member.role}` : member.name));
-    const remove = document.createElement("button");
-    remove.className = "button ghost compact";
-    remove.type = "button";
-    remove.textContent = t("removeMember");
-    remove.addEventListener("click", async () => {
-      if (!confirm(`${t("removeMember")} ${member.name}?`)) return;
-      state.board = await api(`/api/members/${member.id}`, { method: "DELETE" });
-      if (localStorage.getItem("home-actor") === member.id) localStorage.removeItem("home-actor");
-      render();
-    });
-    item.append(remove);
-    list.append(item);
-  });
-}
-
-function memberName(id) {
-  return state.board.members.find((member) => member.id === id)?.name || t("unassigned");
+function formatDate(key, options = { weekday: "long", month: "short", day: "numeric" }) {
+  return new Intl.DateTimeFormat(state.language === "zh" ? "zh-CN" : "en-CA", options).format(localDate(key));
 }
 
 function formatDateTime(value, allDay = false) {
   if (!value) return "";
-  const date = allDay && /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? localDateFromKey(value)
-    : new Date(value);
+  if (allDay && /^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDate(value);
   return new Intl.DateTimeFormat(state.language === "zh" ? "zh-CN" : "en-CA", {
-    dateStyle: "medium",
-    ...(allDay ? {} : { timeStyle: "short" }),
-  }).format(date);
-}
-
-function createText(tag, className, text) {
-  const element = document.createElement(tag);
-  if (className) element.className = className;
-  element.textContent = text;
-  return element;
-}
-
-function reviewList(container, title, items, itemClass = "") {
-  container.replaceChildren();
-  if (!items?.length) return;
-  container.className = "intake-review-section";
-  container.append(createText("h3", "", title));
-  const list = document.createElement("ul");
-  items.forEach((text) => list.append(createText("li", itemClass, text)));
-  container.append(list);
-}
-
-function draftSchedule(draft) {
-  if (draft.kind === "event") {
-    const value = draft.start_date || draft.start_at;
-    return value ? `${t("starts")}: ${formatDateTime(value, Boolean(draft.start_date))}` : "";
-  }
-  if (draft.kind === "task") {
-    const value = draft.due_date || draft.due_at;
-    return value ? `${t("due")}: ${formatDateTime(value, Boolean(draft.due_date))}` : "";
-  }
-  return "";
-}
-
-function renderIntake(response = state.intake) {
-  const panel = $("#intakeConversation");
-  if (!response) {
-    panel.hidden = true;
-    return;
-  }
-  panel.hidden = false;
-  const messages = $("#intakeMessages");
-  messages.replaceChildren(...response.messages.map((message) =>
-    createText("p", `intake-message ${message.role}`, message.content)
-  ));
-
-  const reviewing = response.status === "review";
-  $("#intakeReview").hidden = !reviewing;
-  $("#intakeConfirmButton").hidden = !reviewing;
-  $("#submitButton").hidden = reviewing;
-  $("#textInput").disabled = reviewing;
-  ownerSelect.disabled = true;
-  if (!reviewing) {
-    $("#textInput").placeholder = t("reply");
-    return;
-  }
-
-  reviewList($("#intakeAssumptions"), t("assumptions"), response.assumptions);
-  const conflicts = response.conflicts.map((conflict) => (
-    conflict.kind === "duplicate"
-      ? t("duplicateConflict").replace("{title}", conflict.existing_title)
-      : t("timeConflict")
-        .replace("{title}", conflict.existing_title)
-        .replace("{date}", conflict.date)
-  ));
-  reviewList($("#intakeConflicts"), t("conflicts"), conflicts, "intake-conflict");
-
-  const drafts = $("#intakeDrafts");
-  drafts.replaceChildren();
-  response.drafts.forEach((draft) => {
-    const card = document.createElement("article");
-    card.className = "intake-draft";
-    card.append(
-      createText("strong", "", `${t(draft.kind)} · ${draft.title}`),
-    );
-    if (draft.details) card.append(createText("p", "", draft.details));
-    const schedule = draftSchedule(draft);
-    if (schedule) card.append(createText("p", "", schedule));
-    if (draft.preparation) {
-      if (draft.preparation_accepted === undefined) {
-        draft.preparation_accepted = true;
-      }
-      const preparationLabel = document.createElement("label");
-      preparationLabel.className = "preparation-choice";
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = draft.preparation_accepted;
-      checkbox.addEventListener("change", () => {
-        draft.preparation_accepted = checkbox.checked;
-      });
-      preparationLabel.append(
-        checkbox,
-        createText(
-          "span",
-          "",
-          `${t("acceptPreparation")}: ${draft.preparation}`,
-        ),
-      );
-      card.append(preparationLabel);
-    }
-    if (draft.kind !== "note") {
-      const label = document.createElement("label");
-      label.append(createText("span", "", t("suggestedOwner")));
-      const select = document.createElement("select");
-      select.className = "draft-owner";
-      select.append(new Option(t("unassigned"), ""));
-      state.board.members.forEach((member) => {
-        select.append(new Option(
-          member.role ? `${member.name} · ${member.role}` : member.name,
-          member.id,
-        ));
-      });
-      select.value = draft.owner_id || "";
-      select.addEventListener("change", () => {
-        draft.owner_id = select.value || null;
-      });
-      label.append(select);
-      card.append(label);
-    }
-    drafts.append(card);
-  });
-}
-
-function resetIntake() {
-  state.intake = null;
-  $("#intakeConversation").hidden = true;
-  $("#intakeReview").hidden = true;
-  $("#intakeConfirmButton").hidden = true;
-  $("#submitButton").hidden = false;
-  $("#textInput").disabled = false;
-  $("#textInput").value = "";
-  $("#textInput").placeholder = t("inputPlaceholder");
-  ownerSelect.disabled = false;
-  ownerSelect.value = "";
-}
-
-function handleIntakeResponse(response) {
-  state.intake = response;
-  $("#textInput").value = "";
-  renderIntake();
-}
-
-function renderAssistant() {
-  const container = $("#assistantMessages");
-  const messages = state.assistant?.messages?.length
-    ? [...state.assistant.messages]
-    : [{ role: "assistant", content: t("assistantWelcome") }];
-  if (state.assistantPending) {
-    messages.push(
-      { role: "user", content: state.assistantPending },
-      { role: "assistant", content: t("assistantThinking") },
-    );
-  } else if (state.assistantError) {
-    messages.push({ role: "assistant", content: state.assistantError });
-  }
-  container.replaceChildren(...messages.map((message) =>
-    createText("p", `assistant-message ${message.role}`, message.content)
-  ));
-  if (state.assistant?.action && !state.assistantPending && !state.assistantError) {
-    const action = document.createElement("div");
-    action.className = "assistant-action";
-    action.append(createText("p", "", state.assistant.action.confirmation));
-    const controls = document.createElement("div");
-    controls.className = "assistant-action-controls";
-    const confirmButton = createText("button", "button primary compact", t("assistantConfirmAction"));
-    confirmButton.type = "button";
-    confirmButton.addEventListener("click", confirmAssistantAction);
-    const cancelButton = createText("button", "button secondary compact", t("assistantCancelAction"));
-    cancelButton.type = "button";
-    cancelButton.addEventListener("click", () => {
-      state.assistant.action = null;
-      state.assistant.messages.push({ role: "assistant", content: t("assistantActionCancelled") });
-      renderAssistant();
-    });
-    controls.append(confirmButton, cancelButton);
-    action.append(controls);
-    container.append(action);
-  }
-  container.scrollTop = container.scrollHeight;
-}
-
-async function confirmAssistantAction(event) {
-  if (!requireActor() || !state.assistant?.action) return;
-  const action = state.assistant.action;
-  event.currentTarget.disabled = true;
-  try {
-    state.board = await api(`/api/items/${action.item_id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ actor_id: selectedActor(), ...action.fields }),
-    });
-    state.assistant.action = null;
-    state.assistant.messages.push({ role: "assistant", content: t("assistantActionDone") });
-    await loadCalendar();
-    showToast(t("updated"));
-  } catch (error) {
-    event.currentTarget.disabled = false;
-    showToast(error.message || t("networkError"), true);
-  }
-  renderAssistant();
-}
-
-function resetAssistant() {
-  state.assistant = null;
-  state.assistantPending = "";
-  state.assistantError = "";
-  $("#assistantInput").value = "";
-  renderAssistant();
-}
-
-function toggleAssistant(open) {
-  const panel = $("#assistantPanel");
-  panel.hidden = !open;
-  $("#assistantButton").setAttribute("aria-expanded", String(open));
-  if (open) {
-    renderAssistant();
-    $("#assistantInput").focus();
-  } else if (document.activeElement?.closest("#assistantPanel")) {
-    $("#assistantButton").focus();
-  }
-}
-
-function weatherForDate(key) {
-  return state.weather?.days.find((day) => day.date === key) || null;
-}
-
-function weatherIcon(weather, size = 32) {
-  const image = document.createElement("img");
-  image.src = `https://openweathermap.org/img/wn/${weather.icon}@2x.png`;
-  image.alt = weather.description;
-  image.width = size;
-  image.height = size;
-  image.loading = "lazy";
-  return image;
-}
-
-function weatherBrief(weather) {
-  const brief = document.createElement("span");
-  brief.className = "weather-brief";
-  brief.append(
-    weatherIcon(weather),
-    createText("span", "", `${weather.temp_min}° / ${weather.temp_max}°`),
-  );
-  return brief;
-}
-
-function renderSelectedWeather() {
-  const container = $("#selectedWeather");
-  const weather = weatherForDate(state.selectedDate);
-  container.replaceChildren();
-  container.hidden = !weather;
-  if (!weather) return;
-
-  const copy = document.createElement("div");
-  copy.append(
-    createText("strong", "", weather.description),
-    createText("p", "", `${weather.temp_min}° / ${weather.temp_max}°`),
-    createText(
-      "p",
-      "",
-      `${t("precipitation")}: ${weather.precipitation_probability}%`,
-    ),
-  );
-  container.className = "weather-detail";
-  container.append(weatherIcon(weather, 52), copy);
-}
-
-function itemCard(item, compact = false, index = 0) {
-  const card = document.createElement("article");
-  card.className = `item-card ${item.status === "done" ? "done-card" : ""} ${item.kind === "note" ? "note-card" : ""}`;
-  card.style.setProperty("--item-index", index);
-
-  const top = document.createElement("div");
-  top.className = "item-topline";
-  const badge = createText("span", `badge ${item.kind}`, t(item.kind));
-  const actions = document.createElement("div");
-  actions.className = "item-actions";
-  if (
-    !compact && item.kind === "task" && item.assignment_state === "pending"
-    && item.owner_id === selectedActor()
-  ) {
-    const accept = createText("button", "button primary", t("accept"));
-    accept.type = "button";
-    accept.addEventListener("click", () => respondToAssignment(item.id, true));
-    const reject = createText("button", "delete-button", t("reject"));
-    reject.type = "button";
-    reject.addEventListener("click", () => respondToAssignment(item.id, false));
-    actions.append(accept, reject);
-  }
-  if (compact && item.is_occurrence) {
-    const edit = createText("button", "delete-button", t("edit"));
-    edit.type = "button";
-    edit.addEventListener("click", () => editOccurrence(item));
-    const cancel = createText("button", "delete-button", t("cancel"));
-    cancel.type = "button";
-    cancel.addEventListener("click", () => cancelOccurrence(item));
-    actions.append(edit, cancel);
-  } else {
-    const edit = createText("button", "delete-button", t("edit"));
-    edit.type = "button";
-    edit.addEventListener("click", () => openItemEditor(item));
-    const remove = createText("button", "delete-button", t("delete"));
-    remove.type = "button";
-    remove.addEventListener("click", () => removeItem(item));
-    actions.append(edit, remove);
-  }
-  top.append(badge, actions);
-  card.append(top, createText("h3", "", item.title));
-
-  if (item.details) card.append(createText("p", "", item.details));
-  if (item.preparation) {
-    card.append(createText("p", "item-preparation", `${t("preparation")}: ${item.preparation}`));
-  }
-  if (item.kind === "task" && item.assignment_state === "pending") {
-    card.append(createText("p", "", t("pendingAssignment")));
-  }
-
-  const meta = document.createElement("div");
-  meta.className = "item-meta";
-  if (item.kind === "event") {
-    const starts = item.start_at || item.start_date;
-    meta.append(createText(
-      "p",
-      "",
-      `${t("starts")}: ${formatDateTime(starts, item.all_day)}${item.all_day ? ` · ${t("allDay")}` : ""}`,
-    ));
-    if (item.recurrence) {
-      const recurrence = item.monthly_on_last_day ? "monthlyLastDay" : item.recurrence;
-      meta.append(createText("p", "", `${t("recurs")}: ${t(recurrence)}`));
-      if (item.recurrence_until) {
-        meta.append(createText(
-          "p",
-          "",
-          `${t("recurrenceEnds")}: ${formatDateTime(item.recurrence_until, true)}`,
-        ));
-      }
-    }
-  } else if (item.kind === "task" && (item.due_at || item.due_date)) {
-    const due = item.due_at || item.due_date;
-    meta.append(createText("p", "", `${t("due")}: ${formatDateTime(due, Boolean(item.due_date))}`));
-  }
-  if (item.reminder_at) {
-    meta.append(createText("p", "", `${t("reminder")}: ${formatDateTime(item.reminder_at)}`));
-  }
-  meta.append(createText("p", "", `${t("createdBy")}: ${memberName(item.created_by)}`));
-  card.append(meta);
-
-  if (!compact && item.kind !== "note") {
-    const controls = document.createElement("div");
-    controls.className = "item-controls";
-
-    const ownerLabel = createText("label", "", t("owner"));
-    const itemOwner = document.createElement("select");
-    fillMemberSelect(itemOwner, true, item.owner_id || "");
-    const assignmentPending = item.kind === "task" && item.assignment_state === "pending";
-    itemOwner.disabled = assignmentPending && item.owner_id === selectedActor();
-    itemOwner.addEventListener("change", () => {
-      updateItem(item.id, { owner_id: itemOwner.value || null });
-    });
-    ownerLabel.append(itemOwner);
-
-    const statusLabel = createText("label", "", t("status"));
-    const statusSelect = document.createElement("select");
-    ["unclaimed", "claimed", "done"].forEach((status) => {
-      statusSelect.add(new Option(t(status), status));
-    });
-    statusSelect.value = item.status;
-    statusSelect.disabled = assignmentPending;
-    statusSelect.addEventListener("change", () => {
-      updateItem(item.id, { status: statusSelect.value });
-    });
-    statusLabel.append(statusSelect);
-    controls.append(ownerLabel, statusLabel);
-    if (item.recurrence) {
-      const endLabel = createText("label", "", t("recurrenceEnds"));
-      const endInput = document.createElement("input");
-      endInput.type = "date";
-      endInput.value = item.recurrence_until || "";
-      endInput.addEventListener("change", () => {
-        updateItem(item.id, { recurrence_until: endInput.value || null });
-      });
-      endLabel.append(endInput);
-      controls.append(endLabel);
-    }
-    card.append(controls);
-  } else if (compact && item.kind !== "note") {
-    card.append(createText("p", "", `${t("owner")}: ${memberName(item.owner_id)}`));
-  }
-  card.addEventListener("click", (event) => {
-    if (!event.target.closest("button, input, select, textarea, label")) {
-      openItemEditor(item);
-    }
-  });
-  return card;
-}
-
-function appendEmpty(container, key = "empty") {
-  container.append(createText("p", "empty", t(key)));
-}
-
-function actionItems() {
-  return state.board.items.filter((item) => item.kind !== "note");
-}
-
-function filteredBoardItems() {
-  const query = state.search.trim().toLocaleLowerCase();
-  return actionItems().filter((item) => {
-    if (state.boardScope === "mine" && item.owner_id !== selectedActor()) return false;
-    if (state.typeFilter !== "all" && item.kind !== state.typeFilter) return false;
-    if (state.boardScope === "all" && state.ownerFilter !== "all") {
-      if (state.ownerFilter === "unassigned" && item.owner_id) return false;
-      if (state.ownerFilter !== "unassigned" && item.owner_id !== state.ownerFilter) return false;
-    }
-    return !query || `${item.title} ${item.details || ""}`.toLocaleLowerCase().includes(query);
-  });
-}
-
-function happensThisWeek(item) {
-  return state.weekItems.some(
-    (occurrence) => (occurrence.series_id || occurrence.id) === item.id,
-  );
-}
-
-function renderBoard() {
-  const allItems = actionItems();
-  const visibleItems = filteredBoardItems();
-  const openItems = allItems.filter((item) => item.status !== "done");
-  $("#openStat").textContent = openItems.length;
-  $("#mineStat").textContent = openItems.filter((item) => item.owner_id === selectedActor()).length;
-  $("#weekStat").textContent = openItems.filter(happensThisWeek).length;
-  $("#boardTabCount").textContent = openItems.length;
-  $("#notesTabCount").textContent = state.board.items.filter((item) => item.kind === "note").length;
-  $("#boardTitle").textContent = t(state.boardScope === "mine" ? "myBoardTitle" : "boardTitle");
-  const boardDescription = $("#boardTitle").nextElementSibling;
-  boardDescription.textContent = t(
-    state.boardScope === "mine" ? "myBoardDescription" : "boardDescription",
-  );
-  $("#ownerFilter").disabled = state.boardScope === "mine";
-  document.querySelectorAll("[data-scope]").forEach((button) => {
-    const active = button.dataset.scope === state.boardScope;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", String(active));
-  });
-  const defaultFilters = state.boardScope === "all"
-    && state.typeFilter === "all"
-    && state.ownerFilter === "all"
-    && !state.search.trim();
-
-  ["unclaimed", "claimed", "done"].forEach((status) => {
-    const items = visibleItems.filter((item) => item.status === status);
-    const container = $(`#${status}Items`);
-    container.replaceChildren();
-    items.forEach((item, index) => container.append(itemCard(item, false, index)));
-    if (!items.length) appendEmpty(container, defaultFilters ? "empty" : "emptyFiltered");
-    $(`#${status}Count`).textContent = items.length;
-  });
-}
-
-function dateKey(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+    month: "short", day: "numeric", ...(allDay ? {} : { hour: "numeric", minute: "2-digit" }),
+  }).format(new Date(value));
 }
 
 function itemDate(item) {
-  const value = item.kind === "event"
-    ? item.start_at || item.start_date
-    : item.kind === "task"
-      ? item.due_at || item.due_date
-      : null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return value;
-  return value ? dateKey(new Date(value)) : null;
+  const value = item.occurrence_date || item.start_date || item.due_date || item.start_at || item.due_at;
+  return value ? (/^\d{4}-\d{2}-\d{2}$/.test(value) ? value : dateKey(value)) : "";
 }
 
-function localDateFromKey(key) {
-  return new Date(`${key}T12:00:00`);
-}
-
-function startOfWeek(date) {
-  const start = new Date(date);
-  start.setDate(date.getDate() - date.getDay());
-  return start;
-}
-
-function itemsForDate(key) {
-  return state.calendarItems.filter((item) => itemDate(item) === key);
-}
-
-function renderCalendarDay(grid, date, locale, outside = false) {
-  const key = dateKey(date);
-  const today = dateKey(new Date());
-  const dayItems = itemsForDate(key);
-  const weather = weatherForDate(key);
-  const weekMode = state.calendarMode === "week";
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = `day${weekMode ? " week-day" : ""}`;
-  button.classList.toggle("outside", outside);
-  button.classList.toggle("today", key === today);
-  button.classList.toggle("selected", key === state.selectedDate);
-  const dateLabel = new Intl.DateTimeFormat(locale, {
-    dateStyle: "full",
-  }).format(date);
-  button.setAttribute(
-    "aria-label",
-    weather
-      ? `${dateLabel}, ${weather.description}, ${weather.temp_min}°-${weather.temp_max}°`
-      : dateLabel,
-  );
-
-  if (weekMode) {
-    button.append(
-      createText("span", "week-day-name", new Intl.DateTimeFormat(locale, {
-        weekday: "short",
-      }).format(date)),
-      createText("strong", "week-day-number", date.getDate()),
-    );
-    if (weather) button.append(weatherBrief(weather));
-    const preview = document.createElement("span");
-    preview.className = "week-preview";
-    dayItems.slice(0, 3).forEach((item) => {
-      preview.append(createText("span", `calendar-label ${item.kind}`, item.title));
-    });
-    if (dayItems.length > 3) preview.append(createText("span", "more-label", `+${dayItems.length - 3}`));
-    button.append(preview);
-  } else {
-    button.append(createText("span", "day-number", date.getDate()));
-    if (weather) button.append(weatherBrief(weather));
-    if (dayItems.length) {
-      const dots = document.createElement("span");
-      dots.className = "day-dots";
-      dayItems.slice(0, 3).forEach((item) => {
-        dots.append(createText("span", `day-dot ${item.kind}`, ""));
-      });
-      button.append(dots);
-    }
+function itemTime(item) {
+  if (item.kind === "event") {
+    if (item.all_day || item.start_date) return t("allDay");
+    return item.start_at ? formatDateTime(item.start_at) : "";
   }
+  if (item.kind === "task") return item.due_at ? `${t("due")} ${formatDateTime(item.due_at)}` : item.due_date ? t("due") : "";
+  return "";
+}
 
-  button.addEventListener("click", () => {
-    state.selectedDate = key;
-    state.month = new Date(date.getFullYear(), date.getMonth(), 1);
-    renderCalendar();
+function asItems(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  return ["events", "tasks", "reminders", "overdue"].flatMap((key) => Array.isArray(data?.[key]) ? data[key] : []);
+}
+
+function memberName(id) {
+  return state.board.members.find((member) => member.id === id)?.name || "";
+}
+
+function reminderNames(item) {
+  const raw = item.remind_member_ids || (item.remind_member_id ? [item.remind_member_id] : []);
+  return raw.map((entry) => typeof entry === "object" ? entry.name || memberName(entry.id) : memberName(entry)).filter(Boolean);
+}
+
+function followups(item) {
+  return item.notes || [];
+}
+
+function applyLanguage() {
+  document.documentElement.lang = state.language === "zh" ? "zh-CN" : "en";
+  document.querySelectorAll("[data-i18n]").forEach((node) => { node.textContent = t(node.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => { node.placeholder = t(node.dataset.i18nPlaceholder); });
+  document.querySelectorAll("[data-i18n-aria]").forEach((node) => { node.setAttribute("aria-label", t(node.dataset.i18nAria)); });
+  $("#languageButton").textContent = state.language === "zh" ? "EN" : "中";
+  $("#todayDate").textContent = formatDate(dateKey(), { weekday: "long", month: "long", day: "numeric" });
+  renderAll();
+}
+
+function selectedActor() { return $("#actorSelect").value; }
+
+function requireActor() {
+  if (selectedActor()) return true;
+  showToast(t("chooseMember"), true);
+  return false;
+}
+
+function renderMembers() {
+  const select = $("#actorSelect");
+  const saved = localStorage.getItem("hearthbook-actor");
+  select.replaceChildren(...state.board.members.map((member) => new Option(member.name, member.id)));
+  if (state.board.members.some((member) => member.id === saved)) select.value = saved;
+  if (!select.value && state.board.members[0]) select.value = state.board.members[0].id;
+  if (select.value) localStorage.setItem("hearthbook-actor", select.value);
+
+  const household = state.board.household || {};
+  const summary = $("#householdSummary");
+  summary.replaceChildren();
+  if (household.name) summary.append(textNode("h3", household.name));
+  if (household.invite_code) summary.append(textNode("p", `${t("invite")}: ${household.invite_code}`));
+  summary.append(textNode("h3", t("familyMembers")));
+  const list = document.createElement("ul");
+  state.board.members.forEach((member) => list.append(textNode("li", member.role ? `${member.name} · ${member.role}` : member.name)));
+  summary.append(list);
+}
+
+function textNode(tag, content, className = "") {
+  const node = document.createElement(tag);
+  node.className = className;
+  node.textContent = content;
+  return node;
+}
+
+function empty(container, key) {
+  container.replaceChildren(textNode("p", t(key), "empty"));
+}
+
+function itemCard(item) {
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = `item-card ${item.kind || "event"} ${item.completed_at ? "is-done" : ""}`;
+  const top = document.createElement("span");
+  top.className = "item-card-top";
+  top.append(textNode("span", t(item.kind || "event"), `badge ${item.kind || "event"}`));
+  const timing = itemTime(item);
+  if (timing) top.append(textNode("span", timing, "item-time"));
+  card.append(top, textNode("strong", item.title || ""));
+  if (item.details) card.append(textNode("span", item.details, "item-details"));
+  const reminded = reminderNames(item);
+  if (reminded.length) card.append(textNode("span", `${t("remind")}: ${reminded.join(", ")}`, "remind-line"));
+  card.addEventListener("click", () => openItem(item));
+  return card;
+}
+
+function renderToday() {
+  const list = $("#todayItems");
+  list.replaceChildren();
+  const seen = new Set();
+  state.today.forEach((item) => {
+    const key = item.id || `${item.kind}:${item.title}:${itemDate(item)}`;
+    if (!seen.has(key)) list.append(itemCard(item));
+    seen.add(key);
   });
-  grid.append(button);
+  if (!list.children.length) empty(list, "emptyToday");
 }
 
 function renderCalendar() {
-  const locale = state.language === "zh" ? "zh-CN" : "en-CA";
-  const selected = localDateFromKey(state.selectedDate);
-  const grid = $("#calendarGrid");
-  const household = state.board.household || {};
-  const locationButton = $("#householdLocationButton");
-  locationButton.hidden = !household.city;
-  locationButton.textContent = household.city
-    ? `${household.city}, ${household.country_code}`
-    : "";
-  $("#weatherAttribution").hidden = !state.weather?.days.length;
-  grid.replaceChildren();
-  grid.classList.toggle("week-mode", state.calendarMode === "week");
-
-  document.querySelectorAll("[data-calendar-mode]").forEach((button) => {
-    const active = button.dataset.calendarMode === state.calendarMode;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", String(active));
+  const container = $("#calendarItems");
+  container.replaceChildren();
+  const groups = state.calendar.filter((item) => itemDate(item)).reduce((result, item) => {
+    const key = itemDate(item);
+    if (!result.has(key)) result.set(key, []);
+    result.get(key).push(item);
+    return result;
+  }, new Map());
+  [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([key, items]) => {
+    const section = document.createElement("section");
+    section.className = "date-group";
+    section.append(textNode("h2", formatDate(key)));
+    const list = document.createElement("div");
+    list.className = "item-list";
+    items.forEach((item) => list.append(itemCard(item)));
+    section.append(list);
+    container.append(section);
   });
+  if (!container.children.length) empty(container, "emptyCalendar");
 
-  if (state.calendarMode === "month") {
-    $("#monthTitle").textContent = new Intl.DateTimeFormat(locale, {
-      month: "long",
-      year: "numeric",
-    }).format(state.month);
-
-    const weekBase = new Date(2026, 0, 4);
-    for (let day = 0; day < 7; day += 1) {
-      const date = new Date(weekBase);
-      date.setDate(weekBase.getDate() + day);
-      grid.append(createText(
-        "div",
-        "weekday",
-        new Intl.DateTimeFormat(locale, { weekday: "short" }).format(date),
-      ));
-    }
-
-    const first = new Date(state.month.getFullYear(), state.month.getMonth(), 1);
-    const start = new Date(first);
-    start.setDate(1 - first.getDay());
-    for (let index = 0; index < 42; index += 1) {
-      const date = new Date(start);
-      date.setDate(start.getDate() + index);
-      renderCalendarDay(grid, date, locale, date.getMonth() !== state.month.getMonth());
-    }
-  } else {
-    const start = startOfWeek(selected);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    const shortDate = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" });
-    $("#monthTitle").textContent = `${shortDate.format(start)} - ${shortDate.format(end)}`;
-    for (let index = 0; index < 7; index += 1) {
-      const date = new Date(start);
-      date.setDate(start.getDate() + index);
-      renderCalendarDay(grid, date, locale);
-    }
-  }
-
-  $("#agendaTitle").textContent = new Intl.DateTimeFormat(locale, {
-    dateStyle: "full",
-  }).format(selected);
-  const agenda = $("#agendaItems");
-  agenda.replaceChildren();
-  const dayItems = itemsForDate(state.selectedDate);
-  renderSelectedWeather();
-  dayItems.forEach((item, index) => agenda.append(itemCard(item, true, index)));
-  if (!dayItems.length) appendEmpty(agenda);
+  const unscheduled = $("#unscheduledItems");
+  unscheduled.replaceChildren();
+  state.board.items.filter((item) => item.kind === "task" && !itemDate(item) && !item.completed_at)
+    .forEach((item) => unscheduled.append(itemCard(item)));
+  if (!unscheduled.children.length) empty(unscheduled, "emptyUnscheduled");
 }
 
 function renderNotes() {
   const container = $("#notesItems");
   container.replaceChildren();
-  const notes = state.board.items.filter((item) => item.kind === "note");
-  notes.forEach((item, index) => container.append(itemCard(item, false, index)));
-  if (!notes.length) appendEmpty(container);
+  state.board.items.filter((item) => item.kind === "note").forEach((item) => container.append(itemCard(item)));
+  if (!container.children.length) empty(container, "emptyNotes");
 }
 
-function render() {
+function renderMessages() {
+  const panel = $("#conversation");
+  panel.hidden = !state.messages.length && !state.pending;
+  const list = $("#messageList");
+  list.replaceChildren();
+  state.messages.forEach((message) => list.append(textNode("p", message.text, `message ${message.role}`)));
+  renderConfirmation();
+  requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
+}
+
+function renderConfirmation() {
+  const box = $("#confirmation");
+  box.hidden = !state.pending;
+  if (!state.pending) return;
+  if (state.pending.action) {
+    $("#confirmationSummary").replaceChildren(textNode("p", state.pending.action.confirmation, "draft-summary"));
+    $("#remindChoices").hidden = true;
+    $("#preparationChoices").hidden = true;
+    return;
+  }
+  $("#remindChoices").hidden = false;
+  $("#preparationChoices").hidden = false;
+  const drafts = state.pending.drafts || state.pending.items || [];
+  const summary = $("#confirmationSummary");
+  summary.replaceChildren();
+  drafts.forEach((draft) => summary.append(textNode("p", `${t(draft.kind || "event")}: ${draft.title || draft.details || ""}`, "draft-summary")));
+
+  const reminders = $("#remindChoices");
+  reminders.querySelectorAll("label").forEach((label) => label.remove());
+  drafts.forEach((draft, index) => {
+    const label = document.createElement("label");
+    const select = document.createElement("select");
+    select.dataset.draftIndex = index;
+    select.append(new Option("—", ""));
+    state.board.members.forEach((member) => select.append(new Option(member.name, member.id)));
+    select.value = draft.remind_member_id || "";
+    label.append(document.createTextNode(`${draft.title}: `), select);
+    reminders.append(label);
+  });
+
+  const preparations = $("#preparationChoices");
+  preparations.replaceChildren();
+  drafts.forEach((draft, index) => {
+    const content = draft.preparation;
+    if (!content) return;
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.dataset.draftIndex = index;
+    input.checked = true;
+    label.append(input, document.createTextNode(`${t("preparation")}: ${content}`));
+    preparations.append(label);
+  });
+}
+
+function renderAll() {
   renderMembers();
-  renderBoard();
+  renderToday();
   renderCalendar();
   renderNotes();
+  renderMessages();
 }
 
-function calendarRange() {
-  if (state.calendarMode === "week") {
-    const start = startOfWeek(localDateFromKey(state.selectedDate));
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    return [dateKey(start), dateKey(end)];
+function responseText(data) {
+  return data.reply || data.answer || data.response || data.assistant_message
+    || (typeof data.message === "string" ? data.message : "") || data.content || "";
+}
+
+function consumeResponse(data) {
+  if (data.session_id) {
+    state.sessionId = data.session_id;
+    localStorage.setItem("hearthbook-session", data.session_id);
   }
-  const first = new Date(state.month.getFullYear(), state.month.getMonth(), 1);
-  const start = new Date(first);
-  start.setDate(1 - first.getDay());
-  const end = new Date(start);
-  end.setDate(start.getDate() + 41);
-  return [dateKey(start), dateKey(end)];
+  const messages = Array.isArray(data.messages) ? data.messages : [];
+  const latest = [...messages].reverse().find((message) => message.role === "assistant");
+  if (latest?.content && state.messages.at(-1)?.text !== latest.content) {
+    state.messages.push({ role: "assistant", text: latest.content });
+  }
+  const direct = responseText(data);
+  if (direct && !messages.some((message) => (message.content || message.text) === direct)) state.messages.push({ role: "assistant", text: direct });
+  const needsConfirmation = data.requires_confirmation || data.pending_confirmation
+    || ["review", "confirm", "confirmation", "needs_confirmation", "awaiting_confirmation"].includes(data.status)
+    || Array.isArray(data.drafts);
+  state.pending = data.action ? { action: data.action } : needsConfirmation ? (data.pending_confirmation || data) : null;
+  renderMessages();
 }
 
-async function loadCalendar() {
+async function sendText(text) {
+  if (!text.trim() || !requireActor()) return;
+  state.messages.push({ role: "user", text: text.trim() }, { role: "assistant", text: t("thinking"), pending: true });
+  renderMessages();
   try {
-    const [start, end] = calendarRange();
-    const currentWeek = startOfWeek(new Date());
-    const currentWeekEnd = new Date(currentWeek);
-    currentWeekEnd.setDate(currentWeek.getDate() + 6);
-    const [calendar, week] = await Promise.all([
-      api(`/api/calendar?start=${start}&end=${end}`),
-      api(`/api/calendar?start=${dateKey(currentWeek)}&end=${dateKey(currentWeekEnd)}`),
-    ]);
-    state.calendarItems = calendar.items;
-    state.weekItems = week.items;
+    const data = await api("/api/messages", {
+      method: "POST",
+      body: JSON.stringify({ text: text.trim(), actor_id: selectedActor(), timezone, session_id: state.sessionId || null }),
+    });
+    state.messages = state.messages.filter((message) => !message.pending);
+    consumeResponse(data);
+    await refreshData();
   } catch (error) {
-    state.calendarItems = [];
-    state.weekItems = [];
-    showToast(error.message || t("networkError"), true);
+    state.messages = state.messages.filter((message) => !message.pending);
+    showToast(error.message, true);
+    renderMessages();
   }
-  render();
 }
 
 async function loadBoard() {
-  try {
-    state.board = await api("/api/board");
-    await loadCalendar();
-    if (!state.board.household?.city) {
-      $("#closeHouseholdDialog").hidden = true;
-      householdDialog.showModal();
-      return;
-    }
-    await loadWeather();
-    if (!state.board.members.length && !membersDialog.open) membersDialog.showModal();
-  } catch (error) {
-    if (error.status === 401 || error.status === 409) {
-      state.board = { household: {}, members: [], items: [] };
-      state.calendarItems = [];
-      state.weekItems = [];
-      document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
-      (error.status === 401 ? authDialog : onboardingDialog).showModal();
-      return;
-    }
-    showToast(error.message || t("networkError"), true);
-  }
+  state.board = await api("/api/board");
+  renderMembers();
+  renderNotes();
+  renderCalendar();
+}
+
+async function loadToday() {
+  state.today = asItems(await api(`/api/today?date=${dateKey()}&timezone=${encodeURIComponent(timezone)}`));
+  renderToday();
+}
+
+async function loadCalendar() {
+  const month = $("#calendarMonth").value || dateKey().slice(0, 7);
+  const [year, monthNumber] = month.split("-").map(Number);
+  const start = `${month}-01`;
+  const end = dateKey(new Date(year, monthNumber, 0));
+  state.calendar = asItems(await api(`/api/calendar?start=${start}&end=${end}`));
+  renderCalendar();
+}
+
+async function refreshData() {
+  await Promise.all([loadBoard(), loadToday(), loadCalendar()]);
+}
+
+function openItem(item) {
+  state.selectedItem = item;
+  $("#itemKind").textContent = t(item.kind || "event");
+  $("#itemKind").className = `badge ${item.kind || "event"}`;
+  $("#itemTitle").textContent = item.title || "";
+  $("#editTitle").value = item.title || "";
+  $("#editDetails").value = item.details || "";
+  $("#editRemindMemberField").hidden = item.kind === "note";
+  const remindSelect = $("#editRemindMember");
+  remindSelect.replaceChildren(new Option("—", ""), ...state.board.members.map((member) => new Option(member.name, member.id)));
+  remindSelect.value = item.remind_member_id || "";
+
+  const meta = $("#itemMeta");
+  meta.replaceChildren();
+  const timing = itemTime(item);
+  if (timing) meta.append(textNode("p", timing));
+  if (item.reminder_at) meta.append(textNode("p", `${t("reminder")}: ${formatDateTime(item.reminder_at)}`));
+  if (item.recurrence) meta.append(textNode("p", `${t("recurrence")}: ${t(item.recurrence)}`));
+  if (item.completed_at) meta.append(textNode("p", t("done")));
+  $("#toggleDone").hidden = item.kind !== "task";
+  $("#toggleDone").textContent = t(item.completed_at ? "markOpen" : "markDone");
+
+  const reminded = reminderNames(item);
+  $("#itemReminders").textContent = reminded.length ? `${t("remind")}: ${reminded.join(", ")}` : "";
+  renderFollowups(item);
+  $("#itemDialog").showModal();
+}
+
+function renderFollowups(item) {
+  const list = $("#followupList");
+  list.replaceChildren();
+  followups(item).forEach((note) => {
+    const content = typeof note === "string" ? note : note.content || note.text || "";
+    const author = typeof note === "object" ? note.member_name || memberName(note.member_id) : "";
+    const row = document.createElement("article");
+    row.append(textNode("p", content));
+    if (author || note.created_at) row.append(textNode("small", [author, note.created_at ? formatDateTime(note.created_at) : ""].filter(Boolean).join(" · ")));
+    list.append(row);
+  });
+  $("#followupsSection").hidden = item.kind === "note";
+}
+
+async function updateSelected(fields) {
+  if (!state.selectedItem || !requireActor()) return;
+  await api(`/api/items/${state.selectedItem.id}`, {
+    method: "PATCH", body: JSON.stringify({ actor_id: selectedActor(), ...fields }),
+  });
+  await refreshData();
+}
+
+function switchTab(name) {
+  document.querySelectorAll(".view").forEach((view) => {
+    const active = view.dataset.view === name;
+    view.hidden = !active;
+    view.classList.toggle("active", active);
+  });
+  document.querySelectorAll(".bottom-tab").forEach((tab) => {
+    const active = tab.dataset.tab === name;
+    tab.classList.toggle("active", active);
+    active ? tab.setAttribute("aria-current", "page") : tab.removeAttribute("aria-current");
+  });
+  if (name === "calendar") loadCalendar().catch((error) => showToast(error.message, true));
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 async function loadSession() {
   try {
     const session = await api("/api/auth/session");
-    if (!session.authenticated) {
-      authDialog.showModal();
-      return;
-    }
-    state.households = session.households || [];
-    state.activeHouseholdId = session.active_household_id || "";
-    if (!session.household_ready) {
-      $("#closeOnboardingDialog").hidden = true;
-      onboardingDialog.showModal();
-      return;
-    }
-    await loadBoard();
+    if (!session.authenticated) return $("#authDialog").showModal();
+    if (!session.household_ready) return $("#onboardingDialog").showModal();
+    await refreshData();
   } catch (error) {
-    showToast(error.message || t("networkError"), true);
+    showToast(error.message, true);
   }
 }
 
-async function loadWeather() {
-  if (!state.board.household?.city) return;
-  try {
-    const language = state.language === "zh" ? "zh_cn" : "en";
-    state.weather = await api(`/api/weather?lang=${language}`);
-    renderCalendar();
-  } catch (error) {
-    state.weather = null;
-    renderCalendar();
-    showToast(t("weatherUnavailable"), true);
-  }
-}
-
-async function updateItem(itemId, fields) {
-  if (!requireActor()) return;
-  try {
-    state.board = await api(`/api/items/${itemId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ actor_id: selectedActor(), ...fields }),
-    });
-    await loadCalendar();
-    showToast(t("updated"));
-  } catch (error) {
-    showToast(error.message || t("networkError"), true);
-    await loadBoard();
-  }
-}
-
-async function respondToAssignment(itemId, accept) {
-  if (!requireActor()) return;
-  try {
-    state.board = await api(`/api/items/${itemId}/assignment`, {
-      method: "POST",
-      body: JSON.stringify({ actor_id: selectedActor(), accept }),
-    });
-    await loadCalendar();
-    showToast(t("updated"));
-  } catch (error) {
-    showToast(error.message || t("networkError"), true);
-    await loadBoard();
-  }
-}
-
-function toLocalDateTime(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  const local = new Date(date.valueOf() - (date.getTimezoneOffset() * 60000));
-  return local.toISOString().slice(0, 16);
-}
-
-function toggleEditorFields() {
-  const allDay = $("#editAllDay").checked;
-  $("#editStartDateField").hidden = !allDay;
-  $("#editStartAtField").hidden = allDay;
-  $("#editEndAtField").hidden = allDay;
-  $("#editStartDate").required = allDay;
-  $("#editStartAt").required = !allDay;
-  const dueTimed = $("#editDueTimed").checked;
-  $("#editDueDateField").hidden = dueTimed;
-  $("#editDueAtField").hidden = !dueTimed;
-}
-
-function editorItemForScope(scope) {
-  if (scope === "occurrence") return state.editingOccurrence;
-  if (!state.editingOccurrence) return state.editingItem;
-  return state.board.items.find(
-    (item) => item.id === state.editingOccurrence.series_id,
-  );
-}
-
-function fillItemEditor(item, scope) {
-  if (!item) return;
-  state.editingItem = item;
-  $("#editTitle").value = item.title;
-  $("#editDetails").value = item.details || "";
-  $("#editPreparation").value = item.preparation || "";
-  $("#editPreparationField").hidden = item.kind === "note";
-  $("#editEventFields").hidden = item.kind !== "event";
-  $("#editTaskFields").hidden = item.kind !== "task";
-
-  if (item.kind === "event") {
-    $("#editAllDay").checked = Boolean(item.all_day);
-    $("#editStartDate").value = item.start_date || "";
-    $("#editStartAt").value = toLocalDateTime(item.start_at);
-    $("#editEndAt").value = toLocalDateTime(item.end_at);
-    $("#editRecurrenceUntil").value = item.recurrence_until || "";
-    $("#editEventReminderAt").value = toLocalDateTime(item.reminder_at);
-  } else if (item.kind === "task") {
-    $("#editDueTimed").checked = Boolean(item.due_at);
-    $("#editDueDate").value = item.due_date || "";
-    $("#editDueAt").value = toLocalDateTime(item.due_at);
-    $("#editTaskReminderAt").value = toLocalDateTime(item.reminder_at);
-  }
-
-  const editingSeries = scope === "series" && Boolean(item.recurrence);
-  $("#editRecurrenceUntilField").hidden = !editingSeries;
-  $("#editSeriesWarning").hidden = !(
-    editingSeries && Boolean(state.editingOccurrence)
-  );
-  toggleEditorFields();
-}
-
-function openItemEditor(item) {
-  state.editingItem = item;
-  state.editingOccurrence = item.is_occurrence ? item : null;
-  const scope = state.editingOccurrence ? "occurrence" : "series";
-  $("#editScopeField").hidden = !state.editingOccurrence;
-  $("#editScope").value = scope;
-  $("#itemEditorError").hidden = true;
-  fillItemEditor(editorItemForScope(scope) || item, scope);
-  itemEditor.showModal();
-}
-
-function editOccurrence(item) {
-  openItemEditor(item);
-}
-
-async function saveItemEditor(event) {
-  event.preventDefault();
-  if (!requireActor()) return;
-  const error = $("#itemEditorError");
-  error.hidden = true;
-  const scope = $("#editScope").value;
-  const item = editorItemForScope(scope);
-  const fields = {
-    title: $("#editTitle").value,
-    details: $("#editDetails").value,
-  };
-  if (item.kind !== "note") {
-    fields.preparation = scope === "occurrence"
-      ? $("#editPreparation").value
-      : $("#editPreparation").value || null;
-  }
-
-  if (item.kind === "event") {
-    fields.reminder_at = $("#editEventReminderAt").value
-      ? new Date($("#editEventReminderAt").value).toISOString() : null;
-    if ($("#editAllDay").checked) {
-      fields.start_date = $("#editStartDate").value;
-      fields.start_at = null;
-      fields.end_at = null;
-    } else {
-      fields.start_at = new Date($("#editStartAt").value).toISOString();
-      fields.end_at = $("#editEndAt").value
-        ? new Date($("#editEndAt").value).toISOString()
-        : null;
-      fields.start_date = null;
-    }
-    if (scope === "series") {
-      fields.all_day = $("#editAllDay").checked;
-      if (item.recurrence) {
-        fields.recurrence_until = $("#editRecurrenceUntil").value || null;
-      }
-    }
-  } else if (item.kind === "task") {
-    fields.reminder_at = $("#editTaskReminderAt").value
-      ? new Date($("#editTaskReminderAt").value).toISOString() : null;
-    if ($("#editDueTimed").checked) {
-      fields.due_at = $("#editDueAt").value
-        ? new Date($("#editDueAt").value).toISOString()
-        : null;
-      fields.due_date = null;
-    } else {
-      fields.due_date = $("#editDueDate").value || null;
-      fields.due_at = null;
-    }
-  }
-
-  const path = state.editingOccurrence && scope === "occurrence"
-    ? `/api/items/${state.editingOccurrence.series_id}/occurrences/${state.editingOccurrence.occurrence_date}`
-    : `/api/items/${item.id}`;
-  try {
-    state.board = await api(path, {
-      method: "PATCH",
-      body: JSON.stringify({ actor_id: selectedActor(), ...fields }),
-    });
-    await loadCalendar();
-    itemEditor.close();
-    showToast(t("updated"));
-  } catch (problem) {
-    error.textContent = problem.message || t("networkError");
-    error.hidden = false;
-  }
-}
-
-async function cancelOccurrence(item) {
-  if (
-    !requireActor()
-    || !window.confirm(t("confirmCancelOccurrence"))
-  ) return;
-  try {
-    state.board = await api(
-      `/api/items/${item.series_id}/occurrences/${item.occurrence_date}`
-        + `?actor_id=${encodeURIComponent(selectedActor())}`,
-      { method: "DELETE" },
-    );
-    await loadCalendar();
-    showToast(t("deleted"));
-  } catch (error) {
-    showToast(error.message || t("networkError"), true);
-  }
-}
-
-async function removeItem(item) {
-  const message = item.recurrence ? "confirmDeleteSeries" : "confirmDelete";
-  if (!requireActor() || !window.confirm(t(message))) return;
-  try {
-    state.board = await api(
-      `/api/items/${item.id}?actor_id=${encodeURIComponent(selectedActor())}`,
-      { method: "DELETE" },
-    );
-    await loadCalendar();
-    showToast(t("deleted"));
-  } catch (error) {
-    showToast(error.message || t("networkError"), true);
-  }
-}
-
-function setProcessing(processing) {
-  $("#submitButton").disabled = processing;
-  $("#intakeConfirmButton").disabled = processing;
-  recordButton.disabled = processing;
-  $("#submitButton").textContent = processing
-    ? t("analyzing")
-    : state.intake ? t("reply") : t("add");
-}
-
-$("#editAllDay").addEventListener("change", toggleEditorFields);
-$("#editDueTimed").addEventListener("change", toggleEditorFields);
-$("#editScope").addEventListener("change", (event) => {
-  fillItemEditor(editorItemForScope(event.target.value), event.target.value);
-});
-$("#itemEditorForm").addEventListener("submit", saveItemEditor);
-$("#closeItemEditor").addEventListener("click", () => itemEditor.close());
-$("#cancelItemEditor").addEventListener("click", () => itemEditor.close());
-
-$("#inputForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!requireActor()) return;
-  const input = $("#textInput");
-  setProcessing(true);
-  try {
-    const response = await api("/api/input", {
-      method: "POST",
-      body: JSON.stringify({
-        text: input.value,
-        actor_id: selectedActor(),
-        owner_id: state.intake ? null : ownerSelect.value || null,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-        session_id: state.intake?.session_id || null,
-      }),
-    });
-    handleIntakeResponse(response);
-  } catch (error) {
-    showToast(error.message || t("networkError"), true);
-  } finally {
-    setProcessing(false);
-  }
-});
-
-$("#intakeResetButton").addEventListener("click", resetIntake);
-
-$("#intakeConfirmButton").addEventListener("click", async () => {
-  if (!state.intake || !requireActor()) return;
-  setProcessing(true);
-  try {
-    const ownerIds = state.intake.drafts.map((draft) =>
-      draft.kind === "note" ? null : draft.owner_id || null
-    );
-    const acceptedPreparations = state.intake.drafts.map((draft) =>
-      Boolean(draft.preparation && draft.preparation_accepted)
-    );
-    state.board = await api(`/api/intake/${state.intake.session_id}/confirm`, {
-      method: "POST",
-      body: JSON.stringify({
-        actor_id: selectedActor(),
-        owner_ids: ownerIds,
-        accepted_preparations: acceptedPreparations,
-      }),
-    });
-    resetIntake();
-    render();
-    await loadCalendar();
-    showToast(t("added"));
-  } catch (error) {
-    showToast(error.message || t("networkError"), true);
-  } finally {
-    setProcessing(false);
-  }
-});
-
-$("#householdForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const input = $("#householdCity");
-  const error = $("#householdError");
-  const button = $("#saveHouseholdButton");
-  button.disabled = true;
-  button.textContent = t("savingCity");
-  error.hidden = true;
-  try {
-    state.board = await api("/api/household", {
-      method: "PUT",
-      body: JSON.stringify({ city: input.value }),
-    });
-    state.weather = null;
-    householdDialog.close();
-    render();
-    await loadWeather();
-    if (!state.board.members.length && !membersDialog.open) membersDialog.showModal();
-  } catch (problem) {
-    error.textContent = problem.message.includes("City not found")
-      ? t("cityNotFound")
-      : problem.message;
-    error.hidden = false;
-  } finally {
-    button.disabled = false;
-    button.textContent = t("saveCity");
-  }
-});
-
-$("#memberForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const input = $("#memberName");
-  try {
-    state.board = await api("/api/members", {
-      method: "POST",
-      body: JSON.stringify({ name: input.value, role: $("#memberRole").value }),
-    });
-    input.value = "";
-    $("#memberRole").value = "";
-    render();
-    showToast(t("added"));
-  } catch (error) {
-    showToast(error.message || t("networkError"), true);
-  }
-});
-
-async function submitAuth(action) {
-  const message = $("#authMessage");
-  const buttons = [$("#loginButton"), $("#signupButton")];
-  buttons.forEach((button) => { button.disabled = true; });
-  message.hidden = true;
-  try {
-    const result = await api(`/api/auth/${action}`, {
-      method: "POST",
-      body: JSON.stringify({
-        email: $("#authEmail").value,
-        password: $("#authPassword").value,
-      }),
-    });
-    if (result.confirmation_required) {
-      message.textContent = t("confirmationSent");
-      message.hidden = false;
-      $("#authPassword").value = "";
-      return;
-    }
-    authDialog.close();
-    await loadSession();
-  } catch (problem) {
-    message.textContent = problem.message;
-    message.hidden = false;
-  } finally {
-    buttons.forEach((button) => { button.disabled = false; });
-  }
-}
-$("#authForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  await submitAuth("login");
-});
-$("#signupButton").addEventListener("click", async () => {
-  if ($("#authForm").reportValidity()) await submitAuth("signup");
-});
-authDialog.addEventListener("cancel", (event) => event.preventDefault());
-
-$("#createHouseholdForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  try {
-    await api("/api/households", {
-      method: "POST",
-      body: JSON.stringify({
-        household_name: $("#newHouseholdName").value,
-        member_name: $("#creatorMemberName").value,
-      }),
-    });
-    onboardingDialog.close();
-    await loadSession();
-  } catch (error) {
-    $("#onboardingError").textContent = error.message;
-    $("#onboardingError").hidden = false;
-  }
-});
-$("#joinHouseholdForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  try {
-    await api("/api/households/join", {
-      method: "POST",
-      body: JSON.stringify({
-        invite_code: $("#householdInviteCode").value,
-        member_name: $("#joinerMemberName").value,
-      }),
-    });
-    onboardingDialog.close();
-    await loadSession();
-  } catch (error) {
-    $("#onboardingError").textContent = error.message;
-    $("#onboardingError").hidden = false;
-  }
-});
-onboardingDialog.addEventListener("cancel", (event) => {
-  if (!state.households.length) event.preventDefault();
-});
-$("#logoutButton").addEventListener("click", async () => {
-  await api("/api/auth/session", { method: "DELETE" });
-  localStorage.removeItem("home-actor");
-  window.location.reload();
-});
-
-actorSelect.addEventListener("change", () => {
-  localStorage.setItem("home-actor", actorSelect.value);
-  resetIntake();
-  resetAssistant();
-  renderBoard();
-});
-
-$("#membersButton").addEventListener("click", () => {
-  const household = state.board.household || {};
-  const householdSelect = $("#householdSelect");
-  householdSelect.replaceChildren(
-    ...state.households.map(({ id, name }) => new Option(name, id))
-  );
-  householdSelect.value = state.activeHouseholdId;
-  $("#manageCity").value = household.city ? `${household.city}, ${household.country_code}` : "";
-  $("#currentInviteCode").textContent = household.invite_code || "";
-  membersDialog.showModal();
-});
-$("#householdSelect").addEventListener("change", async (event) => {
-  try {
-    await api("/api/households/select", {
-      method: "POST",
-      body: JSON.stringify({ household_id: event.target.value }),
-    });
-    localStorage.removeItem("home-actor");
-    membersDialog.close();
-    await loadSession();
-  } catch (error) {
-    showToast(error.message || t("networkError"), true);
-  }
-});
-$("#addHouseholdButton").addEventListener("click", () => {
-  membersDialog.close();
-  $("#onboardingError").hidden = true;
-  $("#closeOnboardingDialog").hidden = false;
-  onboardingDialog.showModal();
-});
-$("#manageCityForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  try {
-    state.board = await api("/api/household", { method: "PUT", body: JSON.stringify({ city: $("#manageCity").value }) });
-    state.weather = null;
-    render();
-    await loadWeather();
-    showToast(t("updated"));
-  } catch (error) {
-    showToast(error.message || t("networkError"), true);
-  }
-});
-$("#householdLocationButton").addEventListener("click", () => {
-  const household = state.board.household || {};
-  $("#householdCity").value = household.city
-    ? `${household.city}, ${household.country_code}`
-    : "";
-  $("#closeHouseholdDialog").hidden = false;
-  $("#householdError").hidden = true;
-  householdDialog.showModal();
-});
-householdDialog.addEventListener("cancel", (event) => {
-  if (!state.board.household?.city) event.preventDefault();
-});
 $("#languageButton").addEventListener("click", () => {
   state.language = state.language === "zh" ? "en" : "zh";
-  localStorage.setItem("home-language", state.language);
+  localStorage.setItem("hearthbook-language", state.language);
   applyLanguage();
-  loadWeather();
 });
 
-document.querySelectorAll(".tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach((button) => {
-      const active = button === tab;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-selected", String(active));
-    });
-    document.querySelectorAll(".view").forEach((view) => {
-      view.hidden = view.id !== `${tab.dataset.view}View`;
-    });
-  });
+$("#actorSelect").addEventListener("change", (event) => localStorage.setItem("hearthbook-actor", event.target.value));
+$("#settingsButton").addEventListener("click", () => $("#settingsDialog").showModal());
+$("#textToggle").addEventListener("click", () => {
+  const form = $("#messageForm");
+  form.hidden = !form.hidden;
+  $("#textToggle").setAttribute("aria-expanded", String(!form.hidden));
+  if (!form.hidden) $("#messageInput").focus();
 });
-
-document.querySelectorAll("[data-scope]").forEach((button) => {
-  button.addEventListener("click", () => {
-    state.boardScope = button.dataset.scope;
-    renderBoard();
-  });
-});
-
-$("#boardSearch").addEventListener("input", (event) => {
-  state.search = event.target.value;
-  renderBoard();
-});
-
-$("#typeFilter").addEventListener("change", (event) => {
-  state.typeFilter = event.target.value;
-  renderBoard();
-});
-
-$("#ownerFilter").addEventListener("change", (event) => {
-  state.ownerFilter = event.target.value;
-  renderBoard();
-});
-
-document.querySelectorAll("[data-calendar-mode]").forEach((button) => {
-  button.addEventListener("click", async () => {
-    state.calendarMode = button.dataset.calendarMode;
-    localStorage.setItem("home-calendar-mode", state.calendarMode);
-    await loadCalendar();
-  });
-});
-
-async function moveCalendar(direction) {
-  if (state.calendarMode === "month") {
-    state.month = new Date(state.month.getFullYear(), state.month.getMonth() + direction, 1);
-    state.selectedDate = dateKey(state.month);
-  } else {
-    const selected = localDateFromKey(state.selectedDate);
-    selected.setDate(selected.getDate() + (direction * 7));
-    state.selectedDate = dateKey(selected);
-    state.month = new Date(selected.getFullYear(), selected.getMonth(), 1);
-  }
-  await loadCalendar();
-}
-
-$("#previousPeriod").addEventListener("click", () => moveCalendar(-1));
-$("#nextPeriod").addEventListener("click", () => moveCalendar(1));
-$("#todayButton").addEventListener("click", async () => {
-  const today = new Date();
-  state.selectedDate = dateKey(today);
-  state.month = new Date(today.getFullYear(), today.getMonth(), 1);
-  await loadCalendar();
-});
-
-$("#assistantButton").addEventListener("click", () => {
-  toggleAssistant($("#assistantPanel").hidden);
-});
-$("#assistantCloseButton").addEventListener("click", () => toggleAssistant(false));
-$("#assistantNewButton").addEventListener("click", resetAssistant);
-$("#assistantPanel").addEventListener("keydown", (event) => {
-  if (event.key === "Escape") toggleAssistant(false);
-});
-$("#assistantForm").addEventListener("submit", async (event) => {
+$("#messageForm").addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!requireActor()) return;
-  const input = $("#assistantInput");
-  const button = $("#assistantSendButton");
-  const text = input.value.trim();
-  if (!text) return;
-  state.assistantPending = text;
-  state.assistantError = "";
-  input.disabled = true;
-  button.disabled = true;
-  renderAssistant();
-  try {
-    state.assistant = await api("/api/assistant", {
-      method: "POST",
-      body: JSON.stringify({
-        text,
-        actor_id: selectedActor(),
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-        session_id: state.assistant?.session_id || null,
-      }),
-    });
-    input.value = "";
-  } catch (error) {
-    state.assistantError = error.message || t("networkError");
-  } finally {
-    state.assistantPending = "";
-    input.disabled = false;
-    button.disabled = false;
-    renderAssistant();
-    input.focus();
-  }
+  const input = $("#messageInput");
+  const value = input.value;
+  input.value = "";
+  await sendText(value);
+});
+$("#clearConversation").addEventListener("click", () => {
+  state.messages = [];
+  state.pending = null;
+  state.sessionId = null;
+  localStorage.removeItem("hearthbook-session");
+  renderMessages();
+});
+$("#refreshToday").addEventListener("click", () => loadToday().catch((error) => showToast(error.message, true)));
+$("#calendarMonth").addEventListener("change", () => loadCalendar().catch((error) => showToast(error.message, true)));
+document.querySelectorAll(".bottom-tab").forEach((tab) => tab.addEventListener("click", () => {
+  const hash = `#${tab.dataset.tab}`;
+  if (location.hash === hash) switchTab(tab.dataset.tab);
+  else location.hash = hash;
+}));
+window.addEventListener("hashchange", () => {
+  const tab = location.hash.slice(1);
+  if (["home", "calendar", "notes"].includes(tab)) switchTab(tab);
 });
 
-recordButton.addEventListener("click", async () => {
-  if (state.recorder?.state === "recording") {
-    state.recorder.stop();
+$("#confirmButton").addEventListener("click", async () => {
+  if (!state.pending || !requireActor()) return;
+  if (state.pending.action) {
+    try {
+      await api(`/api/items/${state.pending.action.item_id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ actor_id: selectedActor(), ...state.pending.action.fields }),
+      });
+      state.pending = null;
+      await refreshData();
+      renderMessages();
+      showToast(t("confirmed"));
+    } catch (error) { showToast(error.message, true); }
     return;
   }
+  const drafts = state.pending.drafts || [];
+  const remind_member_ids = drafts.map((_, index) => $("#remindChoices").querySelector(`[data-draft-index="${index}"]`)?.value || null);
+  const accepted_preparations = drafts.map((_, index) => Boolean($("#preparationChoices").querySelector(`[data-draft-index="${index}"]`)?.checked));
+  try {
+    const data = await api(`/api/conversations/${state.sessionId}/confirm`, {
+      method: "POST", body: JSON.stringify({ actor_id: selectedActor(), remind_member_ids, accepted_preparations }),
+    });
+    state.pending = null;
+    consumeResponse(data);
+    await refreshData();
+    showToast(t("confirmed"));
+  } catch (error) { showToast(error.message, true); }
+});
+$("#cancelConfirmation").addEventListener("click", () => { state.pending = null; renderMessages(); });
+
+$("#itemForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    const fields = { title: $("#editTitle").value.trim(), details: $("#editDetails").value.trim() };
+    if (state.selectedItem.kind !== "note") fields.remind_member_id = $("#editRemindMember").value || null;
+    await updateSelected(fields);
+    $("#itemDialog").close();
+    showToast(t("saved"));
+  } catch (error) { showToast(error.message, true); }
+});
+$("#deleteItem").addEventListener("click", async () => {
+  if (!state.selectedItem || !requireActor() || !confirm(t("deleteConfirm"))) return;
+  try {
+    await api(`/api/items/${state.selectedItem.id}?actor_id=${encodeURIComponent(selectedActor())}`, { method: "DELETE" });
+    $("#itemDialog").close();
+    await refreshData();
+    showToast(t("deleted"));
+  } catch (error) { showToast(error.message, true); }
+});
+$("#toggleDone").addEventListener("click", async () => {
+  if (!state.selectedItem) return;
+  try {
+    await updateSelected({ completed: !state.selectedItem.completed_at });
+    $("#itemDialog").close();
+    showToast(t("saved"));
+  } catch (error) { showToast(error.message, true); }
+});
+$("#followupForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!state.selectedItem || !requireActor()) return;
+  const input = $("#followupInput");
+  try {
+    await api(`/api/items/${state.selectedItem.id}/notes`, {
+      method: "POST", body: JSON.stringify({ actor_id: selectedActor(), content: input.value.trim() }),
+    });
+    input.value = "";
+    await refreshData();
+    const fresh = state.board.items.find((item) => item.id === state.selectedItem.id) || state.selectedItem;
+    state.selectedItem = fresh;
+    renderFollowups(fresh);
+    showToast(t("added"));
+  } catch (error) { showToast(error.message, true); }
+});
+
+$("#recordButton").addEventListener("click", async () => {
+  if (state.recorder?.state === "recording") return state.recorder.stop();
   if (!requireActor()) return;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-      ? "audio/webm;codecs=opus"
-      : "";
-    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
     const chunks = [];
+    const recorder = new MediaRecorder(stream);
     state.recorder = recorder;
-    recorder.addEventListener("dataavailable", (event) => {
-      if (event.data.size) chunks.push(event.data);
-    });
+    recorder.addEventListener("dataavailable", (event) => { if (event.data.size) chunks.push(event.data); });
     recorder.addEventListener("stop", async () => {
       clearTimeout(state.recordingTimer);
       stream.getTracks().forEach((track) => track.stop());
-      recordButton.classList.remove("recording");
-      recordButton.querySelector("span").textContent = t("record");
+      $("#recordButton").classList.remove("recording");
+      $("#recordButton").setAttribute("aria-pressed", "false");
+      $("#recordButton span").textContent = t("tapToTalk");
       const audio = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
       if (!audio.size) return showToast(t("noSpeech"), true);
       const form = new FormData();
       form.append("file", audio, "recording.webm");
       form.append("actor_id", selectedActor());
-      form.append("timezone", Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
-      if (ownerSelect.value) form.append("owner_id", ownerSelect.value);
-      if (state.intake?.session_id) form.append("session_id", state.intake.session_id);
-      setProcessing(true);
+      form.append("timezone", timezone);
+      if (state.sessionId) form.append("session_id", state.sessionId);
+      state.messages.push({ role: "assistant", text: t("thinking"), pending: true });
+      renderMessages();
       try {
-        handleIntakeResponse(
-          await api("/api/audio", { method: "POST", body: form })
-        );
+        const data = await api("/api/audio", { method: "POST", body: form });
+        state.messages = state.messages.filter((message) => !message.pending);
+        if (data.transcript) state.messages.push({ role: "user", text: data.transcript });
+        consumeResponse(data);
+        await refreshData();
       } catch (error) {
-        showToast(error.message || t("networkError"), true);
-      } finally {
-        setProcessing(false);
+        state.messages = state.messages.filter((message) => !message.pending);
+        showToast(error.message, true);
+        renderMessages();
       }
     });
     recorder.start();
-    recordButton.classList.add("recording");
-    recordButton.querySelector("span").textContent = t("stop");
-    showToast(t("recording"));
-    state.recordingTimer = setTimeout(() => {
-      if (recorder.state === "recording") recorder.stop();
-    }, 60000);
-  } catch {
-    showToast(t("microphoneError"), true);
-  }
+    $("#recordButton").classList.add("recording");
+    $("#recordButton").setAttribute("aria-pressed", "true");
+    $("#recordButton span").textContent = t("stopRecording");
+    showToast(t("listening"));
+    state.recordingTimer = setTimeout(() => recorder.state === "recording" && recorder.stop(), 60000);
+  } catch (_) { showToast(t("microphoneError"), true); }
 });
 
+$("#authForm").addEventListener("submit", (event) => authenticate(event, "login"));
+$("#signupButton").addEventListener("click", (event) => authenticate(event, "signup"));
+async function authenticate(event, action) {
+  event.preventDefault();
+  const errorBox = $("#authError");
+  errorBox.hidden = true;
+  try {
+    await api(`/api/auth/${action}`, { method: "POST", body: JSON.stringify({ email: $("#authEmail").value, password: $("#authPassword").value }) });
+    $("#authDialog").close();
+    await loadSession();
+  } catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; }
+}
+
+$("#createHouseholdForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await api("/api/households", { method: "POST", body: JSON.stringify({ household_name: $("#newHouseholdName").value, member_name: $("#creatorName").value }) });
+    $("#onboardingDialog").close();
+    await refreshData();
+  } catch (error) { $("#onboardingError").textContent = error.message; $("#onboardingError").hidden = false; }
+});
+$("#joinHouseholdForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await api("/api/households/join", { method: "POST", body: JSON.stringify({ invite_code: $("#inviteCode").value, member_name: $("#joinerName").value }) });
+    $("#onboardingDialog").close();
+    await refreshData();
+  } catch (error) { $("#onboardingError").textContent = error.message; $("#onboardingError").hidden = false; }
+});
+$("#logoutButton").addEventListener("click", async () => {
+  await api("/api/auth/session", { method: "DELETE" });
+  location.reload();
+});
+
+$("#calendarMonth").value = dateKey().slice(0, 7);
 applyLanguage();
+switchTab(["home", "calendar", "notes"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "home");
 loadSession();

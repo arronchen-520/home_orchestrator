@@ -2,9 +2,9 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="A bilingual shared family board">
-    <meta name="theme-color" content="#f3f1ec">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="A bilingual home for family plans and notes">
+    <meta name="theme-color" content="#fffaf2">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Hearthbook">
@@ -14,431 +14,183 @@
     <link rel="stylesheet" href="/static/styles.css">
   </head>
   <body>
-    <header class="app-header">
-      <a class="brand" href="/" aria-label="Hearthbook">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M3 11.5 12 4l9 7.5v8a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>
-        </svg>
+    <header class="topbar">
+      <a class="brand" href="#home" aria-label="Hearthbook">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5v8a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
         <span>Hearthbook</span>
       </a>
-      <div class="header-actions">
-        <label class="identity">
-          <span data-i18n="iAm">我是</span>
-          <select id="actorSelect" data-i18n-aria="currentMember" aria-label="Current family member"></select>
+      <div class="top-actions">
+        <label class="actor">
+          <span class="sr-only" data-i18n="currentMember">当前家庭成员</span>
+          <select id="actorSelect" aria-label="当前家庭成员"></select>
         </label>
-        <button id="membersButton" class="button ghost compact" type="button" data-i18n="familyManage">
-          家庭成员
+        <button id="languageButton" class="icon-text" type="button" aria-label="Switch language">EN</button>
+        <button id="settingsButton" class="icon-button" type="button" data-i18n-aria="settings" aria-label="设置">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63a1.7 1.7 0 0 0 1-1.55V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9a1.7 1.7 0 0 0 1.55 1H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></svg>
         </button>
-        <div class="header-quick-actions">
-          <button id="languageButton" class="button ghost compact" type="button" data-i18n-aria="switchLanguage" aria-label="Switch language">
-            EN
-          </button>
-          <button
-            id="assistantButton"
-            class="assistant-launcher"
-            type="button"
-            aria-controls="assistantPanel"
-            aria-expanded="false"
-            data-i18n-aria="openAssistant"
-            aria-label="Open family assistant"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-5.2 4v-4.7A2.5 2.5 0 0 1 4 13.5z"/>
-              <path d="M8 8h8M8 11.5h5"/>
-            </svg>
-          </button>
-        </div>
       </div>
     </header>
 
-    <main>
-      <section class="composer hero-card" aria-labelledby="pageTitle">
-        <div class="hero-copy">
-          <p class="eyebrow" data-i18n="eyebrow">家里的安排</p>
-          <h1 id="pageTitle" data-i18n="heading">今天家里有什么事？</h1>
-          <p class="lede" data-i18n="subheading">输入文字或说一句话，就能添加日程、待办或笔记。</p>
-          <div class="hero-legend" data-i18n-aria="itemTypes" aria-label="Item types">
-            <span><i class="legend-dot event-dot"></i><span data-i18n="event">日程</span></span>
-            <span><i class="legend-dot task-dot"></i><span data-i18n="task">待办</span></span>
-            <span><i class="legend-dot note-dot"></i><span data-i18n="note">笔记</span></span>
-          </div>
-        </div>
-        <div class="hero-glow glow-one" aria-hidden="true"></div>
-        <div class="hero-glow glow-two" aria-hidden="true"></div>
-        <form id="inputForm" class="capture-panel">
-          <label for="textInput" data-i18n="inputLabel">要添加什么？</label>
-          <textarea
-            id="textInput"
-            rows="2"
-            maxlength="2000"
-            required
-            data-i18n-placeholder="inputPlaceholder"
-            placeholder="例如：周六下午三点带孩子看牙医"
-          ></textarea>
-          <p class="input-hint" data-i18n="sortHint">有时间的放进日历，要做的放进待办，其他信息存为笔记。</p>
-          <section id="intakeConversation" class="intake-conversation" aria-live="polite" hidden>
-            <div id="intakeMessages" class="intake-messages"></div>
-            <div id="intakeReview" hidden>
-              <div id="intakeAssumptions"></div>
-              <div id="intakeDrafts" class="intake-drafts"></div>
-              <div id="intakeConflicts"></div>
-            </div>
-            <div class="intake-actions">
-              <button id="intakeResetButton" class="button secondary compact" type="button" data-i18n="startOver">
-                重新开始
-              </button>
-              <button id="intakeConfirmButton" class="button primary" type="button" data-i18n="confirmCreate" hidden>
-                确认创建
-              </button>
-            </div>
-          </section>
-          <div class="composer-options">
-            <label>
-              <span data-i18n="optionalOwner">负责人（可选）</span>
-              <select id="newOwnerSelect"></select>
-            </label>
-            <div class="composer-buttons">
-              <button id="recordButton" class="button secondary" type="button">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12Z"/>
-                </svg>
-                <span data-i18n="record">语音</span>
-              </button>
-              <button id="submitButton" class="button primary" type="submit" data-i18n="add">
-                添加
-              </button>
-            </div>
-          </div>
-        </form>
-      </section>
-
-      <nav class="tabs" role="tablist" data-i18n-aria="boardViews" aria-label="Board views">
-        <button class="tab active" type="button" role="tab" aria-selected="true" data-view="board">
-          <span data-i18n="board">共享板</span>
-          <span id="boardTabCount" class="tab-count">0</span>
-        </button>
-        <button class="tab" type="button" role="tab" aria-selected="false" data-view="calendar">
-          <span data-i18n="calendar">日历</span>
-        </button>
-        <button class="tab" type="button" role="tab" aria-selected="false" data-view="notes">
-          <span data-i18n="notes">笔记</span>
-          <span id="notesTabCount" class="tab-count">0</span>
-        </button>
-      </nav>
-
-      <section id="boardView" class="view" role="tabpanel">
-        <section class="board-toolbar card">
-          <div class="board-intro">
-            <div>
-              <p class="eyebrow" data-i18n="workEyebrow">家庭看板</p>
-              <h2 id="boardTitle" data-i18n="boardTitle">大家要做的事</h2>
-              <p data-i18n="boardDescription">日程和待办都在这里。认领后可以更新进度，笔记在单独页面。</p>
-            </div>
-            <div class="board-stats" aria-live="polite">
-              <div><strong id="openStat">0</strong><span data-i18n="openItems">未完成</span></div>
-              <div><strong id="mineStat">0</strong><span data-i18n="mineItems">我的</span></div>
-              <div><strong id="weekStat">0</strong><span data-i18n="thisWeek">本周</span></div>
-            </div>
-          </div>
-          <div class="filter-bar">
-            <div class="segmented scope-switch" role="group" data-i18n-aria="scopeFilter" aria-label="Board scope">
-              <button class="segment active" type="button" data-scope="all" data-i18n="everyone">全部</button>
-              <button class="segment" type="button" data-scope="mine" data-i18n="justMine">只看我的</button>
-            </div>
-            <label class="search-field">
-              <span class="sr-only" data-i18n="search">搜索</span>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg>
-              <input id="boardSearch" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="搜索日程或待办">
-            </label>
-            <label class="filter-field">
-              <span data-i18n="type">类型</span>
-              <select id="typeFilter">
-                <option value="all" data-i18n="allTypes">全部类型</option>
-                <option value="task" data-i18n="tasksOnly">只看待办</option>
-                <option value="event" data-i18n="eventsOnly">只看日程</option>
-              </select>
-            </label>
-            <label class="filter-field">
-              <span data-i18n="owner">负责人</span>
-              <select id="ownerFilter"></select>
-            </label>
-          </div>
-        </section>
-        <div class="board-grid">
-          <section class="status-column unclaimed">
-            <header>
-              <h2 data-i18n="unclaimed">未认领</h2>
-              <span id="unclaimedCount" class="count">0</span>
-            </header>
-            <div id="unclaimedItems" class="item-list"></div>
-          </section>
-          <section class="status-column claimed">
-            <header>
-              <h2 data-i18n="claimed">已认领</h2>
-              <span id="claimedCount" class="count">0</span>
-            </header>
-            <div id="claimedItems" class="item-list"></div>
-          </section>
-          <section class="status-column done">
-            <header>
-              <h2 data-i18n="done">完成</h2>
-              <span id="doneCount" class="count">0</span>
-            </header>
-            <div id="doneItems" class="item-list"></div>
-          </section>
-        </div>
-      </section>
-
-      <section id="calendarView" class="view" role="tabpanel" hidden>
-        <div class="calendar-layout">
-          <section class="calendar card">
-            <header class="calendar-toolbar">
-              <div class="calendar-nav">
-                <button id="previousPeriod" class="icon-button" type="button" data-i18n-aria="previousPeriod" aria-label="Previous period">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-                </button>
-                <h2 id="monthTitle"></h2>
-                <button id="nextPeriod" class="icon-button" type="button" data-i18n-aria="nextPeriod" aria-label="Next period">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
-                </button>
-                <button id="todayButton" class="button ghost compact" type="button" data-i18n="today">今天</button>
-                <button id="householdLocationButton" class="button ghost compact" type="button" data-i18n-aria="editCity" aria-label="Edit household city" hidden></button>
-              </div>
-              <div class="segmented" role="group" data-i18n-aria="calendarView" aria-label="Calendar view">
-                <button class="segment active" type="button" data-calendar-mode="month" data-i18n="month">月</button>
-                <button class="segment" type="button" data-calendar-mode="week" data-i18n="week">周</button>
-              </div>
-            </header>
-            <div id="calendarGrid" class="calendar-grid"></div>
-            <a id="weatherAttribution" class="weather-attribution" href="https://openweathermap.org/" target="_blank" rel="noreferrer" hidden>
-              <img src="https://openweathermap.org/themes/openweathermap/assets/img/logo_white_cropped.png" width="88" height="36" loading="lazy" alt="OpenWeather">
-              <span data-i18n="weatherData">Weather data provided by OpenWeather</span>
-            </a>
-          </section>
-          <aside class="agenda card">
-            <h2 id="agendaTitle"></h2>
-            <div id="selectedWeather" hidden></div>
-            <div id="agendaItems" class="item-list"></div>
-          </aside>
-        </div>
-      </section>
-
-      <section id="notesView" class="view" role="tabpanel" hidden>
-        <header class="section-heading">
-          <div>
-            <p class="eyebrow" data-i18n="notesEyebrow">家庭信息</p>
-            <h2 data-i18n="notesTitle">常用信息</h2>
-          </div>
-          <p data-i18n="notesDescription">门锁密码、购物偏好、学校信息等，都可以记在这里。</p>
+    <main class="app-main">
+      <section id="homeView" class="view active" data-view="home" aria-labelledby="homeTitle">
+        <header class="welcome">
+          <p id="todayDate" class="eyebrow"></p>
+          <h1 id="homeTitle" data-i18n="homeTitle">今天家里有什么事？</h1>
+          <p data-i18n="homeSubtitle">说一句就好：记录、查询，或者聊聊。</p>
         </header>
-        <div id="notesItems" class="notes-grid"></div>
+
+        <section class="voice-card" aria-labelledby="voiceTitle">
+          <h2 id="voiceTitle" class="sr-only" data-i18n="voiceTitle">家庭助手</h2>
+          <button id="recordButton" class="voice-button" type="button" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12Z"/></svg>
+            <span data-i18n="tapToTalk">按住心里的事，说出来</span>
+          </button>
+          <button id="textToggle" class="text-toggle" type="button" aria-expanded="false" aria-controls="messageForm" data-i18n="preferTyping">不方便说话？输入文字</button>
+          <form id="messageForm" class="message-form" hidden>
+            <label for="messageInput" class="sr-only" data-i18n="messageLabel">输入记录、问题或消息</label>
+            <textarea id="messageInput" rows="2" maxlength="2000" required data-i18n-placeholder="messagePlaceholder" placeholder="例如：周六三点看牙，提醒妈妈"></textarea>
+            <button class="send-button" type="submit" data-i18n-aria="send" aria-label="发送">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 17 8-17 8 3-8-3-8Zm3 8h14"/></svg>
+            </button>
+          </form>
+        </section>
+
+        <section id="conversation" class="conversation card" aria-labelledby="conversationTitle" aria-live="polite" hidden>
+          <div class="section-title-row">
+            <h2 id="conversationTitle" data-i18n="conversation">对话</h2>
+            <button id="clearConversation" class="quiet-button" type="button" data-i18n="clear">清空</button>
+          </div>
+          <div id="messageList" class="message-list"></div>
+          <section id="confirmation" class="confirmation" hidden>
+            <div id="confirmationSummary"></div>
+            <fieldset id="remindChoices">
+              <legend data-i18n="remindWho">提醒谁</legend>
+            </fieldset>
+            <div id="preparationChoices"></div>
+            <div class="button-row">
+              <button id="cancelConfirmation" class="secondary-button" type="button" data-i18n="cancel">取消</button>
+              <button id="confirmButton" class="primary-button" type="button" data-i18n="confirm">确认</button>
+            </div>
+          </section>
+        </section>
+
+        <section class="today-section" aria-labelledby="todayTitle">
+          <div class="section-title-row">
+            <div>
+              <p class="eyebrow" data-i18n="todayEyebrow">别漏掉</p>
+              <h2 id="todayTitle" data-i18n="todayTitle">今天</h2>
+            </div>
+            <button id="refreshToday" class="icon-button" type="button" data-i18n-aria="refresh" aria-label="刷新">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5"/><path d="M18.5 9A7 7 0 0 0 6.1 6.1L4 8m2 7a7 7 0 0 0 11.9 2.9L20 16"/></svg>
+            </button>
+          </div>
+          <div id="todayItems" class="item-list" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section id="calendarView" class="view" data-view="calendar" aria-labelledby="calendarTitle" hidden>
+        <header class="page-heading">
+          <div>
+            <p class="eyebrow" data-i18n="plans">安排</p>
+            <h1 id="calendarTitle" data-i18n="calendar">日历</h1>
+          </div>
+          <input id="calendarMonth" type="month" data-i18n-aria="chooseMonth" aria-label="选择月份">
+        </header>
+        <div id="calendarItems" class="date-groups" aria-live="polite"></div>
+        <section class="unscheduled" aria-labelledby="unscheduledTitle">
+          <h2 id="unscheduledTitle" data-i18n="unscheduled">未安排时间</h2>
+          <div id="unscheduledItems" class="item-list"></div>
+        </section>
+      </section>
+
+      <section id="notesView" class="view" data-view="notes" aria-labelledby="notesTitle" hidden>
+        <header class="page-heading">
+          <div>
+            <p class="eyebrow" data-i18n="familyMemory">家庭记忆</p>
+            <h1 id="notesTitle" data-i18n="notes">笔记</h1>
+          </div>
+        </header>
+        <p class="page-intro" data-i18n="notesHelp">门锁密码、购物偏好、学校信息，都放在这里。</p>
+        <div id="notesItems" class="notes-grid" aria-live="polite"></div>
       </section>
     </main>
 
-    <dialog id="authDialog">
-      <form id="authForm" class="setup-form">
+    <nav class="bottom-tabs" aria-label="主要导航">
+      <button class="bottom-tab active" type="button" data-tab="home" aria-current="page">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5v8a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+        <span data-i18n="home">首页</span>
+      </button>
+      <button class="bottom-tab" type="button" data-tab="calendar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Zm2-2v4m10-4v4M3 9h18"/></svg>
+        <span data-i18n="calendar">日历</span>
+      </button>
+      <button class="bottom-tab" type="button" data-tab="notes">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14a2 2 0 0 1 2 2v16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm3 5h8m-8 4h8m-8 4h5"/></svg>
+        <span data-i18n="notes">笔记</span>
+      </button>
+    </nav>
+
+    <dialog id="itemDialog" class="sheet">
+      <form method="dialog" class="dialog-header">
+        <div><span id="itemKind" class="badge"></span><h2 id="itemTitle"></h2></div>
+        <button class="icon-button" type="submit" data-i18n-aria="close" aria-label="关闭">×</button>
+      </form>
+      <form id="itemForm" class="item-form">
+        <label><span data-i18n="title">标题</span><input id="editTitle" maxlength="120" required></label>
+        <label><span data-i18n="details">详情</span><textarea id="editDetails" rows="3" maxlength="2000"></textarea></label>
+        <label id="editRemindMemberField"><span data-i18n="remindWho">提醒谁</span><select id="editRemindMember"></select></label>
+        <div id="itemMeta" class="item-meta"></div>
+        <div id="itemReminders" class="remind-line"></div>
+        <div class="button-row">
+          <button id="deleteItem" class="danger-button" type="button" data-i18n="delete">删除</button>
+          <button id="toggleDone" class="secondary-button" type="button" data-i18n="markDone">标记完成</button>
+          <button class="primary-button" type="submit" data-i18n="save">保存</button>
+        </div>
+      </form>
+      <section id="followupsSection" class="followups">
+        <h3 data-i18n="followups">补充记录</h3>
+        <div id="followupList"></div>
+        <form id="followupForm" class="inline-form">
+          <label for="followupInput" class="sr-only" data-i18n="addFollowup">添加补充记录</label>
+          <input id="followupInput" maxlength="1000" required data-i18n-placeholder="followupPlaceholder" placeholder="补充最新情况…">
+          <button class="primary-button" type="submit" data-i18n="add">添加</button>
+        </form>
+      </section>
+    </dialog>
+
+    <dialog id="settingsDialog" class="sheet small-sheet">
+      <form method="dialog" class="dialog-header"><h2 data-i18n="settings">设置</h2><button class="icon-button" type="submit" aria-label="关闭">×</button></form>
+      <div id="householdSummary"></div>
+      <button id="logoutButton" class="secondary-button full-width" type="button" data-i18n="logout">退出登录</button>
+    </dialog>
+
+    <dialog id="authDialog" class="sheet small-sheet">
+      <form id="authForm" class="stack-form">
         <h2 data-i18n="authTitle">登录 Hearthbook</h2>
-        <p data-i18n="authHelp">使用邮箱创建账号或登录。</p>
-        <label for="authEmail" data-i18n="email">邮箱</label>
-        <input id="authEmail" type="email" maxlength="320" required autocomplete="email">
-        <label for="authPassword" data-i18n="password">密码</label>
-        <input id="authPassword" type="password" minlength="8" maxlength="200" required autocomplete="current-password">
-        <p id="authMessage" class="form-error" role="alert" hidden></p>
-        <div class="dialog-actions">
-          <button id="loginButton" class="button primary" type="submit" data-i18n="login">登录</button>
-          <button id="signupButton" class="button secondary" type="button" data-i18n="signup">创建账号</button>
-        </div>
+        <label><span data-i18n="email">邮箱</span><input id="authEmail" type="email" maxlength="320" autocomplete="email" required></label>
+        <label><span data-i18n="password">密码</span><input id="authPassword" type="password" minlength="8" maxlength="200" autocomplete="current-password" required></label>
+        <p id="authError" class="form-error" role="alert" hidden></p>
+        <button class="primary-button" type="submit" data-i18n="login">登录</button>
+        <button id="signupButton" class="secondary-button" type="button" data-i18n="signup">创建账号</button>
       </form>
     </dialog>
 
-    <dialog id="onboardingDialog">
-      <form method="dialog" class="dialog-header">
-        <h2 data-i18n="householdSetupTitle">设置家庭</h2>
-        <button id="closeOnboardingDialog" class="icon-button" type="submit" data-i18n-aria="close" aria-label="Close">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
-        </button>
+    <dialog id="onboardingDialog" class="sheet small-sheet">
+      <div class="dialog-header"><h2 data-i18n="householdSetup">设置家庭</h2></div>
+      <form id="createHouseholdForm" class="stack-form">
+        <label><span data-i18n="householdName">家庭名称</span><input id="newHouseholdName" maxlength="80" required></label>
+        <label><span data-i18n="yourName">你的名字</span><input id="creatorName" maxlength="40" required autocomplete="name"></label>
+        <button class="primary-button" type="submit" data-i18n="createHousehold">创建家庭</button>
       </form>
-      <p data-i18n="householdSetupHelp">创建一个新家庭，或用邀请代码加入家人。</p>
+      <p class="divider" data-i18n="orJoin">或者加入已有家庭</p>
+      <form id="joinHouseholdForm" class="stack-form">
+        <label><span data-i18n="inviteCode">家庭邀请码</span><input id="inviteCode" maxlength="40" required autocomplete="one-time-code"></label>
+        <label><span data-i18n="yourName">你的名字</span><input id="joinerName" maxlength="40" required autocomplete="name"></label>
+        <button class="secondary-button" type="submit" data-i18n="joinHousehold">加入家庭</button>
+      </form>
       <p id="onboardingError" class="form-error" role="alert" hidden></p>
-      <form id="createHouseholdForm" class="setup-form">
-        <label for="newHouseholdName" data-i18n="householdName">家庭名称</label>
-        <input id="newHouseholdName" maxlength="80" required>
-        <label for="creatorMemberName" data-i18n="yourName">你的名字</label>
-        <input id="creatorMemberName" maxlength="40" required autocomplete="name">
-        <button class="button primary" type="submit" data-i18n="createHousehold">创建家庭</button>
-      </form>
-      <p data-i18n="orJoin">或者加入已有家庭</p>
-      <form id="joinHouseholdForm" class="setup-form">
-        <label for="householdInviteCode" data-i18n="inviteCode">家庭邀请码</label>
-        <input id="householdInviteCode" maxlength="40" required autocomplete="one-time-code">
-        <label for="joinerMemberName" data-i18n="yourName">你的名字</label>
-        <input id="joinerMemberName" maxlength="40" required autocomplete="name">
-        <button class="button secondary" type="submit" data-i18n="joinHousehold">加入家庭</button>
-      </form>
     </dialog>
 
-    <dialog id="householdDialog">
-      <form method="dialog" class="dialog-header">
-        <h2 data-i18n="citySetupTitle">选择家庭城市</h2>
-        <button id="closeHouseholdDialog" class="icon-button" type="submit" data-i18n-aria="close" aria-label="Close">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
-        </button>
-      </form>
-      <p data-i18n="citySetupHelp">天气会显示在日历上。输入城市和国家，例如 Toronto, CA。</p>
-      <form id="householdForm" class="setup-form">
-        <label for="householdCity" data-i18n="cityLabel">家庭城市</label>
-        <input id="householdCity" maxlength="120" required autocomplete="address-level2" data-i18n-placeholder="cityPlaceholder" placeholder="Toronto, CA">
-        <p id="householdError" class="form-error" role="alert" hidden></p>
-        <button id="saveHouseholdButton" class="button primary" type="submit" data-i18n="saveCity">保存城市</button>
-      </form>
-    </dialog>
-
-    <dialog id="membersDialog">
-      <form method="dialog" class="dialog-header">
-        <h2 data-i18n="familyMembers">家庭成员</h2>
-        <button class="icon-button" type="submit" data-i18n-aria="close" aria-label="Close">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
-        </button>
-      </form>
-      <p data-i18n="memberHelp">管理家庭成员和家庭城市。</p>
-      <div class="setup-form">
-        <label for="householdSelect" data-i18n="currentHousehold">当前家庭</label>
-        <select id="householdSelect"></select>
-        <button id="addHouseholdButton" class="button secondary" type="button" data-i18n="addHousehold">创建或加入其他家庭</button>
-      </div>
-      <ul id="memberList" class="member-list"></ul>
-      <form id="memberForm" class="inline-form">
-        <label class="sr-only" for="memberName" data-i18n="memberName">成员姓名</label>
-        <input id="memberName" maxlength="40" required data-i18n-placeholder="memberName" placeholder="成员姓名">
-        <label class="sr-only" for="memberRole" data-i18n="memberRole">身份</label>
-        <input id="memberRole" maxlength="40" data-i18n-placeholder="memberRole" placeholder="例如：爸爸">
-        <button class="button primary" type="submit" data-i18n="addMember">添加成员</button>
-      </form>
-      <form id="manageCityForm" class="setup-form">
-        <label for="manageCity" data-i18n="cityLabel">家庭城市</label>
-        <input id="manageCity" maxlength="120" required autocomplete="address-level2" data-i18n-placeholder="cityPlaceholder" placeholder="Toronto, CA">
-        <button class="button secondary" type="submit" data-i18n="saveCity">保存城市</button>
-      </form>
-      <p><span data-i18n="inviteCode">家庭邀请码</span>：<code id="currentInviteCode"></code></p>
-      <button id="logoutButton" class="button ghost" type="button" data-i18n="logout">退出登录</button>
-    </dialog>
-
-    <dialog id="itemEditor">
-      <form id="itemEditorForm" class="setup-form">
-        <header class="dialog-header">
-          <h2 data-i18n="editItem">编辑内容</h2>
-          <button id="closeItemEditor" class="icon-button" type="button" data-i18n-aria="close" aria-label="Close">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
-          </button>
-        </header>
-
-        <label for="editTitle" data-i18n="title">标题</label>
-        <input id="editTitle" maxlength="120" required>
-
-        <label for="editDetails" data-i18n="details">详情</label>
-        <textarea id="editDetails" maxlength="2000" rows="4"></textarea>
-
-        <label id="editPreparationField" for="editPreparation">
-          <span data-i18n="preparation">准备工作</span>
-          <textarea id="editPreparation" maxlength="500" rows="2"></textarea>
-        </label>
-
-        <label id="editScopeField" for="editScope" hidden>
-          <span data-i18n="editScope">修改范围</span>
-          <select id="editScope">
-            <option value="occurrence" data-i18n="thisOccurrence">只修改这一次</option>
-            <option value="series" data-i18n="entireSeries">修改整个系列</option>
-          </select>
-        </label>
-
-        <div id="editEventFields" class="editor-fields" hidden>
-          <label class="checkbox-row">
-            <input id="editAllDay" type="checkbox">
-            <span data-i18n="allDay">全天</span>
-          </label>
-          <label id="editStartDateField" for="editStartDate">
-            <span data-i18n="date">日期</span>
-            <input id="editStartDate" type="date">
-          </label>
-          <label id="editStartAtField" for="editStartAt">
-            <span data-i18n="starts">时间</span>
-            <input id="editStartAt" type="datetime-local">
-          </label>
-          <label id="editEndAtField" for="editEndAt">
-            <span data-i18n="ends">结束</span>
-            <input id="editEndAt" type="datetime-local">
-          </label>
-          <label id="editRecurrenceUntilField" for="editRecurrenceUntil" hidden>
-            <span data-i18n="recurrenceEnds">重复结束</span>
-            <input id="editRecurrenceUntil" type="date">
-          </label>
-          <label for="editEventReminderAt">
-            <span data-i18n="reminder">提醒时间</span>
-            <input id="editEventReminderAt" type="datetime-local">
-          </label>
-        </div>
-
-        <div id="editTaskFields" class="editor-fields" hidden>
-          <label class="checkbox-row">
-            <input id="editDueTimed" type="checkbox">
-            <span data-i18n="specificTime">指定时间</span>
-          </label>
-          <label id="editDueDateField" for="editDueDate">
-            <span data-i18n="dueDate">截止日期</span>
-            <input id="editDueDate" type="date">
-          </label>
-          <label id="editDueAtField" for="editDueAt">
-            <span data-i18n="due">截止</span>
-            <input id="editDueAt" type="datetime-local">
-          </label>
-          <label for="editTaskReminderAt">
-            <span data-i18n="reminder">提醒时间</span>
-            <input id="editTaskReminderAt" type="datetime-local">
-          </label>
-        </div>
-
-        <p id="editSeriesWarning" class="form-hint" data-i18n="seriesEditWarning" hidden>
-          修改系列开始时间会清除已有的单次例外。
-        </p>
-        <p id="itemEditorError" class="form-error" role="alert" hidden></p>
-        <div class="dialog-actions">
-          <button id="cancelItemEditor" class="button secondary" type="button" data-i18n="cancel">取消</button>
-          <button class="button primary" type="submit" data-i18n="saveChanges">保存修改</button>
-        </div>
-      </form>
-    </dialog>
-
-    <aside id="assistantPanel" class="assistant-panel" aria-labelledby="assistantTitle" hidden>
-      <header class="assistant-header">
-        <div>
-          <p class="eyebrow" data-i18n="assistantEyebrow">家庭助手</p>
-          <h2 id="assistantTitle" data-i18n="assistantTitle">问问家庭安排</h2>
-        </div>
-        <div class="assistant-header-actions">
-          <button id="assistantNewButton" class="button ghost compact" type="button" data-i18n="newChat">
-            新对话
-          </button>
-          <button id="assistantCloseButton" class="icon-button" type="button" data-i18n-aria="closeAssistant" aria-label="Close assistant">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
-          </button>
-        </div>
-      </header>
-      <div id="assistantMessages" class="assistant-messages" aria-live="polite"></div>
-      <form id="assistantForm" class="assistant-form">
-        <label class="sr-only" for="assistantInput" data-i18n="assistantInputLabel">询问日程、待办或笔记</label>
-        <input
-          id="assistantInput"
-          maxlength="2000"
-          autocomplete="off"
-          required
-          data-i18n-placeholder="assistantPlaceholder"
-          placeholder="例如：这周末有什么安排？"
-        >
-        <button id="assistantSendButton" class="button primary" type="submit" data-i18n="send">
-          发送
-        </button>
-      </form>
-    </aside>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="/static/app.js" defer></script>
   </body>

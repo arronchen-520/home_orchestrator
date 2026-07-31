@@ -3,8 +3,8 @@
   "short_name": "Hearthbook",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f3f1ec",
-  "theme_color": "#f3f1ec",
+  "background_color": "#fffaf2",
+  "theme_color": "#fffaf2",
   "icons": [{
     "src": "/static/assets/hearthbook-icon.png",
     "sizes": "1254x1254",

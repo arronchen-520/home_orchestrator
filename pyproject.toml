@@ -1,7 +1,7 @@
 [project]
 name = "home-orchestrator"
 version = "0.1.0"
-description = "A bilingual, LangGraph-powered shared family board."
+description = "A mobile-first bilingual family assistant."
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.141.1",

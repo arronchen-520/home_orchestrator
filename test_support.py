@@ -3,7 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
-from board_db import BoardDatabase, _now
+from board_db import BoardDatabase, now_text
 
 
 STORES: dict[str, dict[str, list[dict]]] = {}
@@ -79,6 +79,10 @@ class FakeQuery:
         self.maximum = maximum
         return self
 
+    def maybe_single(self):
+        self.maximum = 1
+        return self
+
     def _matched(self):
         return [
             row
@@ -92,7 +96,7 @@ class FakeQuery:
             values = self.payload if isinstance(self.payload, list) else [self.payload]
             for value in values:
                 row = deepcopy(value)
-                if self.table == "chat_messages" and "id" not in row:
+                if self.table == "conversation_messages" and "id" not in row:
                     row["id"] = self.client.next_message_id()
                 table.append(row)
             return SimpleNamespace(data=deepcopy(values))
@@ -159,15 +163,14 @@ class FakeClient:
         return FakeQuery(self, name)
 
     def next_message_id(self):
-        rows = self.store["chat_messages"]
+        rows = self.store["conversation_messages"]
         return max((row["id"] for row in rows), default=0) + 1
 
     def rpc(self, name, params):
-        if name == "create_chat_session":
+        if name == "create_conversation":
             session = deepcopy(params["session_data"])
-            session.setdefault("owner_id", None)
-            self.store["chat_sessions"].append(session)
-            self.store["chat_messages"].append(
+            self.store["conversation_sessions"].append(session)
+            self.store["conversation_messages"].append(
                 {
                     "id": self.next_message_id(),
                     "session_id": session["id"],
@@ -177,8 +180,8 @@ class FakeClient:
                 }
             )
             data = None
-        elif name == "append_chat_message":
-            self.store["chat_messages"].append(
+        elif name == "append_conversation_message":
+            self.store["conversation_messages"].append(
                 {
                     "id": self.next_message_id(),
                     "session_id": params["target_session_id"],
@@ -189,7 +192,7 @@ class FakeClient:
             )
             session = next(
                 row
-                for row in self.store["chat_sessions"]
+                for row in self.store["conversation_sessions"]
                 if row["id"] == params["target_session_id"]
             )
             session["updated_at"] = params["now_text"]
@@ -241,8 +244,9 @@ class TestBoardDatabase(BoardDatabase):
                     "submissions",
                     "items",
                     "recurrence_exceptions",
-                    "chat_sessions",
-                    "chat_messages",
+                    "item_notes",
+                    "conversation_sessions",
+                    "conversation_messages",
                 )
             },
         )
@@ -251,9 +255,7 @@ class TestBoardDatabase(BoardDatabase):
     def setup(self) -> None:
         self.ensure_household("test-family")
 
-    def ensure_household(
-        self, household_id: str, timezone_name: str = "UTC"
-    ) -> None:
+    def ensure_household(self, household_id: str) -> None:
         if not any(
             row["id"] == household_id
             for row in self.client.store["households"]
@@ -263,12 +265,12 @@ class TestBoardDatabase(BoardDatabase):
                     "id": household_id,
                     "name": household_id,
                     "invite_code": uuid4().hex[:12],
-                    "timezone": timezone_name,
+                    "timezone": "UTC",
                     "city": None,
                     "country_code": None,
                     "latitude": None,
                     "longitude": None,
                     "memory": "",
-                    "created_at": _now(),
+                    "created_at": now_text(),
                 }
             )
