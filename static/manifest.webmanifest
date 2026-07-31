@@ -1,0 +1,14 @@
+{
+  "name": "Hearthbook",
+  "short_name": "Hearthbook",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f1ec",
+  "theme_color": "#f3f1ec",
+  "icons": [{
+    "src": "/static/assets/hearthbook-icon.png",
+    "sizes": "1254x1254",
+    "type": "image/png",
+    "purpose": "any"
+  }]
+}
