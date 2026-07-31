@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from board_db import BoardDatabase
+from test_support import TestBoardDatabase as BoardDatabase
 from weather import FORECAST_URL, GEOCODING_URL, WeatherService
 
 

@@ -47,13 +47,23 @@ const messages = {
     reject: "拒绝",
     familyMembers: "家庭成员",
     familyManage: "家庭管理",
-    accessTitle: "打开家庭看板",
-    accessHelp: "输入家人分享给你的访问码。",
-    accessCode: "家庭访问码",
-    unlock: "打开看板",
-    unlocking: "正在打开…",
-    invalidAccess: "访问码不正确",
-    switchHousehold: "切换家庭",
+    authTitle: "登录 Hearthbook",
+    authHelp: "使用邮箱创建账号或登录。",
+    email: "邮箱",
+    password: "密码",
+    login: "登录",
+    signup: "创建账号",
+    signingIn: "正在登录…",
+    confirmationSent: "账号已创建，请先打开确认邮件，再回来登录。",
+    logout: "退出登录",
+    householdSetupTitle: "设置家庭",
+    householdSetupHelp: "创建一个新家庭，或用邀请代码加入家人。",
+    householdName: "家庭名称",
+    yourName: "你的名字",
+    createHousehold: "创建家庭",
+    orJoin: "或者加入已有家庭",
+    inviteCode: "家庭邀请码",
+    joinHousehold: "加入家庭",
     citySetupTitle: "选择家庭城市",
     citySetupHelp: "天气会显示在日历上。输入城市和国家，例如 Toronto, CA。",
     cityLabel: "家庭城市",
@@ -203,13 +213,23 @@ const messages = {
     reject: "Decline",
     familyMembers: "Family members",
     familyManage: "Manage family",
-    accessTitle: "Open your family board",
-    accessHelp: "Enter the access code shared by your family.",
-    accessCode: "Household access code",
-    unlock: "Open board",
-    unlocking: "Opening…",
-    invalidAccess: "That access code is not valid",
-    switchHousehold: "Switch household",
+    authTitle: "Sign in to Hearthbook",
+    authHelp: "Create an account or sign in with your email.",
+    email: "Email",
+    password: "Password",
+    login: "Sign in",
+    signup: "Create account",
+    signingIn: "Signing in…",
+    confirmationSent: "Account created. Confirm your email, then return to sign in.",
+    logout: "Sign out",
+    householdSetupTitle: "Set up your household",
+    householdSetupHelp: "Create a household or join your family with an invite code.",
+    householdName: "Household name",
+    yourName: "Your name",
+    createHousehold: "Create household",
+    orJoin: "Or join an existing household",
+    inviteCode: "Household invite code",
+    joinHousehold: "Join household",
     citySetupTitle: "Choose your household city",
     citySetupHelp: "Weather will appear in Calendar. Enter a city and country, such as Toronto, CA.",
     cityLabel: "Household city",
@@ -340,7 +360,8 @@ const state = {
 const $ = (selector) => document.querySelector(selector);
 const actorSelect = $("#actorSelect");
 const ownerSelect = $("#newOwnerSelect");
-const accessDialog = $("#accessDialog");
+const authDialog = $("#authDialog");
+const onboardingDialog = $("#onboardingDialog");
 const householdDialog = $("#householdDialog");
 const membersDialog = $("#membersDialog");
 const itemEditor = $("#itemEditor");
@@ -1151,12 +1172,12 @@ async function loadBoard() {
     await loadWeather();
     if (!state.board.members.length && !membersDialog.open) membersDialog.showModal();
   } catch (error) {
-    if (error.status === 401) {
+    if (error.status === 401 || error.status === 409) {
       state.board = { household: {}, members: [], items: [] };
       state.calendarItems = [];
       state.weekItems = [];
       document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
-      accessDialog.showModal();
+      (error.status === 401 ? authDialog : onboardingDialog).showModal();
       return;
     }
     showToast(error.message || t("networkError"), true);
@@ -1165,10 +1186,13 @@ async function loadBoard() {
 
 async function loadSession() {
   try {
-    const session = await api("/api/session");
-    $("#logoutButton").hidden = !session.required;
-    if (session.required && !session.authenticated) {
-      accessDialog.showModal();
+    const session = await api("/api/auth/session");
+    if (!session.authenticated) {
+      authDialog.showModal();
+      return;
+    }
+    if (!session.household_ready) {
+      onboardingDialog.showModal();
       return;
     }
     await loadBoard();
@@ -1514,32 +1538,80 @@ $("#memberForm").addEventListener("submit", async (event) => {
   }
 });
 
-$("#accessForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const button = $("#accessButton");
-  const error = $("#accessError");
-  button.disabled = true;
-  button.textContent = t("unlocking");
-  error.hidden = true;
+async function submitAuth(action) {
+  const message = $("#authMessage");
+  const buttons = [$("#loginButton"), $("#signupButton")];
+  buttons.forEach((button) => { button.disabled = true; });
+  message.hidden = true;
   try {
-    await api("/api/session", {
+    const result = await api(`/api/auth/${action}`, {
       method: "POST",
-      body: JSON.stringify({ code: $("#accessCode").value }),
+      body: JSON.stringify({
+        email: $("#authEmail").value,
+        password: $("#authPassword").value,
+      }),
     });
-    $("#accessCode").value = "";
-    accessDialog.close();
+    if (result.confirmation_required) {
+      message.textContent = t("confirmationSent");
+      message.hidden = false;
+      $("#authPassword").value = "";
+      return;
+    }
+    authDialog.close();
     await loadSession();
   } catch (problem) {
-    error.textContent = problem.status === 401 ? t("invalidAccess") : problem.message;
-    error.hidden = false;
+    message.textContent = problem.message;
+    message.hidden = false;
   } finally {
-    button.disabled = false;
-    button.textContent = t("unlock");
+    buttons.forEach((button) => { button.disabled = false; });
+  }
+}
+$("#authForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  await submitAuth("login");
+});
+$("#signupButton").addEventListener("click", async () => {
+  if ($("#authForm").reportValidity()) await submitAuth("signup");
+});
+authDialog.addEventListener("cancel", (event) => event.preventDefault());
+
+$("#createHouseholdForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await api("/api/households", {
+      method: "POST",
+      body: JSON.stringify({
+        household_name: $("#newHouseholdName").value,
+        member_name: $("#creatorMemberName").value,
+      }),
+    });
+    onboardingDialog.close();
+    await loadSession();
+  } catch (error) {
+    $("#onboardingError").textContent = error.message;
+    $("#onboardingError").hidden = false;
   }
 });
-accessDialog.addEventListener("cancel", (event) => event.preventDefault());
+$("#joinHouseholdForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await api("/api/households/join", {
+      method: "POST",
+      body: JSON.stringify({
+        invite_code: $("#householdInviteCode").value,
+        member_name: $("#joinerMemberName").value,
+      }),
+    });
+    onboardingDialog.close();
+    await loadSession();
+  } catch (error) {
+    $("#onboardingError").textContent = error.message;
+    $("#onboardingError").hidden = false;
+  }
+});
+onboardingDialog.addEventListener("cancel", (event) => event.preventDefault());
 $("#logoutButton").addEventListener("click", async () => {
-  await api("/api/session", { method: "DELETE" });
+  await api("/api/auth/session", { method: "DELETE" });
   localStorage.removeItem("home-actor");
   window.location.reload();
 });
@@ -1554,6 +1626,7 @@ actorSelect.addEventListener("change", () => {
 $("#membersButton").addEventListener("click", () => {
   const household = state.board.household || {};
   $("#manageCity").value = household.city ? `${household.city}, ${household.country_code}` : "";
+  $("#currentInviteCode").textContent = household.invite_code || "";
   membersDialog.showModal();
 });
 $("#manageCityForm").addEventListener("submit", async (event) => {

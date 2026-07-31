@@ -5,10 +5,12 @@ import re
 import sqlite3
 from calendar import monthrange
 from datetime import date, datetime, time, timedelta, timezone
-from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
+import psycopg
+from psycopg import Cursor
+from psycopg.rows import dict_row
 from dateutil.rrule import DAILY, MONTHLY, WEEKLY, rrule
 
 HOUSEHOLD_MEMORY_MAX_CHARS = 2000
@@ -127,283 +129,39 @@ def _occurrence_item(
     return result
 
 
+class QmarkCursor(Cursor):
+    def execute(self, query, params=None, **kwargs):
+        if isinstance(query, str):
+            query = query.replace("?", "%s")
+        return super().execute(query, params, **kwargs)
+
+
 class BoardDatabase:
-    def __init__(self, path: str | Path):
-        self.connection = sqlite3.connect(path, check_same_thread=False)
-        self.connection.row_factory = sqlite3.Row
-        self.connection.execute("PRAGMA foreign_keys = ON")
-        self.connection.execute("PRAGMA busy_timeout = 5000")
-
-    def setup(self) -> None:
-        self.connection.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS households (
-                id TEXT PRIMARY KEY,
-                timezone TEXT NOT NULL DEFAULT 'UTC',
-                city TEXT,
-                country_code TEXT,
-                latitude REAL,
-                longitude REAL,
-                memory TEXT NOT NULL DEFAULT '',
-                created_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS members (
-                id TEXT PRIMARY KEY,
-                household_id TEXT NOT NULL REFERENCES households(id),
-                name TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT '',
-                deleted_at TEXT,
-                created_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS submissions (
-                id TEXT PRIMARY KEY,
-                household_id TEXT NOT NULL REFERENCES households(id),
-                created_by TEXT NOT NULL REFERENCES members(id),
-                source TEXT NOT NULL CHECK (source IN ('text', 'audio')),
-                original_text TEXT NOT NULL,
-                timezone TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS items (
-                id TEXT PRIMARY KEY,
-                household_id TEXT NOT NULL REFERENCES households(id),
-                submission_id TEXT REFERENCES submissions(id),
-                source_index INTEGER,
-                kind TEXT NOT NULL CHECK (kind IN ('event', 'task', 'note')),
-                title TEXT NOT NULL,
-                details TEXT NOT NULL DEFAULT '',
-                preparation TEXT,
-                owner_id TEXT REFERENCES members(id),
-                assignment_state TEXT CHECK (
-                    assignment_state IS NULL OR assignment_state IN ('pending', 'accepted')
-                ),
-                status TEXT CHECK (
-                    status IS NULL OR status IN ('unclaimed', 'claimed', 'done')
-                ),
-                start_at TEXT,
-                end_at TEXT,
-                start_date TEXT,
-                due_at TEXT,
-                due_date TEXT,
-                reminder_at TEXT,
-                all_day INTEGER NOT NULL DEFAULT 0 CHECK (all_day IN (0, 1)),
-                recurrence TEXT CHECK (
-                    recurrence IS NULL OR recurrence IN ('daily', 'weekly', 'monthly')
-                ),
-                monthly_on_last_day INTEGER NOT NULL DEFAULT 0 CHECK (
-                    monthly_on_last_day IN (0, 1)
-                ),
-                recurrence_until TEXT,
-                created_by TEXT NOT NULL REFERENCES members(id),
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                UNIQUE (submission_id, source_index)
-            );
-
-            CREATE TABLE IF NOT EXISTS recurrence_exceptions (
-                series_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
-                occurrence_date TEXT NOT NULL,
-                cancelled INTEGER NOT NULL DEFAULT 0 CHECK (cancelled IN (0, 1)),
-                start_at TEXT,
-                end_at TEXT,
-                start_date TEXT,
-                title TEXT,
-                details TEXT,
-                preparation TEXT,
-                updated_at TEXT NOT NULL,
-                PRIMARY KEY (series_id, occurrence_date)
-            );
-
-            CREATE TABLE IF NOT EXISTS chat_sessions (
-                id TEXT PRIMARY KEY,
-                household_id TEXT NOT NULL REFERENCES households(id),
-                actor_id TEXT NOT NULL REFERENCES members(id),
-                kind TEXT NOT NULL CHECK (kind IN ('intake', 'assistant')),
-                status TEXT NOT NULL CHECK (
-                    status IN ('active', 'clarifying', 'review', 'confirmed')
-                ),
-                owner_id TEXT REFERENCES members(id),
-                source TEXT NOT NULL CHECK (source IN ('text', 'audio')),
-                timezone TEXT NOT NULL,
-                clarification_count INTEGER NOT NULL DEFAULT 0,
-                payload_json TEXT NOT NULL DEFAULT '{}',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS chat_messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
-                role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-                content TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            );
-
-            CREATE INDEX IF NOT EXISTS items_household_status
-                ON items(household_id, status);
-            CREATE INDEX IF NOT EXISTS items_household_start
-                ON items(household_id, start_at, start_date);
-            CREATE INDEX IF NOT EXISTS items_household_due
-                ON items(household_id, due_at, due_date);
-            CREATE INDEX IF NOT EXISTS chat_messages_session
-                ON chat_messages(session_id, id);
-            """
+    def __init__(self, database_url: str, user_id: str):
+        self.connection = psycopg.connect(
+            database_url,
+            autocommit=True,
+            row_factory=dict_row,
+            cursor_factory=QmarkCursor,
+            prepare_threshold=None,
         )
-        self._upgrade_chat_sessions()
-        if "recurrence" not in {
-            row["name"] for row in self.connection.execute("PRAGMA table_info(items)")
-        }:
-            self.connection.execute(
-                """
-                ALTER TABLE items ADD COLUMN recurrence TEXT CHECK (
-                    recurrence IS NULL OR recurrence IN ('daily', 'weekly', 'monthly')
-                )
-                """
-            )
-        if "monthly_on_last_day" not in {
-            row["name"] for row in self.connection.execute("PRAGMA table_info(items)")
-        }:
-            self.connection.execute(
-                """
-                ALTER TABLE items ADD COLUMN monthly_on_last_day INTEGER
-                NOT NULL DEFAULT 0 CHECK (monthly_on_last_day IN (0, 1))
-                """
-            )
-        if "recurrence_until" not in {
-            row["name"] for row in self.connection.execute("PRAGMA table_info(items)")
-        }:
-            self.connection.execute(
-                "ALTER TABLE items ADD COLUMN recurrence_until TEXT"
-            )
-        if "assignment_state" not in {
-            row["name"] for row in self.connection.execute("PRAGMA table_info(items)")
-        }:
-            self.connection.execute(
-                """
-                ALTER TABLE items ADD COLUMN assignment_state TEXT CHECK (
-                    assignment_state IS NULL OR assignment_state IN ('pending', 'accepted')
-                )
-                """
-            )
-        if "reminder_at" not in {
-            row["name"] for row in self.connection.execute("PRAGMA table_info(items)")
-        }:
-            self.connection.execute("ALTER TABLE items ADD COLUMN reminder_at TEXT")
-        if "preparation" not in {
-            row["name"] for row in self.connection.execute("PRAGMA table_info(items)")
-        }:
-            self.connection.execute("ALTER TABLE items ADD COLUMN preparation TEXT")
-        if "preparation" not in {
-            row["name"]
-            for row in self.connection.execute(
-                "PRAGMA table_info(recurrence_exceptions)"
-            )
-        }:
-            self.connection.execute(
-                "ALTER TABLE recurrence_exceptions ADD COLUMN preparation TEXT"
-            )
+        claims = json.dumps({"sub": user_id, "role": "authenticated"})
+        self.connection.execute("SET ROLE authenticated")
         self.connection.execute(
-            """
-            UPDATE items SET assignment_state = 'accepted'
-            WHERE kind = 'task' AND owner_id IS NOT NULL AND assignment_state IS NULL
-            """
+            "SELECT set_config('request.jwt.claims', ?, false)", (claims,)
         )
-        household_columns = {
-            row["name"]
-            for row in self.connection.execute("PRAGMA table_info(households)")
-        }
-        for name, sql_type in {
-            "city": "TEXT",
-            "country_code": "TEXT",
-            "latitude": "REAL",
-            "longitude": "REAL",
-            "memory": "TEXT NOT NULL DEFAULT ''",
-        }.items():
-            if name not in household_columns:
-                self.connection.execute(
-                    f"ALTER TABLE households ADD COLUMN {name} {sql_type}"
-                )
-        member_columns = {
-            row["name"] for row in self.connection.execute("PRAGMA table_info(members)")
-        }
-        if "role" not in member_columns:
-            self.connection.execute("ALTER TABLE members ADD COLUMN role TEXT NOT NULL DEFAULT ''")
-        if "deleted_at" not in member_columns:
-            self.connection.execute("ALTER TABLE members ADD COLUMN deleted_at TEXT")
-        self.connection.commit()
-
-    def _upgrade_chat_sessions(self) -> None:
-        schema = self.connection.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'chat_sessions'"
-        ).fetchone()
-        if schema is None or "'assistant'" in schema["sql"]:
-            return
-        self.connection.commit()
-        self.connection.execute("PRAGMA foreign_keys = OFF")
-        try:
-            self.connection.executescript(
-                """
-                BEGIN IMMEDIATE;
-                ALTER TABLE chat_messages RENAME TO old_chat_messages;
-                ALTER TABLE chat_sessions RENAME TO old_chat_sessions;
-
-                CREATE TABLE chat_sessions (
-                    id TEXT PRIMARY KEY,
-                    household_id TEXT NOT NULL REFERENCES households(id),
-                    actor_id TEXT NOT NULL REFERENCES members(id),
-                    kind TEXT NOT NULL CHECK (kind IN ('intake', 'assistant')),
-                    status TEXT NOT NULL CHECK (
-                        status IN ('active', 'clarifying', 'review', 'confirmed')
-                    ),
-                    owner_id TEXT REFERENCES members(id),
-                    source TEXT NOT NULL CHECK (source IN ('text', 'audio')),
-                    timezone TEXT NOT NULL,
-                    clarification_count INTEGER NOT NULL DEFAULT 0,
-                    payload_json TEXT NOT NULL DEFAULT '{}',
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                );
-
-                CREATE TABLE chat_messages (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
-                    role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-                    content TEXT NOT NULL,
-                    created_at TEXT NOT NULL
-                );
-
-                INSERT INTO chat_sessions SELECT * FROM old_chat_sessions;
-                INSERT INTO chat_messages SELECT * FROM old_chat_messages;
-                DROP TABLE old_chat_messages;
-                DROP TABLE old_chat_sessions;
-                CREATE INDEX chat_messages_session ON chat_messages(session_id, id);
-                COMMIT;
-                """
-            )
-        except Exception:
-            self.connection.rollback()
-            raise
-        finally:
-            self.connection.execute("PRAGMA foreign_keys = ON")
 
     def close(self) -> None:
         self.connection.close()
 
     def ensure_household(self, household_id: str, timezone_name: str = "UTC") -> None:
-        self.connection.execute(
-            """
-            INSERT INTO households (id, timezone, created_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(id) DO NOTHING
-            """,
-            (household_id, timezone_name, _now()),
-        )
+        if self.connection.execute(
+            "SELECT 1 FROM households WHERE id = ?", (household_id,)
+        ).fetchone() is None:
+            raise ValueError("Household setup required")
 
     def _require_member(
-        self, cursor: sqlite3.Cursor, household_id: str, member_id: str | None
+        self, cursor: Cursor, household_id: str, member_id: str | None
     ) -> str:
         if not member_id or cursor.execute(
             "SELECT 1 FROM members WHERE id = ? AND household_id = ? AND deleted_at IS NULL",
@@ -426,7 +184,7 @@ class BoardDatabase:
         if len(memory) > HOUSEHOLD_MEMORY_MAX_CHARS:
             shortened = memory[:HOUSEHOLD_MEMORY_MAX_CHARS]
             memory = shortened.rsplit("\n", 1)[0].strip() or shortened.rstrip()
-        with self.connection:
+        with self.connection.transaction():
             self.ensure_household(household_id)
             self.connection.execute(
                 "UPDATE households SET memory = ? WHERE id = ?",
@@ -444,7 +202,7 @@ class BoardDatabase:
     ) -> dict:
         session_id = str(uuid4())
         now = _now()
-        with self.connection:
+        with self.connection.transaction():
             self.ensure_household(household_id, timezone_name)
             self._require_member(self.connection.cursor(), household_id, actor_id)
             if owner_id is not None:
@@ -513,7 +271,7 @@ class BoardDatabase:
         session = self.get_intake_session(household_id, session_id, actor_id)
         if session["status"] != "clarifying":
             raise ValueError("Confirm or start over before sending another message")
-        with self.connection:
+        with self.connection.transaction():
             self.connection.execute(
                 """
                 INSERT INTO chat_messages (session_id, role, content, created_at)
@@ -536,7 +294,7 @@ class BoardDatabase:
     ) -> dict:
         session_id = str(uuid4())
         now = _now()
-        with self.connection:
+        with self.connection.transaction():
             self.ensure_household(household_id, timezone_name)
             self._require_member(self.connection.cursor(), household_id, actor_id)
             self.connection.execute(
@@ -593,7 +351,7 @@ class BoardDatabase:
         content: str,
     ) -> dict:
         self.get_assistant_session(household_id, session_id, actor_id)
-        with self.connection:
+        with self.connection.transaction():
             self.connection.execute(
                 """
                 INSERT INTO chat_messages (session_id, role, content, created_at)
@@ -617,7 +375,7 @@ class BoardDatabase:
         payload: dict,
     ) -> dict:
         self.get_intake_session(household_id, session_id, actor_id)
-        with self.connection:
+        with self.connection.transaction():
             self.connection.execute(
                 """
                 UPDATE chat_sessions
@@ -659,7 +417,7 @@ class BoardDatabase:
             owner_id=None,
             drafts=drafts,
         )
-        with self.connection:
+        with self.connection.transaction():
             self.connection.execute(
                 """
                 UPDATE chat_sessions SET status = 'confirmed', updated_at = ?
@@ -672,13 +430,15 @@ class BoardDatabase:
     def get_household(self, household_id: str) -> dict:
         row = self.connection.execute(
             """
-            SELECT id, timezone, city, country_code
+            SELECT id, name, invite_code, timezone, city, country_code
             FROM households WHERE id = ?
             """,
             (household_id,),
         ).fetchone()
         return dict(row) if row else {
             "id": household_id,
+            "name": "",
+            "invite_code": "",
             "timezone": "UTC",
             "city": None,
             "country_code": None,
@@ -701,7 +461,7 @@ class BoardDatabase:
         longitude = float(location["longitude"])
         if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
             raise ValueError("Invalid city coordinates")
-        with self.connection:
+        with self.connection.transaction():
             self.ensure_household(household_id)
             self.connection.execute(
                 """
@@ -725,7 +485,7 @@ class BoardDatabase:
             raise ValueError("Member name must be 1 to 40 characters")
         if len(role) > 40:
             raise ValueError("Member role must be at most 40 characters")
-        with self.connection:
+        with self.connection.transaction():
             self.ensure_household(household_id)
             names = self.connection.execute(
                 "SELECT name FROM members WHERE household_id = ? AND deleted_at IS NULL", (household_id,)
@@ -743,7 +503,7 @@ class BoardDatabase:
         return member_id
 
     def delete_member(self, household_id: str, member_id: str) -> None:
-        with self.connection:
+        with self.connection.transaction():
             cursor = self.connection.execute(
                 "UPDATE members SET deleted_at = ? WHERE id = ? AND household_id = ? AND deleted_at IS NULL",
                 (_now(), member_id, household_id),
@@ -762,7 +522,7 @@ class BoardDatabase:
         owner_id: str | None,
         drafts: list[dict],
     ) -> list[str]:
-        with self.connection:
+        with self.connection.transaction():
             cursor = self.connection.cursor()
             self.ensure_household(household_id, timezone_name)
             self._require_member(cursor, household_id, actor_id)
@@ -774,10 +534,11 @@ class BoardDatabase:
             )
             cursor.execute(
                 """
-                INSERT OR IGNORE INTO submissions (
+                INSERT INTO submissions (
                     id, household_id, created_by, source, original_text,
                     timezone, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO NOTHING
                 """,
                 (
                     submission_id,
@@ -811,13 +572,14 @@ class BoardDatabase:
                 now = _now()
                 cursor.execute(
                     """
-                    INSERT OR IGNORE INTO items (
+                    INSERT INTO items (
                         id, household_id, submission_id, source_index, kind,
                         title, details, preparation, owner_id, assignment_state, status, start_at, end_at,
                         start_date, due_at, due_date, reminder_at, all_day, recurrence,
                         monthly_on_last_day, recurrence_until, created_by,
                         created_at, updated_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(submission_id, source_index) DO NOTHING
                     """,
                     (
                         str(uuid4()),
@@ -1135,7 +897,7 @@ class BoardDatabase:
         if not fields or set(fields) - allowed:
             raise ValueError("Invalid item fields")
 
-        with self.connection:
+        with self.connection.transaction():
             cursor = self.connection.cursor()
             self._require_member(cursor, household_id, actor_id)
             row = cursor.execute(
@@ -1295,7 +1057,7 @@ class BoardDatabase:
     def respond_to_task_assignment(
         self, household_id: str, item_id: str, actor_id: str, accept: bool
     ) -> None:
-        with self.connection:
+        with self.connection.transaction():
             cursor = self.connection.cursor()
             self._require_member(cursor, household_id, actor_id)
             item = cursor.execute(
@@ -1324,7 +1086,7 @@ class BoardDatabase:
             )
 
     def delete_item(self, household_id: str, item_id: str, actor_id: str) -> None:
-        with self.connection:
+        with self.connection.transaction():
             cursor = self.connection.cursor()
             self._require_member(cursor, household_id, actor_id)
             deleted = cursor.execute(
@@ -1336,7 +1098,7 @@ class BoardDatabase:
 
     def _require_occurrence(
         self,
-        cursor: sqlite3.Cursor,
+        cursor: Cursor,
         household_id: str,
         series_id: str,
         occurrence_date: str,
@@ -1381,7 +1143,7 @@ class BoardDatabase:
         }
         if not fields or set(fields) - allowed:
             raise ValueError("Invalid occurrence fields")
-        with self.connection:
+        with self.connection.transaction():
             cursor = self.connection.cursor()
             self._require_member(cursor, household_id, actor_id)
             item, occurrence = self._require_occurrence(
@@ -1467,7 +1229,7 @@ class BoardDatabase:
         occurrence_date: str,
         actor_id: str,
     ) -> None:
-        with self.connection:
+        with self.connection.transaction():
             cursor = self.connection.cursor()
             self._require_member(cursor, household_id, actor_id)
             _, occurrence = self._require_occurrence(
@@ -1584,7 +1346,7 @@ class BoardDatabase:
                 """
                 SELECT id, name, role FROM members
                 WHERE household_id = ? AND deleted_at IS NULL
-                ORDER BY created_at, rowid
+                ORDER BY created_at, id
                 """,
                 (household_id,),
             )
@@ -1600,7 +1362,7 @@ class BoardDatabase:
             FROM items AS i
             LEFT JOIN submissions AS s ON s.id = i.submission_id
             WHERE i.household_id = ?
-            ORDER BY i.created_at, i.rowid
+            ORDER BY i.created_at, i.id
             """,
             (household_id,),
         )

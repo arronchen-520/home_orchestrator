@@ -1,7 +1,7 @@
 # Home Orchestrator
 
-A local bilingual family board built with LangGraph, FastAPI, OpenRouter, and
-Groq. Type or speak in Chinese or English to add events, tasks, and notes.
+A bilingual family board built with LangGraph, FastAPI, Supabase, OpenRouter,
+and Groq. Type or speak in Chinese or English to add events, tasks, and notes.
 
 The intake assistant asks up to two questions when important details are
 missing. Before saving, it shows schedule conflicts and lets you review each
@@ -28,36 +28,32 @@ text. The calendar has month and week views. Notes have their own section.
 Copy-Item .env.example .env
 # Add OPENROUTER_API_KEY, GROQ_API_KEY, and OPENWEATHER_API_KEY to .env
 uv sync
-uv run home-orchestrator
+uv run python app.py
 ```
 
 Open <http://127.0.0.1:8000>.
 
-Board data is stored in domain tables inside `data/board.sqlite3`. LangGraph
-handles AI input and can split one input into multiple items. Its checkpoints
-are not the board's source of truth. The browser only stores the selected UI
-language and current family member.
+Board data is stored in Supabase Postgres. Supabase Auth provides email/password
+sessions, and Postgres RLS limits every query to the signed-in user's household.
+LangGraph handles AI input and can split one input into multiple items.
 
-For small shared tests, keep one SQLite file and give each household a separate
-access code. Set these environment variables on the server:
+Configure these environment variables locally and on the server:
 
 ```text
-BOARD_DB_PATH=/data/board.sqlite3
-HOUSEHOLD_CODES_JSON={"family-a":"replace-with-code-a","family-b":"replace-with-code-b"}
-SESSION_SECRET=replace-with-a-random-secret-of-at-least-32-characters
+DATABASE_URL=postgresql://...
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
-Mount a persistent Railway volume at `/data`. Generate each code and the
-session secret with `uv run python -c "import secrets; print(secrets.token_urlsafe(24))"`.
-Use `uv run home-orchestrator` as the start command.
-When `HOUSEHOLD_CODES_JSON` is empty, the app keeps its original local
-single-household behavior.
+Apply the database migration once with `uv run python migrate.py`. Railway no
+longer needs a persistent volume; use `uv run python app.py` as its Start
+Command.
 
 On first launch, enter the household city, for example `Toronto, CA`.
 OpenWeather finds and saves the location, then shows a cached five-day
 forecast in Calendar.
 
-共享板数据保存在 `data/board.sqlite3`。浏览器只保存界面语言和当前家庭成员。
+共享板数据保存在 Supabase Postgres。浏览器只保存界面语言和当前家庭成员。
 
 ## Test / 测试
 

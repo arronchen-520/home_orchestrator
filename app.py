@@ -1,13 +1,7 @@
 from __future__ import annotations
 
-import base64
-import binascii
-import hashlib
-import hmac
-import json
 import logging
 import os
-import time
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from pathlib import Path
@@ -20,6 +14,8 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, Response, Uploa
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from supabase import create_client
+from supabase_auth.errors import AuthError
 
 from board_db import BoardDatabase
 from board_graph import BoardService, ConfigurationError
@@ -32,106 +28,30 @@ from weather import (
 load_dotenv()
 
 ROOT = Path(__file__).parent
-DATA_DIR = ROOT / "data"
 STATIC_DIR = ROOT / "static"
 MAX_AUDIO_BYTES = 10 * 1024 * 1024
-SESSION_COOKIE = "hearthbook_session"
-SESSION_SECONDS = 30 * 24 * 60 * 60
-LOGIN_WINDOW_SECONDS = 10 * 60
-LOGIN_ATTEMPT_LIMIT = 5
+ACCESS_COOKIE = "hearthbook_access"
+REFRESH_COOKIE = "hearthbook_refresh"
 logger = logging.getLogger(__name__)
-
-
-def household_codes() -> dict[str, str]:
-    raw = os.getenv("HOUSEHOLD_CODES_JSON", "").strip()
-    if not raw:
-        return {}
-    try:
-        codes = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("HOUSEHOLD_CODES_JSON must be a JSON object") from exc
-    if (
-        not isinstance(codes, dict)
-        or not codes
-        or any(
-            not isinstance(household_id, str)
-            or not household_id.strip()
-            or not isinstance(code, str)
-            or len(code) < 8
-            for household_id, code in codes.items()
-        )
-        or len(set(codes.values())) != len(codes)
-    ):
-        raise RuntimeError(
-            "HOUSEHOLD_CODES_JSON needs unique access codes of at least 8 characters"
-        )
-    return codes
-
-
-def session_token(household_id: str, secret: str) -> str:
-    payload = json.dumps(
-        {"household_id": household_id, "expires": int(time.time()) + SESSION_SECONDS},
-        separators=(",", ":"),
-    ).encode()
-    body = base64.urlsafe_b64encode(payload).rstrip(b"=")
-    signature = hmac.new(secret.encode(), body, hashlib.sha256).digest()
-    return (
-        body.decode()
-        + "."
-        + base64.urlsafe_b64encode(signature).rstrip(b"=").decode()
-    )
-
-
-def token_household(token: str, secret: str, codes: dict[str, str]) -> str | None:
-    try:
-        body, encoded_signature = token.split(".", 1)
-        body_bytes = body.encode()
-        signature = base64.urlsafe_b64decode(
-            encoded_signature + "=" * (-len(encoded_signature) % 4)
-        )
-        expected = hmac.new(secret.encode(), body_bytes, hashlib.sha256).digest()
-        if not hmac.compare_digest(signature, expected):
-            return None
-        payload = json.loads(
-            base64.urlsafe_b64decode(body + "=" * (-len(body) % 4))
-        )
-        household_id = payload["household_id"]
-        if payload["expires"] < time.time() or household_id not in codes:
-            return None
-        return household_id
-    except (binascii.Error, KeyError, TypeError, ValueError, json.JSONDecodeError):
-        return None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    DATA_DIR.mkdir(exist_ok=True)
-    codes = household_codes()
-    secret = os.getenv("SESSION_SECRET", "")
-    if codes and len(secret) < 32:
-        raise RuntimeError(
-            "SESSION_SECRET must be at least 32 characters when access codes are enabled"
+    app.state.database_url = os.getenv("DATABASE_URL", "")
+    app.state.supabase_url = os.getenv("SUPABASE_URL", "")
+    app.state.supabase_key = os.getenv("SUPABASE_PUBLISHABLE_KEY", "")
+    if not all(
+        (
+            app.state.database_url,
+            app.state.supabase_url,
+            app.state.supabase_key,
         )
-    database_path = Path(os.getenv("BOARD_DB_PATH", DATA_DIR / "board.sqlite3"))
-    if not database_path.is_absolute():
-        database_path = ROOT / database_path
-    database_path.parent.mkdir(parents=True, exist_ok=True)
-    database = BoardDatabase(database_path)
-    database.setup()
-    app.state.database = database
-    app.state.household_codes = codes
-    app.state.session_secret = secret
-    app.state.boards = {}
-    # ponytail: process-local limiter; use a shared store only if running replicas.
-    app.state.login_attempts = {}
-    if not codes:
-        household_id = os.getenv("HOUSEHOLD_ID", "family-default")
-        app.state.boards[household_id] = BoardService(database, household_id)
+    ):
+        raise RuntimeError(
+            "DATABASE_URL, SUPABASE_URL, and SUPABASE_PUBLISHABLE_KEY are required"
+        )
     app.state.weather = WeatherService(os.getenv("OPENWEATHER_API_KEY"))
-    try:
-        yield
-    finally:
-        database.close()
+    yield
 
 
 app = FastAPI(title="Home Orchestrator", lifespan=lifespan)
@@ -139,23 +59,47 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.middleware("http")
-async def require_household_session(request: Request, call_next):
-    codes = request.app.state.household_codes
-    if request.url.path.startswith("/api/") and request.url.path != "/api/session":
-        if codes:
-            household_id = token_household(
-                request.cookies.get(SESSION_COOKIE, ""),
-                request.app.state.session_secret,
-                codes,
-            )
-            if household_id is None:
-                return JSONResponse(
-                    {"detail": "Household access required"}, status_code=401
-                )
-        else:
-            household_id = os.getenv("HOUSEHOLD_ID", "family-default")
-        request.state.household_id = household_id
-    return await call_next(request)
+async def require_supabase_session(request: Request, call_next):
+    path = request.url.path
+    if not path.startswith("/api/") or path.startswith("/api/auth/"):
+        return await call_next(request)
+
+    authenticated = authenticate(request)
+    if authenticated is None:
+        return JSONResponse({"detail": "Authentication required"}, status_code=401)
+    user, access_token, refreshed_session = authenticated
+    request.state.user_id = str(user.id)
+    request.state.access_token = access_token
+
+    client = data_client(request, access_token)
+    membership_response = (
+        client.table("household_memberships")
+        .select("household_id")
+        .eq("user_id", str(user.id))
+        .maybe_single()
+        .execute()
+    )
+    membership = membership_response.data if membership_response else None
+    request.state.household_id = (
+        membership["household_id"] if membership else None
+    )
+    if request.state.household_id is None and path not in {
+        "/api/households",
+        "/api/households/join",
+    }:
+        return JSONResponse(
+            {"detail": "Household setup required"}, status_code=409
+        )
+
+    try:
+        response = await call_next(request)
+    finally:
+        database = getattr(request.state, "database", None)
+        if database is not None:
+            database.close()
+    if refreshed_session is not None:
+        set_auth_cookies(response, refreshed_session, request)
+    return response
 
 
 class TextInput(BaseModel):
@@ -184,8 +128,19 @@ class MemberInput(BaseModel):
     role: str = Field(default="", max_length=40)
 
 
-class AccessCodeInput(BaseModel):
-    code: str = Field(min_length=1, max_length=200)
+class AuthInput(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=8, max_length=200)
+
+
+class HouseholdCreateInput(BaseModel):
+    household_name: str = Field(min_length=1, max_length=80)
+    member_name: str = Field(min_length=1, max_length=40)
+
+
+class HouseholdJoinInput(BaseModel):
+    invite_code: str = Field(min_length=1, max_length=40)
+    member_name: str = Field(min_length=1, max_length=40)
 
 
 class HouseholdLocationInput(BaseModel):
@@ -225,16 +180,71 @@ class OccurrenceUpdate(BaseModel):
 
 
 def board_service(request: Request) -> BoardService:
-    household_id = request.state.household_id
-    service = request.app.state.boards.get(household_id)
-    if service is None:
-        service = BoardService(request.app.state.database, household_id)
-        request.app.state.boards[household_id] = service
-    return service
+    database = getattr(request.state, "database", None)
+    if database is None:
+        database = BoardDatabase(
+            request.app.state.database_url, request.state.user_id
+        )
+        request.state.database = database
+    return BoardService(database, request.state.household_id)
 
 
 def weather_service(request: Request) -> WeatherService:
     return request.app.state.weather
+
+
+def auth_client(request: Request):
+    return create_client(
+        request.app.state.supabase_url, request.app.state.supabase_key
+    )
+
+
+def data_client(request: Request, access_token: str):
+    client = auth_client(request)
+    client.postgrest.auth(access_token)
+    return client
+
+
+def authenticate(request: Request):
+    access_token = request.cookies.get(ACCESS_COOKIE)
+    refresh_token = request.cookies.get(REFRESH_COOKIE)
+    client = auth_client(request)
+    if access_token:
+        try:
+            user = client.auth.get_user(access_token).user
+            if user is not None:
+                return user, access_token, None
+        except AuthError:
+            pass
+    if not refresh_token:
+        return None
+    try:
+        refreshed = client.auth.refresh_session(refresh_token)
+    except AuthError:
+        return None
+    if refreshed.user is None or refreshed.session is None:
+        return None
+    return refreshed.user, refreshed.session.access_token, refreshed.session
+
+
+def set_auth_cookies(response: Response, session, request: Request) -> None:
+    secure = request.url.scheme == "https"
+    response.set_cookie(
+        ACCESS_COOKIE,
+        session.access_token,
+        max_age=session.expires_in,
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+    )
+    response.set_cookie(
+        REFRESH_COOKIE,
+        session.refresh_token,
+        max_age=30 * 24 * 60 * 60,
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+    )
 
 
 async def service_call(awaitable) -> dict:
@@ -261,62 +271,95 @@ async def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
-@app.get("/api/session")
-async def get_session(request: Request):
-    codes = request.app.state.household_codes
-    authenticated = not codes or token_household(
-        request.cookies.get(SESSION_COOKIE, ""),
-        request.app.state.session_secret,
-        codes,
-    ) is not None
-    return {"required": bool(codes), "authenticated": authenticated}
+@app.post("/api/auth/signup")
+async def signup(payload: AuthInput, request: Request, response: Response):
+    try:
+        result = auth_client(request).auth.sign_up(
+            {"email": payload.email.strip(), "password": payload.password}
+        )
+    except AuthError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if result.session is not None:
+        set_auth_cookies(response, result.session, request)
+    return {
+        "authenticated": result.session is not None,
+        "confirmation_required": result.session is None,
+    }
 
 
-@app.post("/api/session")
-async def create_session(payload: AccessCodeInput, request: Request, response: Response):
-    codes = request.app.state.household_codes
-    if not codes:
-        return {"authenticated": True}
-
-    client = request.client.host if request.client else "unknown"
-    now = time.monotonic()
-    attempts = [
-        attempt
-        for attempt in request.app.state.login_attempts.get(client, [])
-        if now - attempt < LOGIN_WINDOW_SECONDS
-    ]
-    if len(attempts) >= LOGIN_ATTEMPT_LIMIT:
-        raise HTTPException(status_code=429, detail="Too many attempts. Try later.")
-
-    household_id = next(
-        (
-            candidate
-            for candidate, code in codes.items()
-            if hmac.compare_digest(payload.code.encode(), code.encode())
-        ),
-        None,
-    )
-    if household_id is None:
-        attempts.append(now)
-        request.app.state.login_attempts[client] = attempts
-        raise HTTPException(status_code=401, detail="Invalid access code")
-
-    request.app.state.login_attempts.pop(client, None)
-    response.set_cookie(
-        SESSION_COOKIE,
-        session_token(household_id, request.app.state.session_secret),
-        max_age=SESSION_SECONDS,
-        httponly=True,
-        secure=request.url.scheme == "https",
-        samesite="lax",
-    )
+@app.post("/api/auth/login")
+async def login(payload: AuthInput, request: Request, response: Response):
+    try:
+        result = auth_client(request).auth.sign_in_with_password(
+            {"email": payload.email.strip(), "password": payload.password}
+        )
+    except AuthError as exc:
+        raise HTTPException(status_code=401, detail="Invalid email or password") from exc
+    if result.session is None:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    set_auth_cookies(response, result.session, request)
     return {"authenticated": True}
 
 
-@app.delete("/api/session")
+@app.get("/api/auth/session")
+async def get_session(request: Request, response: Response):
+    authenticated = authenticate(request)
+    if authenticated is None:
+        return {"authenticated": False, "household_ready": False}
+    user, access_token, refreshed_session = authenticated
+    if refreshed_session is not None:
+        set_auth_cookies(response, refreshed_session, request)
+    membership_response = (
+        data_client(request, access_token)
+        .table("household_memberships")
+        .select("household_id")
+        .eq("user_id", str(user.id))
+        .maybe_single()
+        .execute()
+    )
+    membership = membership_response.data if membership_response else None
+    return {
+        "authenticated": True,
+        "email": user.email,
+        "household_ready": membership is not None,
+    }
+
+
+@app.delete("/api/auth/session")
 async def delete_session(response: Response):
-    response.delete_cookie(SESSION_COOKIE, httponly=True, samesite="lax")
+    response.delete_cookie(ACCESS_COOKIE, httponly=True, samesite="lax")
+    response.delete_cookie(REFRESH_COOKIE, httponly=True, samesite="lax")
     return {"authenticated": False}
+
+
+@app.post("/api/households", status_code=201)
+async def create_household(payload: HouseholdCreateInput, request: Request):
+    try:
+        data_client(request, request.state.access_token).rpc(
+            "create_household",
+            {
+                "household_name": payload.household_name,
+                "member_name": payload.member_name,
+            },
+        ).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"created": True}
+
+
+@app.post("/api/households/join")
+async def join_household(payload: HouseholdJoinInput, request: Request):
+    try:
+        data_client(request, request.state.access_token).rpc(
+            "join_household",
+            {
+                "household_invite_code": payload.invite_code,
+                "member_name": payload.member_name,
+            },
+        ).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"joined": True}
 
 
 @app.get("/api/board")

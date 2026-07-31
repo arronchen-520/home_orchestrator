@@ -214,14 +214,40 @@
       </section>
     </main>
 
-    <dialog id="accessDialog">
-      <form id="accessForm" class="setup-form">
-        <h2 data-i18n="accessTitle">打开家庭看板</h2>
-        <p data-i18n="accessHelp">输入家人分享给你的访问码。</p>
-        <label for="accessCode" data-i18n="accessCode">家庭访问码</label>
-        <input id="accessCode" type="password" maxlength="200" required autocomplete="current-password">
-        <p id="accessError" class="form-error" role="alert" hidden></p>
-        <button id="accessButton" class="button primary" type="submit" data-i18n="unlock">打开看板</button>
+    <dialog id="authDialog">
+      <form id="authForm" class="setup-form">
+        <h2 data-i18n="authTitle">登录 Hearthbook</h2>
+        <p data-i18n="authHelp">使用邮箱创建账号或登录。</p>
+        <label for="authEmail" data-i18n="email">邮箱</label>
+        <input id="authEmail" type="email" maxlength="320" required autocomplete="email">
+        <label for="authPassword" data-i18n="password">密码</label>
+        <input id="authPassword" type="password" minlength="8" maxlength="200" required autocomplete="current-password">
+        <p id="authMessage" class="form-error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button id="loginButton" class="button primary" type="submit" data-i18n="login">登录</button>
+          <button id="signupButton" class="button secondary" type="button" data-i18n="signup">创建账号</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="onboardingDialog">
+      <h2 data-i18n="householdSetupTitle">设置家庭</h2>
+      <p data-i18n="householdSetupHelp">创建一个新家庭，或用邀请代码加入家人。</p>
+      <form id="createHouseholdForm" class="setup-form">
+        <label for="newHouseholdName" data-i18n="householdName">家庭名称</label>
+        <input id="newHouseholdName" maxlength="80" required>
+        <label for="creatorMemberName" data-i18n="yourName">你的名字</label>
+        <input id="creatorMemberName" maxlength="40" required autocomplete="name">
+        <button class="button primary" type="submit" data-i18n="createHousehold">创建家庭</button>
+      </form>
+      <p data-i18n="orJoin">或者加入已有家庭</p>
+      <form id="joinHouseholdForm" class="setup-form">
+        <label for="householdInviteCode" data-i18n="inviteCode">家庭邀请码</label>
+        <input id="householdInviteCode" maxlength="40" required autocomplete="one-time-code">
+        <label for="joinerMemberName" data-i18n="yourName">你的名字</label>
+        <input id="joinerMemberName" maxlength="40" required autocomplete="name">
+        <p id="onboardingError" class="form-error" role="alert" hidden></p>
+        <button class="button secondary" type="submit" data-i18n="joinHousehold">加入家庭</button>
       </form>
     </dialog>
 
@@ -262,7 +288,8 @@
         <input id="manageCity" maxlength="120" required autocomplete="address-level2" data-i18n-placeholder="cityPlaceholder" placeholder="Toronto, CA">
         <button class="button secondary" type="submit" data-i18n="saveCity">保存城市</button>
       </form>
-      <button id="logoutButton" class="button ghost" type="button" data-i18n="switchHousehold" hidden>切换家庭</button>
+      <p><span data-i18n="inviteCode">家庭邀请码</span>：<code id="currentInviteCode"></code></p>
+      <button id="logoutButton" class="button ghost" type="button" data-i18n="logout">退出登录</button>
     </dialog>
 
     <dialog id="itemEditor">

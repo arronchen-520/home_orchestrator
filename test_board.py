@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from board_db import HOUSEHOLD_MEMORY_MAX_CHARS, BoardDatabase
+from board_db import HOUSEHOLD_MEMORY_MAX_CHARS
 from board_graph import (
     AssistantAction,
     AssistantQueryPlan,
@@ -15,6 +15,7 @@ from board_graph import (
     IntakeItemDraft,
     ItemDraft,
 )
+from test_support import TestBoardDatabase as BoardDatabase
 
 
 class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
@@ -475,8 +476,8 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(items["note"]["details"], "1234")
             self.assertEqual(
                 database.connection.execute(
-                    "SELECT COUNT(*) FROM recurrence_exceptions"
-                ).fetchone()[0],
+                    "SELECT COUNT(*) AS count FROM recurrence_exceptions"
+                ).fetchone()["count"],
                 0,
             )
             with self.assertRaisesRegex(ValueError, "Notes only"):
