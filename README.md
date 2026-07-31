@@ -8,8 +8,9 @@ questions, shows schedule conflicts, and lets the user review each item, edit
 or clear its suggested owner, and accept or reject one proposed preparation.
 
 The bottom-right family assistant answers follow-up questions about schedules,
-tasks, reminders, preparations, and notes. Its AI-generated SQL runs only
-against a household-scoped read-only snapshot.
+tasks, reminders, preparations, and notes. It can propose one supported item
+update for the user to confirm; its AI-generated SQL still runs only against a
+household-scoped read-only snapshot.
 
 一个本地运行的中英双语家庭共享板。自然语言会由 AI 转成日程、待办或笔记。
 

@@ -4,8 +4,9 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from board_db import BoardDatabase
+from board_db import HOUSEHOLD_MEMORY_MAX_CHARS, BoardDatabase
 from board_graph import (
+    AssistantAction,
     AssistantQueryPlan,
     AssistantReply,
     BoardService,
@@ -17,7 +18,7 @@ from board_graph import (
 
 
 class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
-    async def test_read_only_assistant_is_scoped_and_keeps_conversation(self):
+    async def test_assistant_is_scoped_keeps_conversation_and_proposes_updates(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             database = BoardDatabase(Path(temp_dir) / "test.sqlite3")
             database.setup()
@@ -43,6 +44,9 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 None,
                 [{"kind": "note", "title": "Other household secret"}],
             )
+            database.set_household_memory(
+                "test-family", "- Lin prefers concise English replies."
+            )
             self.assertEqual(
                 database.query_assistant(
                     "test-family", "UTC", "SELECT title FROM items"
@@ -63,7 +67,15 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
             ]
             replies = [
                 AssistantReply(message="You have one task."),
-                AssistantReply(message="It is the hydro bill."),
+                AssistantReply(
+                    message="It is the hydro bill.",
+                    action=AssistantAction(
+                        item_id=database.get_board("test-family")["items"][0]["id"],
+                        fields={"status": "done"},
+                        confirmation="Mark Pay hydro bill as done?",
+                    ),
+                    updated_memory="- Lin prefers concise bilingual replies.",
+                ),
             ]
             with (
                 patch(
@@ -91,6 +103,21 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertEqual(second["session_id"], first["session_id"])
                 self.assertEqual(len(second["messages"]), 4)
+                self.assertEqual(second["action"]["fields"], {"status": "done"})
+                self.assertEqual(
+                    database.get_board("test-family")["items"][0]["status"],
+                    "unclaimed",
+                )
+                database.update_item(
+                    "test-family",
+                    second["action"]["item_id"],
+                    lin_id,
+                    second["action"]["fields"],
+                )
+                self.assertEqual(
+                    database.get_board("test-family")["items"][0]["status"],
+                    "done",
+                )
                 self.assertIn(
                     "assistant: You have one task.",
                     planner.await_args.args[0],
@@ -99,6 +126,39 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                     "Pay hydro bill",
                     answer.await_args.kwargs["query_results"],
                 )
+                self.assertIn("concise English", planner.await_args.args[4])
+                self.assertIn(
+                    "concise English", answer.await_args.kwargs["memory"]
+                )
+                self.assertEqual(
+                    database.get_household_memory("test-family"),
+                    "- Lin prefers concise bilingual replies.",
+                )
+                with self.assertRaisesRegex(ValueError, "Unsupported"):
+                    AssistantAction(
+                        item_id="item",
+                        fields={"delete": True},
+                        confirmation="Delete it?",
+                    )
+            database.close()
+
+    async def test_household_memory_is_scoped_and_capped(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = BoardDatabase(Path(temp_dir) / "test.sqlite3")
+            database.setup()
+            database.set_household_memory(
+                "family-a", "x" * (HOUSEHOLD_MEMORY_MAX_CHARS + 100)
+            )
+            database.set_household_memory("family-b", "separate")
+
+            self.assertEqual(
+                len(database.get_household_memory("family-a")),
+                HOUSEHOLD_MEMORY_MAX_CHARS,
+            )
+            self.assertEqual(
+                database.get_household_memory("family-b"), "separate"
+            )
+            self.assertEqual(database.get_household_memory("family-c"), "")
             database.close()
 
     async def test_intake_confirmation_keeps_owner_and_preparation_editable(self):
@@ -126,14 +186,22 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 ],
             )
             service = BoardService(database, "test-family")
+            database.set_household_memory(
+                "test-family", "- Sam usually handles school pickup."
+            )
             responses = [
                 IntakeAnalysis(
                     status="clarify",
                     message="What time should pickup start?",
+                    updated_memory=(
+                        "- Sam usually handles school pickup.\n"
+                        "- The family prefers Chinese."
+                    ),
                 ),
                 IntakeAnalysis(
                     status="review",
                     message="Please review this event.",
+                    updated_memory="- Sam handles school pickup on Fridays.",
                     items=[
                         IntakeItemDraft(
                             kind="event",
@@ -179,6 +247,13 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(intake["drafts"][0]["owner_id"], sam_id)
                 self.assertEqual(intake["conflicts"][0]["kind"], "time")
                 self.assertIn("role=Driver", analyze.await_args.kwargs["family"])
+                self.assertIn(
+                    "family prefers Chinese", analyze.await_args.kwargs["memory"]
+                )
+                self.assertEqual(
+                    database.get_household_memory("test-family"),
+                    "- Sam handles school pickup on Fridays.",
+                )
                 self.assertEqual(len(database.get_board("test-family")["items"]), 1)
 
                 board = await service.confirm_intake(

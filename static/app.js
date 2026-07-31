@@ -140,6 +140,10 @@ const messages = {
     send: "发送",
     assistantWelcome: "可以问我家庭日程、待办、提醒、准备工作或笔记。",
     assistantThinking: "正在查找家庭资料…",
+    assistantConfirmAction: "确认修改",
+    assistantCancelAction: "取消",
+    assistantActionDone: "已按你的确认更新看板。",
+    assistantActionCancelled: "已取消这次修改。",
     today: "今天",
     notesEyebrow: "家庭资料夹",
     notesTitle: "留给以后用的信息",
@@ -286,6 +290,10 @@ const messages = {
     send: "Send",
     assistantWelcome: "Ask me about family schedules, tasks, reminders, preparations, or notes.",
     assistantThinking: "Checking the family board…",
+    assistantConfirmAction: "Confirm change",
+    assistantCancelAction: "Cancel",
+    assistantActionDone: "The board was updated after your confirmation.",
+    assistantActionCancelled: "That change was cancelled.",
     today: "Today",
     notesEyebrow: "Family reference",
     notesTitle: "Information worth keeping",
@@ -608,7 +616,47 @@ function renderAssistant() {
   container.replaceChildren(...messages.map((message) =>
     createText("p", `assistant-message ${message.role}`, message.content)
   ));
+  if (state.assistant?.action && !state.assistantPending && !state.assistantError) {
+    const action = document.createElement("div");
+    action.className = "assistant-action";
+    action.append(createText("p", "", state.assistant.action.confirmation));
+    const controls = document.createElement("div");
+    controls.className = "assistant-action-controls";
+    const confirmButton = createText("button", "button primary compact", t("assistantConfirmAction"));
+    confirmButton.type = "button";
+    confirmButton.addEventListener("click", confirmAssistantAction);
+    const cancelButton = createText("button", "button secondary compact", t("assistantCancelAction"));
+    cancelButton.type = "button";
+    cancelButton.addEventListener("click", () => {
+      state.assistant.action = null;
+      state.assistant.messages.push({ role: "assistant", content: t("assistantActionCancelled") });
+      renderAssistant();
+    });
+    controls.append(confirmButton, cancelButton);
+    action.append(controls);
+    container.append(action);
+  }
   container.scrollTop = container.scrollHeight;
+}
+
+async function confirmAssistantAction(event) {
+  if (!requireActor() || !state.assistant?.action) return;
+  const action = state.assistant.action;
+  event.currentTarget.disabled = true;
+  try {
+    state.board = await api(`/api/items/${action.item_id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ actor_id: selectedActor(), ...action.fields }),
+    });
+    state.assistant.action = null;
+    state.assistant.messages.push({ role: "assistant", content: t("assistantActionDone") });
+    await loadCalendar();
+    showToast(t("updated"));
+  } catch (error) {
+    event.currentTarget.disabled = false;
+    showToast(error.message || t("networkError"), true);
+  }
+  renderAssistant();
 }
 
 function resetAssistant() {

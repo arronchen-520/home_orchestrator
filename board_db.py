@@ -11,6 +11,8 @@ from zoneinfo import ZoneInfo
 
 from dateutil.rrule import DAILY, MONTHLY, WEEKLY, rrule
 
+HOUSEHOLD_MEMORY_MAX_CHARS = 2000
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -142,6 +144,7 @@ class BoardDatabase:
                 country_code TEXT,
                 latitude REAL,
                 longitude REAL,
+                memory TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL
             );
 
@@ -307,6 +310,7 @@ class BoardDatabase:
             "country_code": "TEXT",
             "latitude": "REAL",
             "longitude": "REAL",
+            "memory": "TEXT NOT NULL DEFAULT ''",
         }.items():
             if name not in household_columns:
                 self.connection.execute(
@@ -400,6 +404,24 @@ class BoardDatabase:
 
     def require_member(self, household_id: str, member_id: str | None) -> str:
         return self._require_member(self.connection.cursor(), household_id, member_id)
+
+    def get_household_memory(self, household_id: str) -> str:
+        row = self.connection.execute(
+            "SELECT memory FROM households WHERE id = ?", (household_id,)
+        ).fetchone()
+        return row["memory"] if row else ""
+
+    def set_household_memory(self, household_id: str, memory: str) -> None:
+        memory = memory.strip()
+        if len(memory) > HOUSEHOLD_MEMORY_MAX_CHARS:
+            shortened = memory[:HOUSEHOLD_MEMORY_MAX_CHARS]
+            memory = shortened.rsplit("\n", 1)[0].strip() or shortened.rstrip()
+        with self.connection:
+            self.ensure_household(household_id)
+            self.connection.execute(
+                "UPDATE households SET memory = ? WHERE id = ?",
+                (memory, household_id),
+            )
 
     def create_intake_session(
         self,

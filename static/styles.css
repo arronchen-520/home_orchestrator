@@ -1352,6 +1352,25 @@ dialog::backdrop {
   background: var(--blue);
 }
 
+.assistant-action {
+  display: grid;
+  padding: 12px;
+  border: 1px solid var(--blue);
+  border-radius: 14px;
+  gap: 10px;
+  background: var(--surface);
+}
+
+.assistant-action p {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.assistant-action-controls {
+  display: flex;
+  gap: 8px;
+}
+
 .assistant-form {
   padding: 12px;
   border-top: 1px solid var(--line);
