@@ -231,8 +231,14 @@
     </dialog>
 
     <dialog id="onboardingDialog">
-      <h2 data-i18n="householdSetupTitle">设置家庭</h2>
+      <form method="dialog" class="dialog-header">
+        <h2 data-i18n="householdSetupTitle">设置家庭</h2>
+        <button id="closeOnboardingDialog" class="icon-button" type="submit" data-i18n-aria="close" aria-label="Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </form>
       <p data-i18n="householdSetupHelp">创建一个新家庭，或用邀请代码加入家人。</p>
+      <p id="onboardingError" class="form-error" role="alert" hidden></p>
       <form id="createHouseholdForm" class="setup-form">
         <label for="newHouseholdName" data-i18n="householdName">家庭名称</label>
         <input id="newHouseholdName" maxlength="80" required>
@@ -246,7 +252,6 @@
         <input id="householdInviteCode" maxlength="40" required autocomplete="one-time-code">
         <label for="joinerMemberName" data-i18n="yourName">你的名字</label>
         <input id="joinerMemberName" maxlength="40" required autocomplete="name">
-        <p id="onboardingError" class="form-error" role="alert" hidden></p>
         <button class="button secondary" type="submit" data-i18n="joinHousehold">加入家庭</button>
       </form>
     </dialog>
@@ -275,6 +280,11 @@
         </button>
       </form>
       <p data-i18n="memberHelp">管理家庭成员和家庭城市。</p>
+      <div class="setup-form">
+        <label for="householdSelect" data-i18n="currentHousehold">当前家庭</label>
+        <select id="householdSelect"></select>
+        <button id="addHouseholdButton" class="button secondary" type="button" data-i18n="addHousehold">创建或加入其他家庭</button>
+      </div>
       <ul id="memberList" class="member-list"></ul>
       <form id="memberForm" class="inline-form">
         <label class="sr-only" for="memberName" data-i18n="memberName">成员姓名</label>

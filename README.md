@@ -34,7 +34,9 @@ uv run python app.py
 Open <http://127.0.0.1:8000>.
 
 Board data is stored in Supabase Postgres. Supabase Auth provides email/password
-sessions, and Postgres RLS limits every query to the signed-in user's household.
+sessions, and Postgres RLS limits every query to one of the signed-in user's
+households. An account can create or join multiple households and switch the
+active household from Family management.
 LangGraph handles AI input and can split one input into multiple items.
 
 Configure these environment variables locally and on the server:
@@ -45,7 +47,7 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
-Apply the database migration once with `uv run python migrate.py`. Railway no
+Apply database migrations with `uv run python migrate.py`. Railway no
 longer needs a persistent volume; use `uv run python app.py` as its Start
 Command.
 

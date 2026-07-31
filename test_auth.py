@@ -92,6 +92,7 @@ class SupabaseAuthTest(unittest.TestCase):
                 201,
             )
             first_board = first.get("/api/board").json()
+            first_household_id = first_board["household"]["id"]
             invite_code = first_board["household"]["invite_code"]
             self.assertEqual(
                 second.post(
@@ -105,6 +106,34 @@ class SupabaseAuthTest(unittest.TestCase):
                 {"Alice", "Bob"},
             )
 
+            second_create = first.post(
+                "/api/households",
+                json={
+                    "household_name": "Second home",
+                    "member_name": "Alice",
+                },
+            )
+            self.assertEqual(second_create.status_code, 201, second_create.text)
+            second_board = first.get("/api/board").json()
+            self.assertEqual(second_board["household"]["name"], "Second home")
+            session = first.get("/api/auth/session").json()
+            self.assertEqual(len(session["households"]), 2)
+            self.assertEqual(
+                session["active_household_id"],
+                second_board["household"]["id"],
+            )
+            self.assertEqual(
+                first.post(
+                    "/api/households/select",
+                    json={"household_id": first_household_id},
+                ).status_code,
+                200,
+            )
+            self.assertEqual(
+                first.get("/api/board").json()["household"]["id"],
+                first_household_id,
+            )
+
             hidden_household = f"test-{uuid4()}"
             with psycopg.connect(self.database_url, autocommit=True) as connection:
                 connection.execute(
@@ -116,6 +145,13 @@ class SupabaseAuthTest(unittest.TestCase):
                     (hidden_household, uuid4().hex[:12]),
                 )
             try:
+                self.assertEqual(
+                    first.post(
+                        "/api/households/select",
+                        json={"household_id": hidden_household},
+                    ).status_code,
+                    404,
+                )
                 database = BoardDatabase(
                     self.database_url, str(self.users[0][0])
                 )
@@ -126,7 +162,10 @@ class SupabaseAuthTest(unittest.TestCase):
                     )
                 }
                 database.close()
-                self.assertEqual(visible, {first_board["household"]["id"]})
+                self.assertEqual(
+                    visible,
+                    {first_household_id, second_board["household"]["id"]},
+                )
             finally:
                 with psycopg.connect(
                     self.database_url, autocommit=True

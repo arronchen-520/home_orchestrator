@@ -32,6 +32,7 @@ STATIC_DIR = ROOT / "static"
 MAX_AUDIO_BYTES = 10 * 1024 * 1024
 ACCESS_COOKIE = "hearthbook_access"
 REFRESH_COOKIE = "hearthbook_refresh"
+HOUSEHOLD_COOKIE = "hearthbook_household"
 logger = logging.getLogger(__name__)
 
 
@@ -76,12 +77,17 @@ async def require_supabase_session(request: Request, call_next):
         client.table("household_memberships")
         .select("household_id")
         .eq("user_id", str(user.id))
-        .maybe_single()
         .execute()
     )
-    membership = membership_response.data if membership_response else None
+    household_ids = [
+        membership["household_id"]
+        for membership in membership_response.data or []
+    ]
+    requested_household_id = request.cookies.get(HOUSEHOLD_COOKIE)
     request.state.household_id = (
-        membership["household_id"] if membership else None
+        requested_household_id
+        if requested_household_id in household_ids
+        else household_ids[0] if household_ids else None
     )
     if request.state.household_id is None and path not in {
         "/api/households",
@@ -141,6 +147,10 @@ class HouseholdCreateInput(BaseModel):
 class HouseholdJoinInput(BaseModel):
     invite_code: str = Field(min_length=1, max_length=40)
     member_name: str = Field(min_length=1, max_length=40)
+
+
+class HouseholdSelectInput(BaseModel):
+    household_id: str = Field(min_length=1, max_length=80)
 
 
 class HouseholdLocationInput(BaseModel):
@@ -247,6 +257,19 @@ def set_auth_cookies(response: Response, session, request: Request) -> None:
     )
 
 
+def set_household_cookie(
+    response: Response, household_id: str, request: Request
+) -> None:
+    response.set_cookie(
+        HOUSEHOLD_COOKIE,
+        household_id,
+        max_age=365 * 24 * 60 * 60,
+        httponly=True,
+        secure=request.url.scheme == "https",
+        samesite="lax",
+    )
+
+
 async def service_call(awaitable) -> dict:
     try:
         return await awaitable
@@ -309,19 +332,41 @@ async def get_session(request: Request, response: Response):
     user, access_token, refreshed_session = authenticated
     if refreshed_session is not None:
         set_auth_cookies(response, refreshed_session, request)
+    client = data_client(request, access_token)
     membership_response = (
-        data_client(request, access_token)
+        client
         .table("household_memberships")
         .select("household_id")
         .eq("user_id", str(user.id))
-        .maybe_single()
         .execute()
     )
-    membership = membership_response.data if membership_response else None
+    household_ids = [
+        membership["household_id"]
+        for membership in membership_response.data or []
+    ]
+    household_response = (
+        client.table("households")
+        .select("id,name")
+        .in_("id", household_ids)
+        .execute()
+        if household_ids
+        else None
+    )
+    households = household_response.data if household_response else []
+    requested_household_id = request.cookies.get(HOUSEHOLD_COOKIE)
+    active_household_id = (
+        requested_household_id
+        if requested_household_id in household_ids
+        else household_ids[0] if household_ids else None
+    )
+    if active_household_id and active_household_id != requested_household_id:
+        set_household_cookie(response, active_household_id, request)
     return {
         "authenticated": True,
         "email": user.email,
-        "household_ready": membership is not None,
+        "household_ready": bool(households),
+        "households": households,
+        "active_household_id": active_household_id,
     }
 
 
@@ -329,13 +374,16 @@ async def get_session(request: Request, response: Response):
 async def delete_session(response: Response):
     response.delete_cookie(ACCESS_COOKIE, httponly=True, samesite="lax")
     response.delete_cookie(REFRESH_COOKIE, httponly=True, samesite="lax")
+    response.delete_cookie(HOUSEHOLD_COOKIE, httponly=True, samesite="lax")
     return {"authenticated": False}
 
 
 @app.post("/api/households", status_code=201)
-async def create_household(payload: HouseholdCreateInput, request: Request):
+async def create_household(
+    payload: HouseholdCreateInput, request: Request, response: Response
+):
     try:
-        data_client(request, request.state.access_token).rpc(
+        result = data_client(request, request.state.access_token).rpc(
             "create_household",
             {
                 "household_name": payload.household_name,
@@ -344,13 +392,16 @@ async def create_household(payload: HouseholdCreateInput, request: Request):
         ).execute()
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"created": True}
+    set_household_cookie(response, result.data, request)
+    return {"created": True, "household_id": result.data}
 
 
 @app.post("/api/households/join")
-async def join_household(payload: HouseholdJoinInput, request: Request):
+async def join_household(
+    payload: HouseholdJoinInput, request: Request, response: Response
+):
     try:
-        data_client(request, request.state.access_token).rpc(
+        result = data_client(request, request.state.access_token).rpc(
             "join_household",
             {
                 "household_invite_code": payload.invite_code,
@@ -359,7 +410,27 @@ async def join_household(payload: HouseholdJoinInput, request: Request):
         ).execute()
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"joined": True}
+    set_household_cookie(response, result.data, request)
+    return {"joined": True, "household_id": result.data}
+
+
+@app.post("/api/households/select")
+async def select_household(
+    payload: HouseholdSelectInput, request: Request, response: Response
+):
+    membership = (
+        data_client(request, request.state.access_token)
+        .table("household_memberships")
+        .select("household_id")
+        .eq("user_id", request.state.user_id)
+        .eq("household_id", payload.household_id)
+        .maybe_single()
+        .execute()
+    )
+    if membership is None or membership.data is None:
+        raise HTTPException(status_code=404, detail="Household not found")
+    set_household_cookie(response, payload.household_id, request)
+    return {"selected": True}
 
 
 @app.get("/api/board")

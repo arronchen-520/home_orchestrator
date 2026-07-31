@@ -47,6 +47,8 @@ const messages = {
     reject: "拒绝",
     familyMembers: "家庭成员",
     familyManage: "家庭管理",
+    currentHousehold: "当前家庭",
+    addHousehold: "创建或加入其他家庭",
     authTitle: "登录 Hearthbook",
     authHelp: "使用邮箱创建账号或登录。",
     email: "邮箱",
@@ -213,6 +215,8 @@ const messages = {
     reject: "Decline",
     familyMembers: "Family members",
     familyManage: "Manage family",
+    currentHousehold: "Current household",
+    addHousehold: "Create or join another household",
     authTitle: "Sign in to Hearthbook",
     authHelp: "Create an account or sign in with your email.",
     email: "Email",
@@ -355,6 +359,8 @@ const state = {
   assistantError: "",
   editingItem: null,
   editingOccurrence: null,
+  households: [],
+  activeHouseholdId: "",
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -1191,7 +1197,10 @@ async function loadSession() {
       authDialog.showModal();
       return;
     }
+    state.households = session.households || [];
+    state.activeHouseholdId = session.active_household_id || "";
     if (!session.household_ready) {
+      $("#closeOnboardingDialog").hidden = true;
       onboardingDialog.showModal();
       return;
     }
@@ -1609,7 +1618,9 @@ $("#joinHouseholdForm").addEventListener("submit", async (event) => {
     $("#onboardingError").hidden = false;
   }
 });
-onboardingDialog.addEventListener("cancel", (event) => event.preventDefault());
+onboardingDialog.addEventListener("cancel", (event) => {
+  if (!state.households.length) event.preventDefault();
+});
 $("#logoutButton").addEventListener("click", async () => {
   await api("/api/auth/session", { method: "DELETE" });
   localStorage.removeItem("home-actor");
@@ -1625,9 +1636,33 @@ actorSelect.addEventListener("change", () => {
 
 $("#membersButton").addEventListener("click", () => {
   const household = state.board.household || {};
+  const householdSelect = $("#householdSelect");
+  householdSelect.replaceChildren(
+    ...state.households.map(({ id, name }) => new Option(name, id))
+  );
+  householdSelect.value = state.activeHouseholdId;
   $("#manageCity").value = household.city ? `${household.city}, ${household.country_code}` : "";
   $("#currentInviteCode").textContent = household.invite_code || "";
   membersDialog.showModal();
+});
+$("#householdSelect").addEventListener("change", async (event) => {
+  try {
+    await api("/api/households/select", {
+      method: "POST",
+      body: JSON.stringify({ household_id: event.target.value }),
+    });
+    localStorage.removeItem("home-actor");
+    membersDialog.close();
+    await loadSession();
+  } catch (error) {
+    showToast(error.message || t("networkError"), true);
+  }
+});
+$("#addHouseholdButton").addEventListener("click", () => {
+  membersDialog.close();
+  $("#onboardingError").hidden = true;
+  $("#closeOnboardingDialog").hidden = false;
+  onboardingDialog.showModal();
 });
 $("#manageCityForm").addEventListener("submit", async (event) => {
   event.preventDefault();
