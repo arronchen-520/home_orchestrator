@@ -1,7 +1,7 @@
 # Home Orchestrator
 
 A bilingual family board built with LangGraph, FastAPI, Supabase, OpenRouter,
-and Groq. Type or speak in Chinese or English to add events, tasks, and notes.
+and Deepgram. Type or speak in Chinese or English to add events, tasks, and notes.
 
 The intake assistant asks up to two questions when important details are
 missing. Before saving, it shows schedule conflicts and lets you review each
@@ -26,7 +26,7 @@ text. The calendar has month and week views. Notes have their own section.
 
 ```powershell
 Copy-Item .env.example .env
-# Add OPENROUTER_API_KEY, GROQ_API_KEY, and OPENWEATHER_API_KEY to .env
+# Add OPENROUTER_API_KEY, DEEPGRAM_API_KEY, and OPENWEATHER_API_KEY to .env
 uv sync
 uv run python app.py
 ```
@@ -62,4 +62,4 @@ forecast in Calendar.
 uv run python -m unittest -v
 ```
 
-Tests use a fake AI response and do not call OpenRouter or Groq.
+Tests use a fake AI response and do not call OpenRouter or Deepgram.

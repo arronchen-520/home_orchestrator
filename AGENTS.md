@@ -19,7 +19,7 @@ types: events, tasks, and notes. Events can recur daily, weekly, or monthly.
 - The family assistant is read-only: AI-generated SQL runs only against a
   household-scoped in-memory SQLite projection, never the writable board connection.
 - `weather.py`: OpenWeather city lookup, five-day aggregation, and short cache.
-- `app.py`: FastAPI routes, Groq speech-to-text, and static file serving.
+- `app.py`: FastAPI routes, Deepgram speech-to-text, and static file serving.
 - `python-dateutil`: server-side recurrence expansion for calendar date ranges.
 - `static/`: dependency-free bilingual browser UI.
 - `supabase/migrations/`: Postgres schema, household membership, and RLS.

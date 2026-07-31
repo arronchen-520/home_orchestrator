@@ -145,7 +145,7 @@ const messages = {
     microphoneError: "无法使用麦克风",
     networkError: "操作失败，请检查服务和 API 配置",
     openrouterMissing: "请在 .env 配置 OPENROUTER_API_KEY",
-    groqMissing: "请在 .env 配置 GROQ_API_KEY",
+    deepgramMissing: "请在 .env 配置 DEEPGRAM_API_KEY",
     openweatherMissing: "请在 .env 配置 OPENWEATHER_API_KEY",
     noSpeech: "没有识别到语音",
     assistantEyebrow: "家庭助手",
@@ -313,7 +313,7 @@ const messages = {
     microphoneError: "Microphone is unavailable",
     networkError: "Action failed. Check the service and API configuration.",
     openrouterMissing: "Configure OPENROUTER_API_KEY in .env",
-    groqMissing: "Configure GROQ_API_KEY in .env",
+    deepgramMissing: "Configure DEEPGRAM_API_KEY in .env",
     openweatherMissing: "Configure OPENWEATHER_API_KEY in .env",
     noSpeech: "No speech was detected",
     assistantEyebrow: "Family assistant",
@@ -389,7 +389,7 @@ async function api(path, options = {}) {
     const detail = data.detail || "";
     let message = detail || t("networkError");
     if (detail.includes("OPENROUTER_API_KEY")) message = t("openrouterMissing");
-    if (detail.includes("GROQ_API_KEY")) message = t("groqMissing");
+    if (detail.includes("DEEPGRAM_API_KEY")) message = t("deepgramMissing");
     if (detail.includes("OPENWEATHER_API_KEY")) message = t("openweatherMissing");
     const error = new Error(message);
     error.status = response.status;

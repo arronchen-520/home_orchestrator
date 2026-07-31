@@ -596,9 +596,9 @@ async def add_audio(
     owner_id: Annotated[str | None, Form()] = None,
     session_id: Annotated[str | None, Form()] = None,
 ):
-    api_key = os.getenv("GROQ_API_KEY")
+    api_key = os.getenv("DEEPGRAM_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=503, detail="GROQ_API_KEY is not configured")
+        raise HTTPException(status_code=503, detail="DEEPGRAM_API_KEY is not configured")
     if not (file.content_type or "").startswith("audio/"):
         raise HTTPException(status_code=415, detail="Upload an audio file")
 
@@ -609,26 +609,24 @@ async def add_audio(
     try:
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(
-                "https://api.groq.com/openai/v1/audio/transcriptions",
-                headers={"Authorization": f"Bearer {api_key}"},
-                data={
-                    "model": os.getenv(
-                        "GROQ_STT_MODEL", "whisper-large-v3-turbo"
-                    ),
-                    "response_format": "json",
+                "https://api.deepgram.com/v1/listen",
+                params={
+                    "model": os.getenv("DEEPGRAM_MODEL", "nova-2"),
+                    "language": "multi",
+                    "smart_format": "true",
                 },
-                files={
-                    "file": (
-                        file.filename or "recording.webm",
-                        audio,
-                        file.content_type,
-                    )
+                headers={
+                    "Authorization": f"Token {api_key}",
+                    "Content-Type": file.content_type or "audio/webm",
                 },
+                content=audio,
             )
             response.raise_for_status()
-            text = response.json().get("text", "").strip()
+            channels = response.json().get("results", {}).get("channels") or [{}]
+            alternatives = channels[0].get("alternatives") or [{}]
+            text = alternatives[0].get("transcript", "").strip()
     except (httpx.HTTPError, ValueError) as exc:
-        logger.exception("Groq transcription failed")
+        logger.exception("Deepgram transcription failed")
         raise HTTPException(status_code=502, detail="Transcription failed") from exc
 
     if not text:
