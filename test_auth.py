@@ -73,13 +73,37 @@ class SupabaseAuthTest(unittest.TestCase):
             )
 
     def test_login_join_and_rls_household_isolation(self):
-        with TestClient(app) as first, TestClient(app) as second:
+        with (
+            TestClient(app, base_url="https://testserver") as first,
+            TestClient(app, base_url="https://testserver") as second,
+        ):
+            health = first.get("/health")
+            self.assertEqual(health.status_code, 200)
+            self.assertEqual(health.headers["x-frame-options"], "DENY")
+            self.assertIn(
+                "default-src 'self'",
+                health.headers["content-security-policy"],
+            )
+            self.assertIn(
+                "max-age=31536000",
+                health.headers["strict-transport-security"],
+            )
             for client, (_, email) in zip((first, second), self.users):
                 response = client.post(
                     "/api/auth/login",
                     json={"email": email, "password": self.password},
                 )
                 self.assertEqual(response.status_code, 200)
+                self.assertIn("Secure", response.headers["set-cookie"])
+
+            invalid_join = second.post(
+                "/api/households/join",
+                json={"invite_code": "NOT-A-CODE", "member_name": "Bob"},
+            )
+            self.assertEqual(invalid_join.status_code, 400)
+            self.assertEqual(
+                invalid_join.json()["detail"], "Invalid household invite"
+            )
 
             self.assertEqual(
                 first.post(

@@ -108,6 +108,31 @@ async def require_supabase_session(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "img-src 'self' data: https://openweathermap.org; "
+        "script-src 'self'; style-src 'self' 'unsafe-inline'; "
+        "connect-src 'self'; object-src 'none'; base-uri 'self'; "
+        "frame-ancestors 'none'; form-action 'self'"
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = (
+        "camera=(), geolocation=(), microphone=(self)"
+    )
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    if is_secure_request(request):
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+    return response
+
+
 class TextInput(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
     actor_id: str
@@ -237,8 +262,14 @@ def authenticate(request: Request):
     return refreshed.user, refreshed.session.access_token, refreshed.session
 
 
+def is_secure_request(request: Request) -> bool:
+    return request.url.scheme == "https" or bool(
+        os.getenv("RAILWAY_PUBLIC_DOMAIN")
+    )
+
+
 def set_auth_cookies(response: Response, session, request: Request) -> None:
-    secure = request.url.scheme == "https"
+    secure = is_secure_request(request)
     response.set_cookie(
         ACCESS_COOKIE,
         session.access_token,
@@ -265,9 +296,23 @@ def set_household_cookie(
         household_id,
         max_age=365 * 24 * 60 * 60,
         httponly=True,
-        secure=request.url.scheme == "https",
+        secure=is_secure_request(request),
         samesite="lax",
     )
+
+
+def safe_household_error(exc: Exception, fallback: str) -> str:
+    error = str(exc)
+    for message in (
+        "Invalid household or member name",
+        "Invalid household invite",
+        "Invalid member name",
+        "This account already belongs to this household",
+    ):
+        if message in error:
+            return message
+    logger.exception(fallback)
+    return fallback
 
 
 async def service_call(awaitable) -> dict:
@@ -292,6 +337,11 @@ async def execute(service: BoardService, command: dict) -> dict:
 @app.get("/", include_in_schema=False)
 async def index():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/health", include_in_schema=False)
+async def health():
+    return {"status": "ok"}
 
 
 @app.post("/api/auth/signup")
@@ -391,7 +441,10 @@ async def create_household(
             },
         ).execute()
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=400,
+            detail=safe_household_error(exc, "Could not create household"),
+        ) from exc
     set_household_cookie(response, result.data, request)
     return {"created": True, "household_id": result.data}
 
@@ -409,7 +462,10 @@ async def join_household(
             },
         ).execute()
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=400,
+            detail=safe_household_error(exc, "Could not join household"),
+        ) from exc
     set_household_cookie(response, result.data, request)
     return {"joined": True, "household_id": result.data}
 
