@@ -166,8 +166,6 @@ class FakeClient:
         if name == "create_chat_session":
             session = deepcopy(params["session_data"])
             session.setdefault("owner_id", None)
-            session.setdefault("clarification_count", 0)
-            session.setdefault("payload_json", "{}")
             self.store["chat_sessions"].append(session)
             self.store["chat_messages"].append(
                 {
