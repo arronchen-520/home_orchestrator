@@ -42,14 +42,13 @@ LangGraph handles AI input and can split one input into multiple items.
 Configure these environment variables locally and on the server:
 
 ```text
-DATABASE_URL=postgresql://...
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
-Apply database migrations with `uv run python migrate.py`. Railway no
-longer needs a persistent volume; use `uv run python app.py` as its Start
-Command.
+Apply the SQL files in `supabase/migrations/` in filename order using the
+Supabase SQL Editor. Railway does not need a database URL or persistent volume;
+use `uv run python app.py` as its Start Command.
 
 On first launch, enter the household city, for example `Toronto, CA`.
 OpenWeather finds and saves the location, then shows a cached five-day

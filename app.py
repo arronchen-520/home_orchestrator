@@ -14,7 +14,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, Response, Uploa
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from supabase import create_client
+from supabase import Client, create_client
 from supabase_auth.errors import AuthError
 
 from board_db import BoardDatabase
@@ -38,18 +38,11 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.database_url = os.getenv("DATABASE_URL", "")
     app.state.supabase_url = os.getenv("SUPABASE_URL", "")
     app.state.supabase_key = os.getenv("SUPABASE_PUBLISHABLE_KEY", "")
-    if not all(
-        (
-            app.state.database_url,
-            app.state.supabase_url,
-            app.state.supabase_key,
-        )
-    ):
+    if not all((app.state.supabase_url, app.state.supabase_key)):
         raise RuntimeError(
-            "DATABASE_URL, SUPABASE_URL, and SUPABASE_PUBLISHABLE_KEY are required"
+            "SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required"
         )
     app.state.weather = WeatherService(os.getenv("OPENWEATHER_API_KEY"))
     yield
@@ -218,7 +211,7 @@ def board_service(request: Request) -> BoardService:
     database = getattr(request.state, "database", None)
     if database is None:
         database = BoardDatabase(
-            request.app.state.database_url, request.state.user_id
+            data_client(request, request.state.access_token)
         )
         request.state.database = database
     return BoardService(database, request.state.household_id)
@@ -228,13 +221,13 @@ def weather_service(request: Request) -> WeatherService:
     return request.app.state.weather
 
 
-def auth_client(request: Request):
+def auth_client(request: Request) -> Client:
     return create_client(
         request.app.state.supabase_url, request.app.state.supabase_key
     )
 
 
-def data_client(request: Request, access_token: str):
+def data_client(request: Request, access_token: str) -> Client:
     client = auth_client(request)
     client.postgrest.auth(access_token)
     return client

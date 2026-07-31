@@ -475,9 +475,7 @@ class BoardFlowTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(items["task"]["preparation"], "Find the account number")
             self.assertEqual(items["note"]["details"], "1234")
             self.assertEqual(
-                database.connection.execute(
-                    "SELECT COUNT(*) AS count FROM recurrence_exceptions"
-                ).fetchone()["count"],
+                len(database.client.store["recurrence_exceptions"]),
                 0,
             )
             with self.assertRaisesRegex(ValueError, "Notes only"):

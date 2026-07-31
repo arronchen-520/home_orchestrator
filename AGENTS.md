@@ -14,7 +14,7 @@ types: events, tasks, and notes. Events can recur daily, weekly, or monthly.
 
 ## Architecture
 
-- `board_db.py`: Postgres transactions, board queries, and mutations.
+- `board_db.py`: Supabase Data API queries, RPC-backed transactions, and mutations.
 - `board_graph.py`: OpenRouter extraction and the multi-item ingestion graph.
 - The family assistant is read-only: AI-generated SQL runs only against a
   household-scoped in-memory SQLite projection, never the writable board connection.
@@ -23,12 +23,12 @@ types: events, tasks, and notes. Events can recur daily, weekly, or monthly.
 - `python-dateutil`: server-side recurrence expansion for calendar date ranges.
 - `static/`: dependency-free bilingual browser UI.
 - `supabase/migrations/`: Postgres schema, household membership, and RLS.
-- `DATABASE_URL`, `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY`: required.
+- `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`: required.
 
 ## Working rules
 
 - Route AI-created items through LangGraph; keep ordinary CRUD in
-  `BoardDatabase` transactions behind `BoardService`.
+  `BoardDatabase` behind `BoardService`.
 - Keep board state in Supabase domain tables, not LangGraph checkpoints.
 - AI may suggest an owner from household context, but the user must be able to
   change or clear every suggestion before confirmation. Notes never have owners.

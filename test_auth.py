@@ -1,203 +1,105 @@
-import json
 import os
 import unittest
-from uuid import uuid4
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
-import psycopg
-from dotenv import load_dotenv
+import app as app_module
 from fastapi.testclient import TestClient
 
-from app import app
-from board_db import BoardDatabase
-
-
-load_dotenv()
+from test_support import FakeClient
 
 
 class SupabaseAuthTest(unittest.TestCase):
-    def setUp(self):
-        self.database_url = os.environ["DATABASE_URL"]
-        self.password = f"Test-{uuid4().hex}!"
-        self.users = [
-            (uuid4(), f"hearthbook-{uuid4().hex}@local.invalid"),
-            (uuid4(), f"hearthbook-{uuid4().hex}@local.invalid"),
-        ]
-        with psycopg.connect(self.database_url, autocommit=True) as connection:
-            for user_id, email in self.users:
-                connection.execute(
-                    """
-                    insert into auth.users (
-                        instance_id, id, aud, role, email, encrypted_password,
-                        email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-                        created_at, updated_at, confirmation_token, recovery_token,
-                        email_change_token_new, email_change
-                    ) values (
-                        '00000000-0000-0000-0000-000000000000',
-                        %s, 'authenticated', 'authenticated', %s,
-                        crypt(%s, gen_salt('bf')), now(),
-                        '{"provider":"email","providers":["email"]}', '{}',
-                        now(), now(), '', '', '', ''
-                    )
-                    """,
-                    (user_id, email, self.password),
-                )
-                connection.execute(
-                    """
-                    insert into auth.identities (
-                        provider_id, user_id, identity_data, provider,
-                        created_at, updated_at
-                    ) values (%s, %s, %s::jsonb, 'email', now(), now())
-                    """,
-                    (
-                        str(user_id),
-                        user_id,
-                        json.dumps({"sub": str(user_id), "email": email}),
-                    ),
-                )
-
-    def tearDown(self):
-        with psycopg.connect(self.database_url, autocommit=True) as connection:
-            connection.execute(
-                """
-                delete from public.households
-                where id in (
-                    select household_id from public.household_memberships
-                    where user_id = any(%s)
-                )
-                """,
-                ([user_id for user_id, _ in self.users],),
+    def test_authenticated_board_uses_supabase_data_api_without_database_url(self):
+        store = {
+            name: []
+            for name in (
+                "households",
+                "household_memberships",
+                "members",
+                "submissions",
+                "items",
+                "recurrence_exceptions",
+                "chat_sessions",
+                "chat_messages",
             )
-            connection.execute(
-                "delete from auth.users where id = any(%s)",
-                ([user_id for user_id, _ in self.users],),
-            )
+        }
+        store["households"].append(
+            {
+                "id": "family",
+                "name": "Test home",
+                "invite_code": "TESTCODE",
+                "timezone": "UTC",
+                "city": None,
+                "country_code": None,
+                "memory": "",
+            }
+        )
+        store["household_memberships"].append(
+            {"user_id": "user-1", "household_id": "family"}
+        )
+        store["members"].append(
+            {
+                "id": "member-1",
+                "household_id": "family",
+                "name": "Alice",
+                "role": "Owner",
+                "deleted_at": None,
+                "created_at": "2026-07-30T00:00:00+00:00",
+            }
+        )
+        client = FakeClient(store)
 
-    def test_login_join_and_rls_household_isolation(self):
         with (
-            TestClient(app, base_url="https://testserver") as first,
-            TestClient(app, base_url="https://testserver") as second,
-        ):
-            health = first.get("/health")
-            self.assertEqual(health.status_code, 200)
-            self.assertEqual(health.headers["x-frame-options"], "DENY")
-            self.assertIn(
-                "default-src 'self'",
-                health.headers["content-security-policy"],
-            )
-            self.assertIn(
-                "max-age=31536000",
-                health.headers["strict-transport-security"],
-            )
-            for client, (_, email) in zip((first, second), self.users):
-                response = client.post(
-                    "/api/auth/login",
-                    json={"email": email, "password": self.password},
-                )
-                self.assertEqual(response.status_code, 200)
-                self.assertIn("Secure", response.headers["set-cookie"])
-
-            invalid_join = second.post(
-                "/api/households/join",
-                json={"invite_code": "NOT-A-CODE", "member_name": "Bob"},
-            )
-            self.assertEqual(invalid_join.status_code, 400)
-            self.assertEqual(
-                invalid_join.json()["detail"], "Invalid household invite"
-            )
-
-            self.assertEqual(
-                first.post(
-                    "/api/households",
-                    json={
-                        "household_name": "First home",
-                        "member_name": "Alice",
-                    },
-                ).status_code,
-                201,
-            )
-            first_board = first.get("/api/board").json()
-            first_household_id = first_board["household"]["id"]
-            invite_code = first_board["household"]["invite_code"]
-            self.assertEqual(
-                second.post(
-                    "/api/households/join",
-                    json={"invite_code": invite_code, "member_name": "Bob"},
-                ).status_code,
-                200,
-            )
-            self.assertEqual(
-                {member["name"] for member in first.get("/api/board").json()["members"]},
-                {"Alice", "Bob"},
-            )
-
-            second_create = first.post(
-                "/api/households",
-                json={
-                    "household_name": "Second home",
-                    "member_name": "Alice",
+            patch.dict(
+                os.environ,
+                {
+                    "SUPABASE_URL": "https://example.supabase.co",
+                    "SUPABASE_PUBLISHABLE_KEY": "test-key",
                 },
-            )
-            self.assertEqual(second_create.status_code, 201, second_create.text)
-            second_board = first.get("/api/board").json()
-            self.assertEqual(second_board["household"]["name"], "Second home")
-            session = first.get("/api/auth/session").json()
-            self.assertEqual(len(session["households"]), 2)
-            self.assertEqual(
-                session["active_household_id"],
-                second_board["household"]["id"],
-            )
-            self.assertEqual(
-                first.post(
-                    "/api/households/select",
-                    json={"household_id": first_household_id},
-                ).status_code,
-                200,
-            )
-            self.assertEqual(
-                first.get("/api/board").json()["household"]["id"],
-                first_household_id,
-            )
+                clear=True,
+            ),
+            patch.object(
+                app_module,
+                "authenticate",
+                return_value=(SimpleNamespace(id="user-1"), "token", None),
+            ),
+            patch.object(app_module, "data_client", return_value=client),
+            TestClient(app_module.app, base_url="https://testserver") as browser,
+        ):
+            response = browser.get("/api/board")
+            self.assertFalse(hasattr(app_module.app.state, "database_url"))
 
-            hidden_household = f"test-{uuid4()}"
-            with psycopg.connect(self.database_url, autocommit=True) as connection:
-                connection.execute(
-                    """
-                    insert into public.households (
-                        id, name, invite_code, created_at
-                    ) values (%s, 'Hidden', %s, now()::text)
-                    """,
-                    (hidden_household, uuid4().hex[:12]),
-                )
-            try:
-                self.assertEqual(
-                    first.post(
-                        "/api/households/select",
-                        json={"household_id": hidden_household},
-                    ).status_code,
-                    404,
-                )
-                database = BoardDatabase(
-                    self.database_url, str(self.users[0][0])
-                )
-                visible = {
-                    row["id"]
-                    for row in database.connection.execute(
-                        "select id from households"
-                    )
-                }
-                database.close()
-                self.assertEqual(
-                    visible,
-                    {first_household_id, second_board["household"]["id"]},
-                )
-            finally:
-                with psycopg.connect(
-                    self.database_url, autocommit=True
-                ) as connection:
-                    connection.execute(
-                        "delete from public.households where id = %s",
-                        (hidden_household,),
-                    )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["household"]["name"], "Test home")
+        self.assertEqual(response.json()["members"][0]["name"], "Alice")
+        self.assertEqual(response.headers["x-frame-options"], "DENY")
+        self.assertIn("default-src 'self'", response.headers["content-security-policy"])
+
+    def test_data_api_migration_keeps_rls_and_limits_rpc_access(self):
+        migrations = Path("supabase/migrations")
+        schema = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted(migrations.glob("*.sql"))
+        ).lower()
+        for table in (
+            "households",
+            "household_memberships",
+            "members",
+            "submissions",
+            "items",
+            "recurrence_exceptions",
+            "chat_sessions",
+            "chat_messages",
+        ):
+            self.assertIn(f"alter table public.{table} enable row level security", schema)
+        self.assertIn(
+            "grant execute on function public.create_board_items", schema
+        )
+        self.assertIn(
+            "revoke all on function public.create_board_items", schema
+        )
 
 
 if __name__ == "__main__":

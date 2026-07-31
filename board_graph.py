@@ -605,7 +605,7 @@ class BoardService:
         self.database = database
         self.household_id = household_id
         self.graph = build_ingestion_graph(database)
-        # ponytail: one-process lock; SQLite transactions become the write boundary.
+        # ponytail: one-process lock; Supabase RPCs provide cross-table transactions.
         self._lock = asyncio.Lock()
 
     async def get_board(self, result: dict | None = None) -> dict:
