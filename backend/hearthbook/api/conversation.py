@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Annotated
+from typing import Annotated, Literal
 
 import httpx
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
@@ -39,7 +39,7 @@ async def confirm(session_id: str, payload: CaptureConfirmation, request: Reques
     )
 
 
-async def transcribe(file: UploadFile) -> str:
+async def transcribe(file: UploadFile, language: Literal["en", "zh"]) -> str:
     api_key = os.getenv("DEEPGRAM_API_KEY")
     if not api_key:
         raise HTTPException(status_code=503, detail="DEEPGRAM_API_KEY is not configured")
@@ -53,7 +53,7 @@ async def transcribe(file: UploadFile) -> str:
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(
                 "https://api.deepgram.com/v1/listen",
-                params={"model": os.getenv("DEEPGRAM_MODEL", "nova-2"), "detect_language": "true", "smart_format": "true"},
+                params={"model": os.getenv("DEEPGRAM_MODEL", "nova-3"), "language": language, "smart_format": "true"},
                 headers={"Authorization": f"Token {api_key}", "Content-Type": content_type},
                 content=audio,
             )
@@ -70,11 +70,14 @@ async def audio_message(
     file: Annotated[UploadFile, File()],
     timezone: Annotated[str, Form()] = "UTC",
     session_id: Annotated[str | None, Form()] = None,
+    language: Annotated[Literal["en", "zh"], Form()] = "en",
 ):
-    text = await transcribe(file)
+    text = await transcribe(file, language)
     if not text:
         raise HTTPException(status_code=422, detail="No speech was detected")
     result = await service_call(
-        board_service(request).message({"text": text, "timezone": timezone, "session_id": session_id})
+        board_service(request).message(
+            {"text": text, "timezone": timezone, "session_id": session_id, "source": "audio"}
+        )
     )
     return {**result, "transcript": text}

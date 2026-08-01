@@ -156,10 +156,13 @@ for durable user-confirmed family preferences, never secrets. {format_instructio
     )
 
 
-def conversation_text(session: dict, limit: int = 20) -> str:
-    return "\n".join(
+def conversation_text(session: dict, source: str | None = None, limit: int = 20) -> str:
+    conversation = "\n".join(
         f'{message["role"]}: {message["content"]}' for message in session["messages"][-limit:]
     )
+    if source == "audio":
+        return f"这是用户语音输入的，下面是语音转写结果。\n{conversation}"
+    return conversation
 
 
 def build_conversation_graph(database: BoardDatabase, household_id: str):
@@ -168,7 +171,7 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
         decision = await router_chain().ainvoke(
             {
                 "pending": session.get("intent") if session.get("status") in {"clarifying", "review"} else "none",
-                "conversation": conversation_text(session),
+                "conversation": conversation_text(session, state["command"].get("source")),
             }
         )
         return {"intent": decision.intent}
@@ -193,7 +196,7 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
                 "now": local_now.isoformat(),
                 "timezone": session["timezone"],
                 "remaining": max(0, 2 - previous_count),
-                "conversation": conversation_text(capture_messages),
+                "conversation": conversation_text(capture_messages, state["command"].get("source")),
                 "family": family,
                 "memory": database.get_household_memory(household_id),
             }
@@ -238,7 +241,7 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
     async def query(state: ConversationState) -> dict:
         session = state["session"]
         local_now = datetime.now(ZoneInfo(session["timezone"]))
-        conversation = conversation_text(session)
+        conversation = conversation_text(session, state["command"].get("source"))
         memory = database.get_household_memory(household_id)
         results, error = [], ""
         for _ in range(2):
@@ -295,7 +298,7 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
             {
                 "now": datetime.now(ZoneInfo(session["timezone"])).isoformat(),
                 "timezone": session["timezone"],
-                "conversation": conversation_text(session),
+                "conversation": conversation_text(session, state["command"].get("source")),
                 "memory": database.get_household_memory(household_id),
             }
         )

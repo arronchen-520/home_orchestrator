@@ -4,7 +4,7 @@ const copy = {
   zh: {
     settings: "设置", homeTitle: "今天有什么想记录的吗？",
     homeSubtitle: "记录、查询，或者聊聊。", voiceTitle: "家庭助手",
-    tapToTalk: "按住说话", stopRecording: "说完松开", preferTyping: "想打字？",
+    tapToTalk: "点一下开始说话", stopRecording: "说完点这里发送", preferTyping: "想要打字？",
     messageLabel: "输入记录、问题或消息", messagePlaceholder: "例如：周六三点看牙，提醒妈妈",
     send: "发送", conversation: "对话", clear: "清空", remindWho: "提醒谁",
     preparation: "准备事项", cancel: "取消", confirm: "确认", todayEyebrow: "今日摘要",
@@ -35,7 +35,7 @@ const copy = {
   en: {
     settings: "Settings", homeTitle: "Anything you'd like to note today?",
     homeSubtitle: "Add a note, ask a question, or just chat.", voiceTitle: "Family assistant",
-    tapToTalk: "Hold to talk", stopRecording: "Release when you're done", preferTyping: "Prefer to type?",
+    tapToTalk: "Tap to start talking", stopRecording: "Tap to send", preferTyping: "Prefer to type?",
     messageLabel: "Type a plan, question, or message", messagePlaceholder: "Example: Dentist Saturday at 3, remind Mom",
     send: "Send", conversation: "Conversation", clear: "Clear", remindWho: "Who should we remind?",
     preparation: "Preparation", cancel: "Cancel", confirm: "Confirm", todayEyebrow: "Today's summary",
@@ -666,6 +666,7 @@ $("#recordButton").addEventListener("click", async () => {
       const form = new FormData();
       form.append("file", audio, "recording.webm");
       form.append("timezone", timezone);
+      form.append("language", state.language);
       if (state.sessionId) form.append("session_id", state.sessionId);
       state.messages.push({ role: "assistant", text: t("thinking"), pending: true });
       renderMessages();

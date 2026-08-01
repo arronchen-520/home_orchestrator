@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from backend.hearthbook.domain.calendar import get_today
 from backend.hearthbook.domain.models import CaptureAnalysis, ItemDraft, RouteDecision
+from backend.hearthbook.llm.graph import conversation_text
 from backend.hearthbook.llm.query import query_assistant
 from backend.hearthbook.services.board import BoardService
 from backend.hearthbook.storage.board import BoardDatabase
@@ -70,6 +71,12 @@ SESSION = {}
 
 
 class BoardContractTest(unittest.IsolatedAsyncioTestCase):
+    def test_voice_source_is_marked_only_in_prompt_context(self):
+        session = {"messages": [{"role": "user", "content": "提醒我买牛奶"}]}
+
+        self.assertIn("这是用户语音输入的", conversation_text(session, "audio"))
+        self.assertNotIn("这是用户语音输入的", conversation_text(session))
+
     async def test_capture_routes_to_its_specialist_and_keeps_reminder_target(self):
         SESSION.clear()
         SESSION.update(
