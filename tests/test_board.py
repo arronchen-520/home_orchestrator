@@ -175,6 +175,53 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response["drafts"][0]["remind_member_id"], "lin")
 
+    async def test_capture_separates_scheduled_event_from_action_task(self):
+        SESSION.clear()
+        SESSION.update(
+            id="session",
+            actor_id="lin",
+            timezone="America/Toronto",
+            status="active",
+            intent=None,
+            payload={},
+            messages=[{"role": "user", "content": "周六下午要去看牙医，明天去买牛奶"}],
+        )
+        route = SimpleNamespace(ainvoke=AsyncMock(return_value=RouteDecision(intent="capture")))
+        capture = SimpleNamespace(
+            ainvoke=AsyncMock(
+                return_value=CaptureAnalysis(
+                    status="review",
+                    message="请确认这两项内容。",
+                    items=[
+                        ItemDraft(
+                            kind="event",
+                            title="看牙医",
+                            start_at="2026-08-01T15:00:00-04:00",
+                        ),
+                        ItemDraft(
+                            kind="task",
+                            title="买牛奶",
+                            due_date="2026-08-02",
+                        ),
+                    ],
+                )
+            )
+        )
+        with (
+            patch("backend.hearthbook.llm.graph.router_chain", return_value=route),
+            patch("backend.hearthbook.llm.graph.capture_chain", return_value=capture),
+            patch("backend.hearthbook.services.board.create_conversation", return_value=deepcopy(SESSION)),
+            patch("backend.hearthbook.llm.graph.add_message", side_effect=add_message),
+            patch("backend.hearthbook.llm.graph.update_conversation", side_effect=update_conversation),
+        ):
+            response = await BoardService(MemoryDatabase(), "family", "lin").message(
+                {"text": "周六下午要去看牙医，明天去买牛奶", "timezone": "America/Toronto"}
+            )
+
+        self.assertEqual([draft["kind"] for draft in response["drafts"]], ["event", "task"])
+        self.assertEqual(response["drafts"][0]["start_at"], "2026-08-01T15:00:00-04:00")
+        self.assertEqual(response["drafts"][1]["due_date"], "2026-08-02")
+
     def test_today_and_read_only_sql_projection(self):
         items = [
             {
