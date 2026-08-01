@@ -16,7 +16,11 @@ class BoardService:
         self.graph = build_conversation_graph(database, household_id)
 
     def get_board(self, result: dict | None = None) -> dict:
-        return {**self.database.get_board(self.household_id), "result": result}
+        return {
+            **self.database.get_board(self.household_id),
+            "current_member_id": self.member_id,
+            "result": result,
+        }
 
     def get_calendar(self, start: date, end: date) -> dict:
         return get_calendar(self.database, self.household_id, start, end)
@@ -59,6 +63,10 @@ class BoardService:
     def update_item(self, item_id: str, fields: dict) -> dict:
         self.database.update_item(self.household_id, item_id, self.member_id, fields)
         return self.get_board({"action": "updated", "item_id": item_id})
+
+    def update_member_role(self, role: str) -> dict:
+        self.database.update_member_role(self.household_id, self.member_id, role)
+        return self.get_board({"action": "member_role_updated"})
 
     def add_item_note(self, item_id: str, content: str) -> dict:
         note_id = self.database.add_item_note(self.household_id, item_id, self.member_id, content)

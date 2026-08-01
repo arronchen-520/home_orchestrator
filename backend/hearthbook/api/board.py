@@ -32,6 +32,10 @@ class ItemUpdate(BaseModel):
     recurrence_until: date | None = None
 
 
+class MemberRoleInput(BaseModel):
+    role: str = Field(default="", max_length=40)
+
+
 class ItemNoteInput(BaseModel):
     content: str = Field(min_length=1, max_length=1000)
 
@@ -64,6 +68,11 @@ async def calendar(start: date, end: date, request: Request):
         return board_service(request).get_calendar(start, end)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.patch("/members/me")
+async def update_my_member_role(payload: MemberRoleInput, request: Request):
+    return board_service(request).update_member_role(payload.role)
 
 
 @router.patch("/items/{item_id}")

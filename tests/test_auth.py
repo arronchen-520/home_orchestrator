@@ -44,7 +44,38 @@ class BoardStub:
         return {"date": target.isoformat(), "items": []}
 
 
+class MemberRoleStub:
+    def update_member_role(self, role):
+        self.role = role
+        return {"current_member_id": "member-1", "members": []}
+
+
 class SupabaseAuthTest(unittest.TestCase):
+    def test_member_role_route_updates_only_the_current_member_role(self):
+        service = MemberRoleStub()
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "SUPABASE_URL": "https://example.supabase.co",
+                    "SUPABASE_PUBLISHABLE_KEY": "test-key",
+                },
+                clear=True,
+            ),
+            patch.object(
+                app_module,
+                "authenticate",
+                return_value=(SimpleNamespace(id="user-1"), "token", None),
+            ),
+            patch.object(app_module, "data_client", return_value=MembershipClient()),
+            patch("backend.hearthbook.api.board.board_service", return_value=service),
+            TestClient(app_module.app, base_url="https://testserver") as browser,
+        ):
+            response = browser.patch("/api/members/me", json={"role": "Parent"})
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(service.role, "Parent")
+
     def test_join_passes_member_role_to_supabase(self):
         client = JoinClient()
         with (
@@ -135,6 +166,9 @@ class SupabaseAuthTest(unittest.TestCase):
         join_role = (migrations / "202607310004_join_member_role.sql").read_text(encoding="utf-8").lower()
         self.assertIn("member_role text", join_role)
         self.assertIn("member_role, now_text", join_role)
+        role_update = (migrations / "202607310006_update_my_member_role.sql").read_text(encoding="utf-8").lower()
+        for expected in ("update_my_member_role", "update public.members", "user_id = auth.uid()", "set role = normalized_role"):
+            self.assertIn(expected, role_update)
         notifications = (migrations / "202607310005_notifications.sql").read_text(encoding="utf-8").lower()
         self.assertIn("'* * * * *'", notifications)
         self.assertIn("claim_notification_delivery", notifications)

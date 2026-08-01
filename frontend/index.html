@@ -198,6 +198,10 @@
     <dialog id="settingsDialog" class="sheet small-sheet">
       <form method="dialog" class="dialog-header"><h2 data-i18n="settings">设置</h2><button class="icon-button" type="submit" data-i18n-aria="close" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></form>
       <div id="householdSummary"></div>
+      <form id="memberRoleForm" class="stack-form" hidden>
+        <label><span data-i18n="myRole">我的身份</span><input id="memberRole" maxlength="40" autocomplete="organization-title"></label>
+        <button class="secondary-button" type="submit" data-i18n="saveRole">保存身份</button>
+      </form>
       <section class="notification-settings" aria-labelledby="notificationTitle">
         <h3 id="notificationTitle" data-i18n="notifications">通知</h3>
         <p data-i18n="notificationHelp">在提醒时间推送日程和待办，并在每天上午 9 点（本地时间）发送今日摘要。</p>
