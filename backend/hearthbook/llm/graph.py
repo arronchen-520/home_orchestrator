@@ -13,13 +13,13 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 
-from assistant_query import query_assistant
-from board_db import HOUSEHOLD_MEMORY_MAX_CHARS, BoardDatabase
-from conversation_db import (
+from ..domain.models import AgentReply, CaptureAnalysis, QueryPlan, RouteDecision
+from ..storage.board import HOUSEHOLD_MEMORY_MAX_CHARS, BoardDatabase
+from ..storage.conversation import (
     add_message,
     update_conversation,
 )
-from models import AgentReply, CaptureAnalysis, QueryPlan, RouteDecision
+from .query import query_assistant
 
 
 class ConfigurationError(RuntimeError):

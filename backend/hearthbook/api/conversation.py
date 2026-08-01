@@ -8,8 +8,8 @@ import httpx
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
-from api_utils import service_call
-from dependencies import board_service
+from .dependencies import board_service
+from .errors import service_call
 
 MAX_AUDIO_BYTES = 10 * 1024 * 1024
 logger = logging.getLogger(__name__)

@@ -24,18 +24,13 @@ Hearthbook 是一个移动端优先的双语家庭助手。用户通过同一个
 
 ## Architecture
 
-- `app.py`: FastAPI setup, authentication middleware, and security headers.
-- `auth.py`: Supabase Auth and household onboarding routes.
-- `board_api.py`: Today, calendar, item, and follow-up routes.
-- `conversation_api.py`: shared text/audio conversation endpoints.
-- `board_graph.py`: LangGraph router and specialist capture/query/chat nodes.
-- `board_service.py`: application operations used by HTTP routes.
-- `board_db.py`: Supabase household and item persistence.
-- `conversation_db.py`: conversation persistence and capture confirmation.
-- `board_calendar.py`: calendar expansion and deterministic Today summary.
-- `assistant_query.py`: read-only SQLite projection for query agents.
-- `recurrence.py`: recurrence expansion and occurrence exceptions.
-- `static/`: dependency-free mobile bilingual UI.
+- `backend/hearthbook/api/`: FastAPI auth, board, conversation, and dependencies.
+- `backend/hearthbook/llm/`: LangGraph router/specialists and read-only SQL projection.
+- `backend/hearthbook/domain/`: item models, recurrence, calendar, and Today logic.
+- `backend/hearthbook/services/`: application operations used by HTTP routes.
+- `backend/hearthbook/storage/`: Supabase board and conversation persistence.
+- `frontend/`: dependency-free mobile bilingual UI.
+- `tests/`: focused API, graph, Today, recurrence, and SQL-boundary checks.
 - `supabase/migrations/`: Postgres schema, RPC transactions, and RLS.
 
 ## Run
@@ -44,7 +39,7 @@ Hearthbook 是一个移动端优先的双语家庭助手。用户通过同一个
 Copy-Item .env.example .env
 # Fill the required values locally. Never commit .env.
 uv sync
-uv run python app.py
+uv run python -m backend.hearthbook.main
 ```
 
 Open <http://127.0.0.1:8000>.

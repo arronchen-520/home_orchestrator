@@ -4,7 +4,7 @@ from datetime import date, datetime
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from dependencies import board_service
+from .dependencies import board_service
 
 router = APIRouter(prefix="/api")
 

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
-from board_db import BoardDatabase
-from recurrence import base_occurrences, item_date, occurrence_item
+from .recurrence import base_occurrences, item_date, occurrence_item
+
+if TYPE_CHECKING:
+    from ..storage.board import BoardDatabase
 
 
 def get_calendar(

@@ -10,13 +10,13 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from auth import HOUSEHOLD_COOKIE, authenticate, data_client, router as auth_router, set_auth_cookies
-from board_api import router as board_router
-from conversation_api import router as conversation_router
+from .api.auth import HOUSEHOLD_COOKIE, authenticate, data_client, router as auth_router, set_auth_cookies
+from .api.board import router as board_router
+from .api.conversation import router as conversation_router
 
 load_dotenv()
-ROOT = Path(__file__).parent
-STATIC_DIR = ROOT / "static"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+FRONTEND_DIR = PROJECT_ROOT / "frontend"
 
 
 @asynccontextmanager
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Hearthbook", lifespan=lifespan)
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 app.include_router(auth_router)
 app.include_router(board_router)
 app.include_router(conversation_router)
@@ -87,7 +87,7 @@ async def security_headers(request: Request, call_next):
 
 @app.get("/", include_in_schema=False)
 async def index():
-    return FileResponse(STATIC_DIR / "index.html")
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 
 @app.get("/health", include_in_schema=False)
@@ -97,7 +97,12 @@ async def health():
 
 def main():
     port = os.getenv("PORT")
-    uvicorn.run("app:app", host="0.0.0.0" if port else "127.0.0.1", port=int(port or 8000), reload=not port)
+    uvicorn.run(
+        "backend.hearthbook.main:app",
+        host="0.0.0.0" if port else "127.0.0.1",
+        port=int(port or 8000),
+        reload=not port,
+    )
 
 
 if __name__ == "__main__":

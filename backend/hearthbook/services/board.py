@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from datetime import date
 
-from board_calendar import get_calendar, get_today
-from board_db import BoardDatabase
-from board_graph import build_conversation_graph
-from conversation_db import add_message, confirm_conversation, create_conversation
+from ..domain.calendar import get_calendar, get_today
+from ..llm.graph import build_conversation_graph
+from ..storage.board import BoardDatabase
+from ..storage.conversation import add_message, confirm_conversation, create_conversation
 
 
 class BoardService:

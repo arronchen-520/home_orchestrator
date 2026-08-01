@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import app as app_module
+from backend.hearthbook import main as app_module
 from fastapi.testclient import TestClient
 
 
@@ -52,7 +52,7 @@ class SupabaseAuthTest(unittest.TestCase):
                 return_value=(SimpleNamespace(id="user-1"), "token", None),
             ),
             patch.object(app_module, "data_client", return_value=MembershipClient()),
-            patch("board_api.board_service", return_value=BoardStub()),
+            patch("backend.hearthbook.api.board.board_service", return_value=BoardStub()),
             TestClient(app_module.app, base_url="https://testserver") as browser,
         ):
             response = browser.get("/api/board")

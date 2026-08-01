@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from board_db import BoardDatabase, now_text
+from .board import BoardDatabase, now_text
 
 
 def get_conversation(

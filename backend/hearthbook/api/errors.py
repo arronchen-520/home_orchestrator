@@ -2,7 +2,7 @@ import logging
 
 from fastapi import HTTPException
 
-from board_graph import ConfigurationError
+from ..llm.graph import ConfigurationError
 
 logger = logging.getLogger(__name__)
 

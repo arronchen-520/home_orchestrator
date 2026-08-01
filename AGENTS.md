@@ -10,24 +10,21 @@ standalone notes. Events can recur daily, weekly, or monthly.
 ## Commands
 
 - Install/sync: `uv sync`
-- Run: `uv run python app.py`
+- Run: `uv run python -m backend.hearthbook.main`
 - Test: `uv run python -m unittest -v`
 
 ## Architecture
 
-- `board_db.py`: Supabase household and item persistence.
-- `conversation_db.py`: conversation persistence and capture confirmation.
-- `board_calendar.py`: recurrence-backed calendar and deterministic Today summary.
-- `assistant_query.py`: household-scoped read-only SQLite projection.
-- `board_graph.py`: OpenRouter router plus capture/query/chat graph nodes.
-- `board_service.py`: application operations used by HTTP routes.
-- `auth.py`, `board_api.py`, `conversation_api.py`: focused FastAPI routes.
-- `recurrence.py`: server-side recurrence expansion and exceptions.
+- `backend/hearthbook/api/`: focused FastAPI routes and request dependencies.
+- `backend/hearthbook/llm/`: OpenRouter graph nodes and read-only SQL projection.
+- `backend/hearthbook/domain/`: models, recurrence, calendar, and Today logic.
+- `backend/hearthbook/services/`: application operations used by HTTP routes.
+- `backend/hearthbook/storage/`: Supabase board and conversation persistence.
 - The family assistant is read-only: AI-generated SQL runs only against a
   household-scoped in-memory SQLite projection, never the writable board connection.
-- `app.py`: FastAPI setup, middleware, and static file serving.
-- `conversation_api.py`: Deepgram speech-to-text and unified messages.
-- `static/`: dependency-free bilingual browser UI.
+- `backend/hearthbook/main.py`: FastAPI setup, middleware, and static serving.
+- `backend/hearthbook/api/conversation.py`: Deepgram speech-to-text and unified messages.
+- `frontend/`: dependency-free bilingual browser UI.
 - `supabase/migrations/`: Postgres schema, household membership, and RLS.
 - `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`: required.
 
@@ -43,7 +40,7 @@ standalone notes. Events can recur daily, weekly, or monthly.
 - Keep conversations continuous. Queries remain read-only; proposed item changes
   require explicit confirmation. Never expose generated SQL.
 - Preserve the input language in generated titles and details.
-- Keep Chinese and English UI strings in `static/app.js`.
+- Keep Chinese and English UI strings in `frontend/app.js`.
 - Keep Home limited to unified voice/text conversation and deterministic Today.
 - Keep primary mobile navigation to Home, Calendar, and Notes.
 - Dated tasks belong in Calendar; undated tasks stay in a small Unscheduled list.

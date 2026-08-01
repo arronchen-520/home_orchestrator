@@ -5,8 +5,8 @@ import sqlite3
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from board_calendar import get_calendar
-from board_db import BoardDatabase
+from ..domain.calendar import get_calendar
+from ..storage.board import BoardDatabase
 
 COLUMNS = [
     "id", "kind", "title", "details", "preparation", "remind_member_id",

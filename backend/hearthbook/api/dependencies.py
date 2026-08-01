@@ -1,8 +1,8 @@
 from fastapi import Request
 
-from auth import data_client
-from board_db import BoardDatabase
-from board_service import BoardService
+from ..services.board import BoardService
+from ..storage.board import BoardDatabase
+from .auth import data_client
 
 
 def board_service(request: Request) -> BoardService:

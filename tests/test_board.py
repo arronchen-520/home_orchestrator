@@ -4,10 +4,10 @@ from datetime import date
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from assistant_query import query_assistant
-from board_calendar import get_today
-from board_service import BoardService
-from models import CaptureAnalysis, ItemDraft, RouteDecision
+from backend.hearthbook.domain.calendar import get_today
+from backend.hearthbook.domain.models import CaptureAnalysis, ItemDraft, RouteDecision
+from backend.hearthbook.llm.query import query_assistant
+from backend.hearthbook.services.board import BoardService
 
 
 class EmptyExceptions:
@@ -101,11 +101,11 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
             )
         )
         with (
-            patch("board_graph.router_chain", return_value=route),
-            patch("board_graph.capture_chain", return_value=capture),
-            patch("board_service.create_conversation", return_value=deepcopy(SESSION)),
-            patch("board_graph.add_message", side_effect=add_message),
-            patch("board_graph.update_conversation", side_effect=update_conversation),
+            patch("backend.hearthbook.llm.graph.router_chain", return_value=route),
+            patch("backend.hearthbook.llm.graph.capture_chain", return_value=capture),
+            patch("backend.hearthbook.services.board.create_conversation", return_value=deepcopy(SESSION)),
+            patch("backend.hearthbook.llm.graph.add_message", side_effect=add_message),
+            patch("backend.hearthbook.llm.graph.update_conversation", side_effect=update_conversation),
         ):
             response = await BoardService(MemoryDatabase(), "family").message(
                 {
@@ -151,7 +151,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(reasons["event"]), {"happens_today", "reminder_today"})
         self.assertEqual(reasons["overdue"], ["overdue"])
 
-        with patch("assistant_query.get_calendar", return_value={"items": []}):
+        with patch("backend.hearthbook.llm.query.get_calendar", return_value={"items": []}):
             self.assertEqual(
                 query_assistant(database, "family", "UTC", "SELECT title FROM items ORDER BY title"),
                 [{"title": "Dentist"}, {"title": "Return book"}],
