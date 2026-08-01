@@ -30,6 +30,7 @@ class FrontendUIContractTest(unittest.TestCase):
         index = Path("frontend/index.html").read_text(encoding="utf-8")
         app = Path("frontend/app.js").read_text(encoding="utf-8")
 
+        self.assertIn('id="notesTitle" data-i18n="taskSpace"', index)
         self.assertLess(index.index('id="tasksTitle"'), index.index('id="notesSectionTitle"'))
         self.assertIn('id="overdueSection"', index)
         self.assertIn('id="upcomingSection"', index)
@@ -39,6 +40,17 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('item.kind === "task" && !item.completed_at', app)
         self.assertIn("groups.upcoming", app)
         self.assertIn("groups.unscheduled", app)
+
+    def test_task_filter_uses_the_current_members_reminders_independently(self):
+        index = Path("frontend/index.html").read_text(encoding="utf-8")
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+
+        self.assertIn('data-task-filter="all"', index)
+        self.assertIn('data-task-filter="mine"', index)
+        self.assertIn('taskFilter: localStorage.getItem("hearthbook-task-filter")', app)
+        self.assertIn("function filteredTasks()", app)
+        self.assertIn('item.remind_member_id === state.board.current_member_id', app)
+        self.assertIn('localStorage.setItem("hearthbook-task-filter", state.taskFilter)', app)
 
     def test_calendar_filter_uses_the_current_members_reminders(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")

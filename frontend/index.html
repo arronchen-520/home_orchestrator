@@ -120,13 +120,16 @@
 
       <section id="notesView" class="view" data-view="notes" aria-labelledby="notesTitle" hidden>
         <header class="page-heading">
-          <div>
-            <p class="eyebrow" data-i18n="taskSpace">待办与笔记</p>
-            <h1 id="notesTitle" data-i18n="tasks">待办</h1>
-          </div>
+          <h1 id="notesTitle" data-i18n="taskSpace">待办与笔记</h1>
         </header>
         <section class="task-section" aria-labelledby="tasksTitle">
-          <h2 id="tasksTitle" class="sr-only" data-i18n="tasks">待办</h2>
+          <div class="task-section-header">
+            <h2 id="tasksTitle" data-i18n="tasks">待办</h2>
+            <div class="task-filter" role="group" data-i18n-aria="taskFilter" aria-label="筛选待办">
+              <button class="calendar-filter-button" type="button" data-task-filter="all" data-i18n="filterAll">全部</button>
+              <button class="calendar-filter-button" type="button" data-task-filter="mine" data-i18n="filterMine">我的</button>
+            </div>
+          </div>
           <section id="overdueSection" class="task-group" aria-labelledby="overdueTitle" hidden>
             <h3 id="overdueTitle" data-i18n="overdue">已过期</h3>
             <div id="overdueItems" class="item-list"></div>

@@ -10,7 +10,7 @@ const copy = {
     preparation: "准备事项", cancel: "取消", confirm: "确认", todayEyebrow: "今日摘要",
     todayTitle: "今天", today: "今天", refresh: "刷新", plans: "安排", calendar: "日历",
     previousMonth: "上个月", nextMonth: "下个月", emptyCalendarDay: "这一天还没有安排。",
-    calendarFilter: "筛选安排", filterAll: "全部", filterMine: "我的",
+    calendarFilter: "筛选安排", taskFilter: "筛选待办", filterAll: "全部", filterMine: "我的",
     calendarDensityHelp: "色深表示当天安排数量",
     unscheduled: "未定时间", taskSpace: "待办与笔记", tasks: "待办", dueSoon: "未来 7 天", moreTasks: "展开更多", emptyTasks: "没有待办。", familyMemory: "常用信息", notes: "笔记",
     notesHelp: "家里常用的信息，放在这里。", home: "首页",
@@ -49,7 +49,7 @@ const copy = {
     preparation: "Preparation", cancel: "Cancel", confirm: "Confirm", todayEyebrow: "Today's summary",
     todayTitle: "Today", today: "Today", refresh: "Refresh", plans: "Plans", calendar: "Calendar",
     previousMonth: "Previous month", nextMonth: "Next month", emptyCalendarDay: "Nothing planned for this day.",
-    calendarFilter: "Filter plans", filterAll: "All", filterMine: "Mine",
+    calendarFilter: "Filter plans", taskFilter: "Filter tasks", filterAll: "All", filterMine: "Mine",
     calendarDensityHelp: "Darker days have more plans.",
     unscheduled: "No date yet", taskSpace: "Tasks and notes", tasks: "Tasks", dueSoon: "Due in 7 days", moreTasks: "Show more", emptyTasks: "No tasks yet.", familyMemory: "Household info", notes: "Notes",
     notesHelp: "Keep household details here.", home: "Home",
@@ -88,6 +88,7 @@ const state = {
   board: { household: {}, members: [], items: [] },
   today: [], calendar: [], calendarMonth: dateKey().slice(0, 7), selectedDate: dateKey(), calendarAgendaOpen: false,
   calendarFilter: localStorage.getItem("hearthbook-calendar-filter") === "mine" ? "mine" : "all",
+  taskFilter: localStorage.getItem("hearthbook-task-filter") === "mine" ? "mine" : "all",
   messages: [], pending: null, selectedItem: null,
   sessionId: localStorage.getItem("hearthbook-session") || null,
   recorder: null, recordingTimer: null,
@@ -320,6 +321,11 @@ function filteredCalendarItems() {
   return state.calendar.filter((item) => item.remind_member_id === state.board.current_member_id);
 }
 
+function filteredTasks() {
+  return state.board.items.filter((item) => item.kind === "task" && !item.completed_at
+    && (state.taskFilter !== "mine" || item.remind_member_id === state.board.current_member_id));
+}
+
 function calendarSummary(items) {
   return ["event", "task"].map((kind) => {
     const count = items.filter((item) => item.kind === kind).length;
@@ -401,7 +407,7 @@ function taskGroups() {
   const today = dateKey();
   const weekEnd = dateKey(new Date(localDate(today).setDate(localDate(today).getDate() + 6)));
   const groups = { overdue: [], upcoming: [], unscheduled: [], later: [] };
-  state.board.items.filter((item) => item.kind === "task" && !item.completed_at).forEach((item) => {
+  filteredTasks().forEach((item) => {
     const due = itemDate(item);
     if (!due) groups.unscheduled.push(item);
     else if (due < today) groups.overdue.push(item);
@@ -420,6 +426,11 @@ function renderTaskGroup(section, container, items) {
 }
 
 function renderNotes() {
+  document.querySelectorAll("[data-task-filter]").forEach((button) => {
+    const active = button.dataset.taskFilter === state.taskFilter;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
   const groups = taskGroups();
   renderTaskGroup("#overdueSection", "#overdueItems", groups.overdue);
   renderTaskGroup("#upcomingSection", "#upcomingItems", groups.upcoming);
@@ -592,6 +603,12 @@ function setCalendarFilter(value) {
   state.calendarFilter = value === "mine" ? "mine" : "all";
   localStorage.setItem("hearthbook-calendar-filter", state.calendarFilter);
   renderCalendar();
+}
+
+function setTaskFilter(value) {
+  state.taskFilter = value === "mine" ? "mine" : "all";
+  localStorage.setItem("hearthbook-task-filter", state.taskFilter);
+  renderNotes();
 }
 
 async function refreshData() {
@@ -793,6 +810,9 @@ $("#calendarTodayButton").addEventListener("click", () => {
 });
 document.querySelectorAll("[data-calendar-filter]").forEach((button) => {
   button.addEventListener("click", () => setCalendarFilter(button.dataset.calendarFilter));
+});
+document.querySelectorAll("[data-task-filter]").forEach((button) => {
+  button.addEventListener("click", () => setTaskFilter(button.dataset.taskFilter));
 });
 document.querySelectorAll(".bottom-tab").forEach((tab) => tab.addEventListener("click", () => {
   const hash = `#${tab.dataset.tab}`;

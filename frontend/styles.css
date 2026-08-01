@@ -259,13 +259,16 @@ textarea { resize: vertical; line-height: 1.45; }
 .calendar-agenda h2 { font-size: 1.15rem; }
 .agenda-count { min-width: 24px; padding: 3px 8px; border-radius: 999px; color: var(--brand-dark); background: #fff0e5; font-size: .78rem; font-weight: 800; text-align: center; }
 .task-section { display: grid; gap: 24px; }
+.task-section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.task-section-header h2, .notes-section h2 { margin: 0; font-size: 1.15rem; letter-spacing: -.02em; }
+.task-filter { display: grid; width: min(158px, 58vw); grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 14px; background: #f4f0e9; }
 .task-group { display: grid; gap: 12px; }
-.task-group h3, .notes-section h2 { margin: 0; font-size: 1.05rem; letter-spacing: -.02em; }
+.task-group h3 { margin: 0; font-size: 1.05rem; letter-spacing: -.02em; }
 .task-group:first-of-type h3 { color: #9f3928; }
 .more-tasks { border-top: 1px solid var(--line); }
 .more-tasks summary { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; color: var(--brand-dark); font-weight: 800; }
 .more-tasks[open] summary { margin-bottom: 12px; }
-.notes-section { margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--line); }
+.notes-section { margin-top: 44px; }
 .notes-grid { grid-template-columns: 1fr; margin-top: 20px; }
 
 .bottom-tabs {
