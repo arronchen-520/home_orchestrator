@@ -48,12 +48,13 @@ async def transcribe(file: UploadFile) -> str:
     audio = await file.read(MAX_AUDIO_BYTES + 1)
     if len(audio) > MAX_AUDIO_BYTES:
         raise HTTPException(status_code=413, detail="Audio must be 10 MB or smaller")
+    content_type = (file.content_type or "audio/webm").split(";", 1)[0]
     try:
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(
                 "https://api.deepgram.com/v1/listen",
-                params={"model": os.getenv("DEEPGRAM_MODEL", "nova-2"), "language": "multi", "smart_format": "true"},
-                headers={"Authorization": f"Token {api_key}", "Content-Type": file.content_type or "audio/webm"},
+                params={"model": os.getenv("DEEPGRAM_MODEL", "nova-2"), "detect_language": "true", "smart_format": "true"},
+                headers={"Authorization": f"Token {api_key}", "Content-Type": content_type},
                 content=audio,
             )
             response.raise_for_status()
