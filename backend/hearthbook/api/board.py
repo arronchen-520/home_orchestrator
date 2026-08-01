@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
@@ -22,6 +24,8 @@ class ItemUpdate(BaseModel):
     due_date: date | None = None
     reminder_at: datetime | None = None
     all_day: bool | None = None
+    recurrence: Literal["daily", "weekly", "monthly"] | None = None
+    monthly_on_last_day: bool | None = None
     recurrence_until: date | None = None
 
 

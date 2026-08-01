@@ -5,7 +5,7 @@ from uuid import uuid4
 from supabase import Client
 
 from ..domain.models import ItemDraft
-from ..domain.recurrence import base_occurrences, validate_month_end
+from ..domain.recurrence import base_occurrences, item_date, validate_month_end
 
 HOUSEHOLD_MEMORY_MAX_CHARS = 2000
 
@@ -192,7 +192,7 @@ class BoardDatabase:
         allowed = {
             "title", "details", "preparation", "remind_member_id", "completed",
             "start_at", "end_at", "start_date", "due_at", "due_date", "reminder_at",
-            "all_day", "recurrence_until",
+            "all_day", "recurrence", "monthly_on_last_day", "recurrence_until",
         }
         if not fields or set(fields) - allowed:
             raise ValueError("Invalid item fields")
@@ -201,7 +201,10 @@ class BoardDatabase:
         if row is None:
             raise ValueError("Item not found")
         item = dict(row)
-        original_start = (item.get("start_at"), item.get("start_date"))
+        original_pattern = tuple(
+            item.get(key)
+            for key in ("start_at", "start_date", "recurrence", "monthly_on_last_day")
+        )
         completed = fields.pop("completed", None)
         item.update(fields)
         if item["kind"] == "note" and set(fields) - {"title", "details"}:
@@ -215,6 +218,7 @@ class BoardDatabase:
         if not isinstance(item.get("title"), str) or not 1 <= len(item["title"].strip()) <= 120:
             raise ValueError("Title must be 1 to 120 characters")
         if item["kind"] == "event":
+            timezone_name = self.get_household(household_id)["timezone"]
             if set(fields) & {"due_at", "due_date"}:
                 raise ValueError("Events do not have task deadlines")
             item["all_day"] = bool(item["all_day"])
@@ -224,16 +228,36 @@ class BoardDatabase:
                 item["start_at"] = item["end_at"] = None
             elif not item.get("start_at"):
                 raise ValueError("A timed event requires a start")
-            validate_month_end(item, self.get_household(household_id)["timezone"])
+            elif item.get("end_at") and datetime.fromisoformat(
+                item["end_at"]
+            ) < datetime.fromisoformat(item["start_at"]):
+                raise ValueError("Event end must be after its start")
+            if not item.get("recurrence"):
+                item["monthly_on_last_day"] = False
+                item["recurrence_until"] = None
+            elif item.get("recurrence_until") and date.fromisoformat(
+                item["recurrence_until"]
+            ) < item_date(item, timezone_name):
+                raise ValueError("Recurrence end date cannot precede its start")
+            if item.get("monthly_on_last_day") and item.get("recurrence") != "monthly":
+                raise ValueError("Last-day recurrence must be monthly")
+            validate_month_end(item, timezone_name)
         elif item["kind"] == "task":
-            if set(fields) & {"start_at", "end_at", "start_date", "all_day", "recurrence_until"}:
+            if set(fields) & {
+                "start_at", "end_at", "start_date", "all_day", "recurrence",
+                "monthly_on_last_day", "recurrence_until",
+            }:
                 raise ValueError("Tasks do not have event schedule fields")
             if item.get("due_at") and item.get("due_date"):
                 raise ValueError("A task cannot have both a due date and due time")
         update = {key: item.get(key) for key in allowed - {"completed"}}
         update.update(completed_at=item.get("completed_at"), all_day=bool(item.get("all_day")), updated_at=now_text())
         self.client.table("items").update(update).eq("id", item_id).eq("household_id", household_id).execute()
-        if item.get("recurrence") and original_start != (item.get("start_at"), item.get("start_date")):
+        current_pattern = tuple(
+            item.get(key)
+            for key in ("start_at", "start_date", "recurrence", "monthly_on_last_day")
+        )
+        if original_pattern != current_pattern and (original_pattern[2] or item.get("recurrence")):
             self.client.table("recurrence_exceptions").delete().eq("series_id", item_id).execute()
 
     def delete_item(self, household_id: str, item_id: str, actor_id: str) -> None:
@@ -258,6 +282,10 @@ class BoardDatabase:
         if not fields or set(fields) - allowed:
             raise ValueError("Invalid occurrence fields")
         self._require_occurrence(household_id, series_id, occurrence_date)
+        if fields.get("start_at") and fields.get("end_at") and datetime.fromisoformat(
+            fields["end_at"]
+        ) < datetime.fromisoformat(fields["start_at"]):
+            raise ValueError("Event end must be after its start")
         self.client.table("recurrence_exceptions").upsert(
             {
                 "series_id": series_id,

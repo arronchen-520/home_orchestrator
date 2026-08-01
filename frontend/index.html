@@ -134,9 +134,39 @@
       <form id="itemForm" class="item-form">
         <label><span data-i18n="title">标题</span><input id="editTitle" maxlength="120" required></label>
         <label><span data-i18n="details">详情</span><textarea id="editDetails" rows="3" maxlength="2000"></textarea></label>
+        <label id="editScopeField" hidden>
+          <span data-i18n="editScope">修改范围</span>
+          <select id="editScope">
+            <option value="occurrence" data-i18n="thisOccurrence">只修改这一次</option>
+            <option value="series" data-i18n="entireSeries">修改整个系列</option>
+          </select>
+        </label>
         <label id="editRemindMemberField"><span data-i18n="remindWho">提醒谁</span><select id="editRemindMember"></select></label>
+        <div id="editEventFields" class="editor-fields" hidden>
+          <label class="checkbox-row"><input id="editAllDay" type="checkbox"><span data-i18n="allDay">全天</span></label>
+          <label id="editStartDateField"><span data-i18n="date">日期</span><input id="editStartDate" type="date"></label>
+          <label id="editStartAtField"><span data-i18n="starts">开始</span><input id="editStartAt" type="datetime-local"></label>
+          <label id="editEndAtField"><span data-i18n="ends">结束</span><input id="editEndAt" type="datetime-local"></label>
+          <label id="editRecurrenceField">
+            <span data-i18n="recurrence">重复</span>
+            <select id="editRecurrence">
+              <option value="" data-i18n="noRecurrence">不重复</option>
+              <option value="daily" data-i18n="daily">每天</option>
+              <option value="weekly" data-i18n="weekly">每周</option>
+              <option value="monthly" data-i18n="monthly">每月</option>
+              <option value="monthly_last_day" data-i18n="monthlyLastDay">每月最后一天</option>
+            </select>
+          </label>
+          <label id="editRecurrenceUntilField"><span data-i18n="recurrenceEnds">重复结束</span><input id="editRecurrenceUntil" type="date"></label>
+        </div>
+        <div id="editTaskFields" class="editor-fields" hidden>
+          <label class="checkbox-row"><input id="editDueTimed" type="checkbox"><span data-i18n="specificTime">指定时间</span></label>
+          <label id="editDueDateField"><span data-i18n="dueDate">截止日期</span><input id="editDueDate" type="date"></label>
+          <label id="editDueAtField"><span data-i18n="due">截止</span><input id="editDueAt" type="datetime-local"></label>
+        </div>
         <div id="itemMeta" class="item-meta"></div>
         <div id="itemReminders" class="remind-line"></div>
+        <p id="itemFormError" class="form-error" role="alert" hidden></p>
         <div class="button-row">
           <button id="deleteItem" class="danger-button" type="button" data-i18n="delete">删除</button>
           <button id="toggleDone" class="secondary-button" type="button" data-i18n="markDone">标记完成</button>

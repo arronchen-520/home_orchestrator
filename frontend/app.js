@@ -23,10 +23,14 @@ const copy = {
     emptyUnscheduled: "还没有定时间的待办。", emptyNotes: "还没有记录。",
     emptyConversation: "还没有对话。", listening: "正在听…", thinking: "正在处理…",
     saved: "已保存", deleted: "已删除", added: "已添加", confirmed: "已确认",
-    deleteConfirm: "确定删除这条内容吗？",
+    deleteConfirm: "确定删除这条内容吗？", deleteSeriesConfirm: "确定删除整个重复日程吗？",
+    cancelOccurrenceConfirm: "确定只取消这一次日程吗？",
     microphoneError: "无法使用麦克风，可以改用文字输入。", networkError: "暂时连接不上，过一会儿再试。",
     noSpeech: "没有听到声音，再试一次。", familyMembers: "家庭成员", invite: "邀请码",
-    recurrence: "重复", daily: "每天", weekly: "每周", monthly: "每月", overdue: "已过期",
+    recurrence: "重复", noRecurrence: "不重复", daily: "每天", weekly: "每周", monthly: "每月",
+    monthlyLastDay: "每月最后一天", recurrenceEnds: "重复结束", editScope: "修改范围",
+    thisOccurrence: "只修改这一次", entireSeries: "修改整个系列", date: "日期", ends: "结束",
+    specificTime: "指定时间", dueDate: "截止日期", overdue: "已过期",
   },
   en: {
     settings: "Settings", homeTitle: "Anything you'd like to note today?",
@@ -50,10 +54,14 @@ const copy = {
     emptyUnscheduled: "No tasks without a date.", emptyNotes: "No notes yet.",
     emptyConversation: "No messages yet.", listening: "Listening…", thinking: "Working…",
     saved: "Saved", deleted: "Deleted", added: "Added", confirmed: "Confirmed",
-    deleteConfirm: "Delete this item?",
+    deleteConfirm: "Delete this item?", deleteSeriesConfirm: "Delete this entire recurring event?",
+    cancelOccurrenceConfirm: "Cancel only this occurrence?",
     microphoneError: "The microphone isn't available. You can type instead.", networkError: "Can't connect right now. Try again in a moment.",
     noSpeech: "I didn't hear anything. Try again.", familyMembers: "Family members", invite: "Invite code",
-    recurrence: "Repeats", daily: "Daily", weekly: "Weekly", monthly: "Monthly", overdue: "Overdue",
+    recurrence: "Repeats", noRecurrence: "Does not repeat", daily: "Daily", weekly: "Weekly", monthly: "Monthly",
+    monthlyLastDay: "Last day of each month", recurrenceEnds: "Repeat until", editScope: "Edit scope",
+    thisOccurrence: "Only this occurrence", entireSeries: "Entire series", date: "Date", ends: "Ends",
+    specificTime: "Specific time", dueDate: "Due date", overdue: "Overdue",
   },
 };
 
@@ -113,6 +121,12 @@ function formatDateTime(value, allDay = false) {
   return new Intl.DateTimeFormat(state.language === "zh" ? "zh-CN" : "en-CA", {
     month: "short", day: "numeric", ...(allDay ? {} : { hour: "numeric", minute: "2-digit" }),
   }).format(new Date(value));
+}
+
+function toLocalDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
 function itemDate(item) {
@@ -355,24 +369,69 @@ async function refreshData() {
   await Promise.all([loadBoard(), loadToday(), loadCalendar()]);
 }
 
+function editorItem(scope) {
+  if (scope === "occurrence" || !state.selectedItem?.series_id) return state.selectedItem;
+  return state.board.items.find((item) => item.id === state.selectedItem.series_id) || state.selectedItem;
+}
+
+function toggleEditorFields() {
+  const item = editorItem($("#editScope").value);
+  if (!item) return;
+  const allDay = item.kind === "event" && $("#editAllDay").checked;
+  $("#editStartDateField").hidden = !allDay;
+  $("#editStartAtField").hidden = allDay;
+  $("#editEndAtField").hidden = allDay;
+  $("#editStartDate").required = allDay;
+  $("#editStartAt").required = item.kind === "event" && !allDay;
+  const dueTimed = item.kind === "task" && $("#editDueTimed").checked;
+  $("#editDueDateField").hidden = dueTimed;
+  $("#editDueAtField").hidden = !dueTimed;
+  const editingOccurrence = $("#editScope").value === "occurrence";
+  $("#editRecurrenceField").hidden = editingOccurrence;
+  $("#editRecurrenceUntilField").hidden = editingOccurrence || !$("#editRecurrence").value;
+}
+
+function fillEditor(item, scope) {
+  if (!item) return;
+  $("#editTitle").value = item.title || "";
+  $("#editDetails").value = item.details || "";
+  $("#editRemindMemberField").hidden = item.kind === "note" || scope === "occurrence";
+  $("#editRemindMember").value = item.remind_member_id || "";
+  $("#editEventFields").hidden = item.kind !== "event";
+  $("#editTaskFields").hidden = item.kind !== "task";
+  if (item.kind === "event") {
+    $("#editAllDay").checked = Boolean(item.all_day);
+    $("#editStartDate").value = item.start_date || "";
+    $("#editStartAt").value = toLocalDateTime(item.start_at);
+    $("#editEndAt").value = toLocalDateTime(item.end_at);
+    $("#editRecurrence").value = item.monthly_on_last_day ? "monthly_last_day" : item.recurrence || "";
+    $("#editRecurrenceUntil").value = item.recurrence_until || "";
+  } else if (item.kind === "task") {
+    $("#editDueTimed").checked = Boolean(item.due_at);
+    $("#editDueDate").value = item.due_date || "";
+    $("#editDueAt").value = toLocalDateTime(item.due_at);
+  }
+  toggleEditorFields();
+}
+
 function openItem(item) {
   state.selectedItem = item;
   $("#itemKind").textContent = t(item.kind || "event");
   $("#itemKind").className = `badge ${item.kind || "event"}`;
   $("#itemTitle").textContent = item.title || "";
-  $("#editTitle").value = item.title || "";
-  $("#editDetails").value = item.details || "";
-  $("#editRemindMemberField").hidden = item.kind === "note";
   const remindSelect = $("#editRemindMember");
   remindSelect.replaceChildren(new Option("—", ""), ...state.board.members.map((member) => new Option(member.name, member.id)));
-  remindSelect.value = item.remind_member_id || "";
+  $("#editScopeField").hidden = !item.is_occurrence;
+  $("#editScope").value = item.is_occurrence ? "occurrence" : "series";
+  $("#itemFormError").hidden = true;
+  fillEditor(editorItem($("#editScope").value), $("#editScope").value);
 
   const meta = $("#itemMeta");
   meta.replaceChildren();
   const timing = itemTime(item);
   if (timing) meta.append(textNode("p", timing));
   if (item.reminder_at) meta.append(textNode("p", `${t("reminder")}: ${formatDateTime(item.reminder_at)}`));
-  if (item.recurrence) meta.append(textNode("p", `${t("recurrence")}: ${t(item.recurrence)}`));
+  if (item.recurrence) meta.append(textNode("p", `${t("recurrence")}: ${t(item.monthly_on_last_day ? "monthlyLastDay" : item.recurrence)}`));
   if (item.completed_at) meta.append(textNode("p", t("done")));
   $("#toggleDone").hidden = item.kind !== "task";
   $("#toggleDone").textContent = t(item.completed_at ? "markOpen" : "markDone");
@@ -500,20 +559,64 @@ $("#confirmButton").addEventListener("click", async () => {
 });
 $("#cancelConfirmation").addEventListener("click", () => { state.pending = null; renderMessages(); });
 
+$("#editAllDay").addEventListener("change", toggleEditorFields);
+$("#editDueTimed").addEventListener("change", toggleEditorFields);
+$("#editRecurrence").addEventListener("change", toggleEditorFields);
+$("#editScope").addEventListener("change", (event) => fillEditor(editorItem(event.target.value), event.target.value));
 $("#itemForm").addEventListener("submit", async (event) => {
   event.preventDefault();
+  const scope = state.selectedItem?.is_occurrence ? $("#editScope").value : "series";
+  const item = editorItem(scope);
+  if (!item) return;
+  $("#itemFormError").hidden = true;
   try {
     const fields = { title: $("#editTitle").value.trim(), details: $("#editDetails").value.trim() };
-    if (state.selectedItem.kind !== "note") fields.remind_member_id = $("#editRemindMember").value || null;
-    await updateSelected(fields);
+    if (item.kind !== "note" && scope === "series") fields.remind_member_id = $("#editRemindMember").value || null;
+    if (item.kind === "event") {
+      if ($("#editAllDay").checked) {
+        fields.start_date = $("#editStartDate").value;
+        fields.start_at = null;
+        fields.end_at = null;
+      } else {
+        fields.start_at = new Date($("#editStartAt").value).toISOString();
+        fields.end_at = $("#editEndAt").value ? new Date($("#editEndAt").value).toISOString() : null;
+        fields.start_date = null;
+      }
+      if (scope === "series") {
+        const recurrence = $("#editRecurrence").value;
+        fields.all_day = $("#editAllDay").checked;
+        fields.recurrence = recurrence === "monthly_last_day" ? "monthly" : recurrence || null;
+        fields.monthly_on_last_day = recurrence === "monthly_last_day";
+        fields.recurrence_until = recurrence ? $("#editRecurrenceUntil").value || null : null;
+      }
+    } else if (item.kind === "task") {
+      fields.due_at = $("#editDueTimed").checked && $("#editDueAt").value
+        ? new Date($("#editDueAt").value).toISOString() : null;
+      fields.due_date = $("#editDueTimed").checked ? null : $("#editDueDate").value || null;
+    }
+    const path = state.selectedItem.is_occurrence && scope === "occurrence"
+      ? `/api/items/${state.selectedItem.series_id}/occurrences/${state.selectedItem.occurrence_date}`
+      : `/api/items/${item.id}`;
+    await api(path, { method: "PATCH", body: JSON.stringify(fields) });
+    await refreshData();
     $("#itemDialog").close();
     showToast(t("saved"));
-  } catch (error) { showToast(error.message, true); }
+  } catch (error) {
+    $("#itemFormError").textContent = error.message;
+    $("#itemFormError").hidden = false;
+  }
 });
 $("#deleteItem").addEventListener("click", async () => {
-  if (!state.selectedItem || !confirm(t("deleteConfirm"))) return;
+  if (!state.selectedItem) return;
+  const occurrence = state.selectedItem.is_occurrence && $("#editScope").value === "occurrence";
+  const confirmation = occurrence ? "cancelOccurrenceConfirm"
+    : state.selectedItem.recurrence ? "deleteSeriesConfirm" : "deleteConfirm";
+  if (!confirm(t(confirmation))) return;
   try {
-    await api(`/api/items/${state.selectedItem.id}`, { method: "DELETE" });
+    const path = occurrence
+      ? `/api/items/${state.selectedItem.series_id}/occurrences/${state.selectedItem.occurrence_date}`
+      : `/api/items/${state.selectedItem.id}`;
+    await api(path, { method: "DELETE" });
     $("#itemDialog").close();
     await refreshData();
     showToast(t("deleted"));

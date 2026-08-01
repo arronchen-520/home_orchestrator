@@ -286,6 +286,10 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .dialog-header h2 { margin: 0; }
 .item-form, .stack-form { display: grid; gap: 14px; }
 .item-form label, .stack-form label { display: grid; gap: 6px; font-weight: 700; }
+.item-form select { width: 100%; padding: 10px 12px; }
+.editor-fields { display: grid; gap: 14px; }
+.item-form .checkbox-row { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.checkbox-row input { width: 22px; min-height: 22px; }
 .item-meta { padding: 10px 0; color: var(--muted); }
 .item-meta p { margin: 4px 0; }
 .button-row { margin-top: 8px; }

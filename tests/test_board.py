@@ -2,12 +2,13 @@ import unittest
 from copy import deepcopy
 from datetime import date
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from backend.hearthbook.domain.calendar import get_today
 from backend.hearthbook.domain.models import CaptureAnalysis, ItemDraft, RouteDecision
 from backend.hearthbook.llm.query import query_assistant
 from backend.hearthbook.services.board import BoardService
+from backend.hearthbook.storage.board import BoardDatabase
 
 
 class EmptyExceptions:
@@ -166,6 +167,55 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
     def test_recurrence_remains_event_only(self):
         with self.assertRaisesRegex(ValueError, "Only events can recur"):
             ItemDraft(kind="task", title="Trash", recurrence="weekly")
+
+    def test_series_rule_and_single_occurrence_can_be_edited(self):
+        client = MagicMock()
+        items = MagicMock()
+        exceptions = MagicMock()
+        for table in (items, exceptions):
+            for method in ("select", "eq", "limit", "update", "delete", "upsert"):
+                getattr(table, method).return_value = table
+        client.table.side_effect = lambda name: items if name == "items" else exceptions
+        row = {
+            "id": "series", "household_id": "family", "kind": "event",
+            "title": "Pickup", "details": "", "preparation": None,
+            "remind_member_id": None, "completed_at": None,
+            "start_at": "2026-08-24T15:00:00-04:00",
+            "end_at": "2026-08-24T16:00:00-04:00", "start_date": None,
+            "due_at": None, "due_date": None, "reminder_at": None,
+            "all_day": False, "recurrence": "weekly",
+            "monthly_on_last_day": False, "recurrence_until": "2026-12-31",
+        }
+        items.execute.return_value = SimpleNamespace(data=[row])
+        database = BoardDatabase(client)
+        database.require_member = MagicMock(return_value="lin")
+        database.get_household = MagicMock(return_value={"timezone": "America/Toronto"})
+
+        database.update_item(
+            "family", "series", "lin",
+            {
+                "start_at": "2026-08-31T15:00:00-04:00",
+                "end_at": "2026-08-31T16:00:00-04:00",
+                "recurrence": "monthly", "monthly_on_last_day": True,
+            },
+        )
+        updated = items.update.call_args.args[0]
+        self.assertEqual(updated["recurrence"], "monthly")
+        self.assertTrue(updated["monthly_on_last_day"])
+        exceptions.delete.assert_called_once()
+
+        items.execute.return_value = SimpleNamespace(data=[{**row, **updated}])
+        database.update_occurrence(
+            "family", "series", "2026-09-30", "lin",
+            {
+                "title": "Late pickup", "details": "", "preparation": None,
+                "start_at": "2026-10-01T17:00:00-04:00",
+                "end_at": "2026-10-01T18:00:00-04:00", "start_date": None,
+            },
+        )
+        exception = exceptions.upsert.call_args.args[0]
+        self.assertEqual(exception["occurrence_date"], "2026-09-30")
+        self.assertEqual(exception["start_at"], "2026-10-01T17:00:00-04:00")
 
 
 if __name__ == "__main__":
