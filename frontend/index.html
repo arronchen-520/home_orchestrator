@@ -73,7 +73,6 @@
         <section class="today-section" aria-labelledby="todayTitle">
           <div class="section-title-row">
             <div>
-              <p class="eyebrow" data-i18n="todayEyebrow">今日摘要</p>
               <h2 id="todayTitle" data-i18n="todayTitle">今天</h2>
             </div>
             <button id="refreshToday" class="icon-button" type="button" data-i18n-aria="refresh" aria-label="刷新">
@@ -129,7 +128,9 @@
     <dialog id="itemDialog" class="sheet">
       <form method="dialog" class="dialog-header">
         <div><span id="itemKind" class="badge"></span><h2 id="itemTitle"></h2></div>
-        <button class="icon-button" type="submit" data-i18n-aria="close" aria-label="关闭">×</button>
+        <button class="icon-button" type="submit" data-i18n-aria="close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
       </form>
       <form id="itemForm" class="item-form">
         <label><span data-i18n="title">标题</span><input id="editTitle" maxlength="120" required></label>
