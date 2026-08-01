@@ -6,6 +6,8 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from ..domain.models import Weekday
+
 from .dependencies import board_service
 
 router = APIRouter(prefix="/api")
@@ -25,6 +27,7 @@ class ItemUpdate(BaseModel):
     reminder_at: datetime | None = None
     all_day: bool | None = None
     recurrence: Literal["daily", "weekly", "monthly"] | None = None
+    weekdays: list[Weekday] | None = None
     monthly_on_last_day: bool | None = None
     recurrence_until: date | None = None
 

@@ -82,7 +82,10 @@ Ask one short question only when date, time, item type, or recurrence is materia
 ambiguous. Ask no more than two questions; when Remaining questions is 0, state any
 assumptions in the review message. Preserve the user's language.
 
-Events can recur daily, weekly, or monthly. Tasks and notes cannot recur. Every dated
+Events can recur daily, weekly, or monthly. For weekly events, set weekdays to any
+combination of MO, TU, WE, TH, FR, SA, SU. "Weekdays" means MO through FR; "weekends"
+means SA and SU. A plain weekly event may leave weekdays empty to use its start weekday.
+Tasks and notes cannot recur. Every dated
 event or task needs a sensible reminder_at. Suggest remind_member_id only when a named
 person, family role, or durable family habit makes it clear; otherwise use null. This
 means who should be quietly reminded, never ownership or assignment. Suggest at most
@@ -103,7 +106,7 @@ ASSISTANT_SCHEMA = """
 members(id, name, role)
 items(id, kind, title, details, preparation, remind_member_id,
   remind_member_name, completed_at, start_at, end_at, start_date, due_at,
-  due_date, reminder_at, recurrence, recurrence_until, created_at, updated_at,
+  due_date, reminder_at, recurrence, weekdays, recurrence_until, created_at, updated_at,
   original_text)
 occurrences(same item columns, series_id, occurrence_date, is_occurrence)
 item_notes(id, item_id, member_id, member_name, content, created_at)

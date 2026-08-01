@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field, model_validator
 ItemKind = Literal["event", "task", "note"]
 Intent = Literal["capture", "query", "chat"]
 Recurrence = Literal["daily", "weekly", "monthly"]
+Weekday = Literal["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
+WEEKDAYS = ("MO", "TU", "WE", "TH", "FR", "SA", "SU")
 
 
 class ItemDraft(BaseModel):
@@ -25,6 +27,7 @@ class ItemDraft(BaseModel):
     reminder_at: datetime | None = None
     all_day: bool = False
     recurrence: Recurrence | None = None
+    weekdays: list[Weekday] = Field(default_factory=list)
     monthly_on_last_day: bool = False
     recurrence_until: date | None = None
 
@@ -51,13 +54,16 @@ class ItemDraft(BaseModel):
                     raise ValueError("Last-day recurrence must be monthly")
                 if first and first.day != monthrange(first.year, first.month)[1]:
                     raise ValueError("Last-day recurrence must start on a month's last day")
+            self.weekdays = sorted(set(self.weekdays), key=WEEKDAYS.index)
+            if self.weekdays and self.recurrence != "weekly":
+                raise ValueError("Weekdays require weekly recurrence")
             if self.recurrence_until:
                 if not self.recurrence:
                     raise ValueError("A recurrence end date requires recurrence")
                 if first and self.recurrence_until < first:
                     raise ValueError("Recurrence end date cannot precede its start")
         elif self.kind == "task":
-            if self.recurrence or self.monthly_on_last_day or self.recurrence_until:
+            if self.recurrence or self.weekdays or self.monthly_on_last_day or self.recurrence_until:
                 raise ValueError("Only events can recur")
             self.start_at = self.end_at = self.start_date = None
             self.all_day = False
@@ -68,6 +74,7 @@ class ItemDraft(BaseModel):
             self.due_at = self.due_date = self.reminder_at = None
             self.preparation = self.remind_member_id = None
             self.recurrence = self.recurrence_until = None
+            self.weekdays = []
             self.monthly_on_last_day = self.all_day = False
         return self
 

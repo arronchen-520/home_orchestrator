@@ -4,7 +4,9 @@ from calendar import monthrange
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
-from dateutil.rrule import DAILY, MONTHLY, WEEKLY, rrule
+from dateutil.rrule import DAILY, FR, MO, MONTHLY, SA, SU, TH, TU, WE, WEEKLY, rrule
+
+WEEKDAY_RULES = {"MO": MO, "TU": TU, "WE": WE, "TH": TH, "FR": FR, "SA": SA, "SU": SU}
 
 
 def item_date(item: dict, timezone_name: str) -> date | None:
@@ -48,6 +50,8 @@ def base_occurrences(
     }
     if item["recurrence"] == "monthly":
         options["bymonthday"] = -1 if item["monthly_on_last_day"] else first.day
+    elif item["recurrence"] == "weekly" and item.get("weekdays"):
+        options["byweekday"] = [WEEKDAY_RULES[value] for value in item["weekdays"]]
     return list(
         rrule(**options).between(
             datetime.combine(start_date, time.min, zone),

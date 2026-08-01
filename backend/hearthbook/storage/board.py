@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 from uuid import uuid4
 from supabase import Client
 
-from ..domain.models import ItemDraft
+from ..domain.models import ItemDraft, WEEKDAYS
 from ..domain.recurrence import base_occurrences, item_date, validate_month_end
 
 HOUSEHOLD_MEMORY_MAX_CHARS = 2000
@@ -142,7 +142,7 @@ class BoardDatabase:
             .select(
                 "id,conversation_id,kind,title,details,preparation,remind_member_id,completed_at,"
                 "start_at,end_at,start_date,due_at,due_date,reminder_at,all_day,recurrence,"
-                "monthly_on_last_day,recurrence_until,created_by,created_at,updated_at,original_text"
+                "weekdays,monthly_on_last_day,recurrence_until,created_by,created_at,updated_at,original_text"
             )
             .eq("household_id", household_id)
             .order("created_at")
@@ -170,6 +170,7 @@ class BoardDatabase:
             item = dict(row)
             item["all_day"] = bool(item["all_day"])
             item["monthly_on_last_day"] = bool(item["monthly_on_last_day"])
+            item["weekdays"] = item.get("weekdays") or []
             item["notes"] = notes_by_item.get(item["id"], [])
             items.append(item)
         return {"household": self.get_household(household_id), "members": members, "items": items}
@@ -193,6 +194,7 @@ class BoardDatabase:
             "title", "details", "preparation", "remind_member_id", "completed",
             "start_at", "end_at", "start_date", "due_at", "due_date", "reminder_at",
             "all_day", "recurrence", "monthly_on_last_day", "recurrence_until",
+            "weekdays",
         }
         if not fields or set(fields) - allowed:
             raise ValueError("Invalid item fields")
@@ -205,6 +207,7 @@ class BoardDatabase:
             item.get(key)
             for key in ("start_at", "start_date", "recurrence", "monthly_on_last_day")
         )
+        original_pattern += (tuple(item.get("weekdays") or []),)
         completed = fields.pop("completed", None)
         item.update(fields)
         if item["kind"] == "note" and set(fields) - {"title", "details"}:
@@ -235,7 +238,13 @@ class BoardDatabase:
             if not item.get("recurrence"):
                 item["monthly_on_last_day"] = False
                 item["recurrence_until"] = None
-            elif item.get("recurrence_until") and date.fromisoformat(
+            item["weekdays"] = list(dict.fromkeys(item.get("weekdays") or []))
+            if set(item["weekdays"]) - set(WEEKDAYS):
+                raise ValueError("Invalid weekday")
+            item["weekdays"].sort(key=WEEKDAYS.index)
+            if item.get("recurrence") != "weekly":
+                item["weekdays"] = []
+            if item.get("recurrence_until") and date.fromisoformat(
                 item["recurrence_until"]
             ) < item_date(item, timezone_name):
                 raise ValueError("Recurrence end date cannot precede its start")
@@ -245,7 +254,7 @@ class BoardDatabase:
         elif item["kind"] == "task":
             if set(fields) & {
                 "start_at", "end_at", "start_date", "all_day", "recurrence",
-                "monthly_on_last_day", "recurrence_until",
+                "weekdays", "monthly_on_last_day", "recurrence_until",
             }:
                 raise ValueError("Tasks do not have event schedule fields")
             if item.get("due_at") and item.get("due_date"):
@@ -257,6 +266,7 @@ class BoardDatabase:
             item.get(key)
             for key in ("start_at", "start_date", "recurrence", "monthly_on_last_day")
         )
+        current_pattern += (tuple(item.get("weekdays") or []),)
         if original_pattern != current_pattern and (original_pattern[2] or item.get("recurrence")):
             self.client.table("recurrence_exceptions").delete().eq("series_id", item_id).execute()
 
@@ -271,6 +281,7 @@ class BoardDatabase:
         item = dict(row)
         item["all_day"] = bool(item["all_day"])
         item["monthly_on_last_day"] = bool(item["monthly_on_last_day"])
+        item["weekdays"] = item.get("weekdays") or []
         target = date.fromisoformat(occurrence_date)
         if not base_occurrences(item, target, target, self.get_household(household_id)["timezone"]):
             raise ValueError("Occurrence not found")

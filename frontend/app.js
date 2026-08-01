@@ -29,6 +29,7 @@ const copy = {
     noSpeech: "没有听到声音，再试一次。", familyMembers: "家庭成员", invite: "邀请码",
     recurrence: "重复", noRecurrence: "不重复", daily: "每天", weekly: "每周", monthly: "每月",
     monthlyLastDay: "每月最后一天", recurrenceEnds: "重复结束", editScope: "修改范围",
+    repeatOn: "重复日期", weekdayMO: "周一", weekdayTU: "周二", weekdayWE: "周三", weekdayTH: "周四", weekdayFR: "周五", weekdaySA: "周六", weekdaySU: "周日",
     thisOccurrence: "只修改这一次", entireSeries: "修改整个系列", date: "日期", ends: "结束",
     specificTime: "指定时间", dueDate: "截止日期", overdue: "已过期",
   },
@@ -60,6 +61,7 @@ const copy = {
     noSpeech: "I didn't hear anything. Try again.", familyMembers: "Family members", invite: "Invite code",
     recurrence: "Repeats", noRecurrence: "Does not repeat", daily: "Daily", weekly: "Weekly", monthly: "Monthly",
     monthlyLastDay: "Last day of each month", recurrenceEnds: "Repeat until", editScope: "Edit scope",
+    repeatOn: "Repeat on", weekdayMO: "Mon", weekdayTU: "Tue", weekdayWE: "Wed", weekdayTH: "Thu", weekdayFR: "Fri", weekdaySA: "Sat", weekdaySU: "Sun",
     thisOccurrence: "Only this occurrence", entireSeries: "Entire series", date: "Date", ends: "Ends",
     specificTime: "Specific time", dueDate: "Due date", overdue: "Overdue",
   },
@@ -374,6 +376,12 @@ function editorItem(scope) {
   return state.board.items.find((item) => item.id === state.selectedItem.series_id) || state.selectedItem;
 }
 
+function itemWeekdays(item) {
+  if (item.weekdays?.length) return item.weekdays;
+  const value = item.start_date ? `${item.start_date}T12:00:00` : item.start_at;
+  return value ? [["SU", "MO", "TU", "WE", "TH", "FR", "SA"][new Date(value).getDay()]] : [];
+}
+
 function toggleEditorFields() {
   const item = editorItem($("#editScope").value);
   if (!item) return;
@@ -388,6 +396,7 @@ function toggleEditorFields() {
   $("#editDueAtField").hidden = !dueTimed;
   const editingOccurrence = $("#editScope").value === "occurrence";
   $("#editRecurrenceField").hidden = editingOccurrence;
+  $("#editWeekdaysField").hidden = editingOccurrence || $("#editRecurrence").value !== "weekly";
   $("#editRecurrenceUntilField").hidden = editingOccurrence || !$("#editRecurrence").value;
 }
 
@@ -405,6 +414,8 @@ function fillEditor(item, scope) {
     $("#editStartAt").value = toLocalDateTime(item.start_at);
     $("#editEndAt").value = toLocalDateTime(item.end_at);
     $("#editRecurrence").value = item.monthly_on_last_day ? "monthly_last_day" : item.recurrence || "";
+    const weekdays = item.recurrence === "weekly" ? itemWeekdays(item) : [];
+    $("#editWeekdaysField").querySelectorAll("input").forEach((input) => { input.checked = weekdays.includes(input.value); });
     $("#editRecurrenceUntil").value = item.recurrence_until || "";
   } else if (item.kind === "task") {
     $("#editDueTimed").checked = Boolean(item.due_at);
@@ -431,7 +442,11 @@ function openItem(item) {
   const timing = itemTime(item);
   if (timing) meta.append(textNode("p", timing));
   if (item.reminder_at) meta.append(textNode("p", `${t("reminder")}: ${formatDateTime(item.reminder_at)}`));
-  if (item.recurrence) meta.append(textNode("p", `${t("recurrence")}: ${t(item.monthly_on_last_day ? "monthlyLastDay" : item.recurrence)}`));
+  if (item.recurrence) {
+    const weekdays = item.recurrence === "weekly" && itemWeekdays(item).length
+      ? ` · ${itemWeekdays(item).map((day) => t(`weekday${day}`)).join(", ")}` : "";
+    meta.append(textNode("p", `${t("recurrence")}: ${t(item.monthly_on_last_day ? "monthlyLastDay" : item.recurrence)}${weekdays}`));
+  }
   if (item.completed_at) meta.append(textNode("p", t("done")));
   $("#toggleDone").hidden = item.kind !== "task";
   $("#toggleDone").textContent = t(item.completed_at ? "markOpen" : "markDone");
@@ -561,7 +576,15 @@ $("#cancelConfirmation").addEventListener("click", () => { state.pending = null;
 
 $("#editAllDay").addEventListener("change", toggleEditorFields);
 $("#editDueTimed").addEventListener("change", toggleEditorFields);
-$("#editRecurrence").addEventListener("change", toggleEditorFields);
+$("#editRecurrence").addEventListener("change", () => {
+  const inputs = [...$("#editWeekdaysField").querySelectorAll("input")];
+  if ($("#editRecurrence").value === "weekly" && !inputs.some((input) => input.checked)) {
+    const value = $("#editAllDay").checked ? `${$("#editStartDate").value}T12:00:00` : $("#editStartAt").value;
+    const weekday = value && ["SU", "MO", "TU", "WE", "TH", "FR", "SA"][new Date(value).getDay()];
+    inputs.forEach((input) => { input.checked = input.value === weekday; });
+  }
+  toggleEditorFields();
+});
 $("#editScope").addEventListener("change", (event) => fillEditor(editorItem(event.target.value), event.target.value));
 $("#itemForm").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -586,6 +609,8 @@ $("#itemForm").addEventListener("submit", async (event) => {
         const recurrence = $("#editRecurrence").value;
         fields.all_day = $("#editAllDay").checked;
         fields.recurrence = recurrence === "monthly_last_day" ? "monthly" : recurrence || null;
+        fields.weekdays = recurrence === "weekly"
+          ? [...$("#editWeekdaysField").querySelectorAll("input:checked")].map((input) => input.value) : [];
         fields.monthly_on_last_day = recurrence === "monthly_last_day";
         fields.recurrence_until = recurrence ? $("#editRecurrenceUntil").value || null : null;
       }

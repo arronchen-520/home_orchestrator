@@ -11,7 +11,7 @@ from ..storage.board import BoardDatabase
 COLUMNS = [
     "id", "kind", "title", "details", "preparation", "remind_member_id",
     "remind_member_name", "completed_at", "start_at", "end_at", "start_date",
-    "due_at", "due_date", "reminder_at", "recurrence", "recurrence_until",
+    "due_at", "due_date", "reminder_at", "recurrence", "weekdays", "recurrence_until",
     "created_at", "updated_at", "original_text",
 ]
 ALLOWED_TABLES = {"items", "members", "occurrences", "item_notes"}
@@ -35,6 +35,7 @@ def query_assistant(
         projected = {
             **item,
             "remind_member_name": names.get(item.get("remind_member_id")),
+            "weekdays": ",".join(item.get("weekdays") or []),
         }
         return [projected.get(column) for column in COLUMNS]
 

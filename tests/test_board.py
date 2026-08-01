@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from backend.hearthbook.domain.calendar import get_today
 from backend.hearthbook.domain.models import CaptureAnalysis, ItemDraft, RouteDecision
+from backend.hearthbook.domain.recurrence import base_occurrences
 from backend.hearthbook.llm.graph import conversation_text
 from backend.hearthbook.llm.query import query_assistant
 from backend.hearthbook.services.board import BoardService
@@ -174,6 +175,20 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
     def test_recurrence_remains_event_only(self):
         with self.assertRaisesRegex(ValueError, "Only events can recur"):
             ItemDraft(kind="task", title="Trash", recurrence="weekly")
+
+    def test_weekly_recurrence_supports_any_weekday_combination(self):
+        item = ItemDraft(
+            kind="event", title="Workout", start_date="2026-08-03",
+            recurrence="weekly", weekdays=["FR", "MO", "WE", "MO"],
+        ).model_dump(mode="json")
+
+        self.assertEqual(item["weekdays"], ["MO", "WE", "FR"])
+        self.assertEqual(
+            [value.date() for value in base_occurrences(
+                item, date(2026, 8, 1), date(2026, 8, 9), "America/Toronto"
+            )],
+            [date(2026, 8, 3), date(2026, 8, 5), date(2026, 8, 7)],
+        )
 
     def test_series_rule_and_single_occurrence_can_be_edited(self):
         client = MagicMock()

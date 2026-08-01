@@ -290,6 +290,12 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .editor-fields { display: grid; gap: 14px; }
 .item-form .checkbox-row { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .checkbox-row input { width: 22px; min-height: 22px; }
+.weekday-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; }
+.weekday-picker legend { margin-bottom: 6px; font-weight: 700; }
+.weekday-picker label { display: grid; place-items: center; min-width: 44px; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.weekday-picker input { position: absolute; opacity: 0; }
+.weekday-picker label:has(input:checked) { border-color: var(--brand); color: var(--brand-dark); background: #fff0e5; }
+.weekday-picker label:has(input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
 .item-meta { padding: 10px 0; color: var(--muted); }
 .item-meta p { margin: 4px 0; }
 .button-row { margin-top: 8px; }
