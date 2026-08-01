@@ -11,6 +11,7 @@ const copy = {
     todayTitle: "今天", today: "今天", refresh: "刷新", plans: "安排", calendar: "日历",
     previousMonth: "上个月", nextMonth: "下个月", emptyCalendarDay: "这一天还没有安排。",
     calendarFilter: "筛选安排", filterAll: "全部", filterMine: "我的",
+    calendarDensityHelp: "色深表示当天安排数量",
     unscheduled: "未定时间", taskSpace: "待办与笔记", tasks: "待办", dueSoon: "未来 7 天", moreTasks: "展开更多", emptyTasks: "没有待办。", familyMemory: "常用信息", notes: "笔记",
     notesHelp: "家里常用的信息，放在这里。", home: "首页",
     close: "关闭", title: "标题", details: "详情", delete: "删除", save: "保存",
@@ -49,6 +50,7 @@ const copy = {
     todayTitle: "Today", today: "Today", refresh: "Refresh", plans: "Plans", calendar: "Calendar",
     previousMonth: "Previous month", nextMonth: "Next month", emptyCalendarDay: "Nothing planned for this day.",
     calendarFilter: "Filter plans", filterAll: "All", filterMine: "Mine",
+    calendarDensityHelp: "Darker days have more plans.",
     unscheduled: "No date yet", taskSpace: "Tasks and notes", tasks: "Tasks", dueSoon: "Due in 7 days", moreTasks: "Show more", emptyTasks: "No tasks yet.", familyMemory: "Household info", notes: "Notes",
     notesHelp: "Keep household details here.", home: "Home",
     close: "Close", title: "Title", details: "Details", delete: "Delete", save: "Save",
@@ -318,6 +320,13 @@ function filteredCalendarItems() {
   return state.calendar.filter((item) => item.remind_member_id === state.board.current_member_id);
 }
 
+function calendarSummary(items) {
+  return ["event", "task"].map((kind) => {
+    const count = items.filter((item) => item.kind === kind).length;
+    return count ? `${count}${state.language === "zh" ? " 个" : " "}${t(kind)}${state.language === "en" && count !== 1 ? "s" : ""}` : "";
+  }).filter(Boolean).join(state.language === "zh" ? "，" : ", ");
+}
+
 function renderCalendar() {
   const firstDay = state.language === "zh" ? 1 : 0;
   const [start] = calendarRange();
@@ -357,8 +366,9 @@ function renderCalendar() {
     button.classList.toggle("is-outside", date.getMonth() !== month.getMonth());
     button.classList.toggle("is-today", key === dateKey());
     button.classList.toggle("is-selected", key === state.selectedDate);
+    if (items.length) button.classList.add(`has-density-${items.length === 1 ? "low" : items.length < 4 ? "medium" : "high"}`);
     button.setAttribute("aria-pressed", String(key === state.selectedDate));
-    button.setAttribute("aria-label", `${formatDate(key)}${items.length ? `, ${items.length} ${t("plans")}` : ""}`);
+    button.setAttribute("aria-label", `${formatDate(key)}${items.length ? `, ${calendarSummary(items)}` : ""}`);
     button.append(textNode("span", String(date.getDate()), "calendar-day-number"));
     if (items.length) {
       const markers = document.createElement("span");

@@ -53,6 +53,18 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('localStorage.setItem("hearthbook-calendar-filter", state.calendarFilter)', app)
         self.assertIn('.calendar-filter-button { min-height: 44px;', styles)
 
+    def test_calendar_uses_density_as_a_secondary_busy_signal(self):
+        index = Path("frontend/index.html").read_text(encoding="utf-8")
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+        styles = Path("frontend/styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('data-i18n="calendarDensityHelp"', index)
+        self.assertIn("function calendarSummary(items)", app)
+        self.assertIn('has-density-${items.length === 1 ? "low" : items.length < 4 ? "medium" : "high"}', app)
+        self.assertIn('.calendar-day.has-density-low:not(.is-selected)', styles)
+        self.assertIn('.calendar-day.has-density-medium:not(.is-selected)', styles)
+        self.assertIn('.calendar-day.has-density-high:not(.is-selected)', styles)
+
 
 if __name__ == "__main__":
     unittest.main()
