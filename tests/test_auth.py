@@ -165,7 +165,9 @@ class SupabaseAuthTest(unittest.TestCase):
         self.assertIn("members_household_read", identity)
         join_role = (migrations / "202607310004_join_member_role.sql").read_text(encoding="utf-8").lower()
         self.assertIn("member_role text", join_role)
-        self.assertIn("member_role, now_text", join_role)
+        join_fix = (migrations / "202607310007_fix_join_created_at.sql").read_text(encoding="utf-8").lower()
+        self.assertIn("now_at timestamptz := now()", join_fix)
+        self.assertNotIn("now()::text", join_fix)
         role_update = (migrations / "202607310006_update_my_member_role.sql").read_text(encoding="utf-8").lower()
         for expected in ("update_my_member_role", "update public.members", "user_id = auth.uid()", "set role = normalized_role"):
             self.assertIn(expected, role_update)
