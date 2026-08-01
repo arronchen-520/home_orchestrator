@@ -103,14 +103,17 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch("backend.hearthbook.llm.graph.router_chain", return_value=route),
             patch("backend.hearthbook.llm.graph.capture_chain", return_value=capture),
-            patch("backend.hearthbook.services.board.create_conversation", return_value=deepcopy(SESSION)),
+            patch(
+                "backend.hearthbook.services.board.create_conversation",
+                return_value=deepcopy(SESSION),
+            ) as create,
             patch("backend.hearthbook.llm.graph.add_message", side_effect=add_message),
             patch("backend.hearthbook.llm.graph.update_conversation", side_effect=update_conversation),
         ):
-            response = await BoardService(MemoryDatabase(), "family").message(
+            response = await BoardService(MemoryDatabase(), "family", "lin").message(
                 {
                     "text": "School pickup Saturday",
-                    "actor_id": "lin",
+                    "actor_id": "sam",
                     "timezone": "America/Toronto",
                 }
             )
@@ -118,6 +121,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["intent"], "capture")
         self.assertEqual(response["status"], "review")
         self.assertEqual(response["drafts"][0]["remind_member_id"], "sam")
+        self.assertEqual(create.call_args.args[2], "lin")
         route.ainvoke.assert_awaited_once()
 
     def test_today_and_read_only_sql_projection(self):

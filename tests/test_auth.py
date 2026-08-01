@@ -75,13 +75,16 @@ class SupabaseAuthTest(unittest.TestCase):
             "conversation_messages",
         ):
             self.assertIn(f"alter table public.{table} enable row level security", schema)
-        latest = sorted(migrations.glob("*.sql"))[-1].read_text(encoding="utf-8").lower()
+        storage = (migrations / "202607310002_simplify_storage.sql").read_text(encoding="utf-8").lower()
         for removed in ("owner_id", "assignment_state"):
-            self.assertNotIn(removed, latest)
+            self.assertNotIn(removed, storage)
         for current in ("jsonb", "timestamptz", "conversation_id", "create_board_items"):
-            self.assertIn(current, latest)
-        self.assertIn("drop table public.submissions", latest)
-        self.assertIn("conversation_sessions.household_id = items.household_id", latest)
+            self.assertIn(current, storage)
+        self.assertIn("drop table public.submissions", storage)
+        self.assertIn("conversation_sessions.household_id = items.household_id", storage)
+        identity = (migrations / "202607310003_account_member_identity.sql").read_text(encoding="utf-8").lower()
+        self.assertIn("members_household_user_unique", identity)
+        self.assertIn("members_household_read", identity)
 
 
 if __name__ == "__main__":

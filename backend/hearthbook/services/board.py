@@ -9,9 +9,10 @@ from ..storage.conversation import add_message, confirm_conversation, create_con
 
 
 class BoardService:
-    def __init__(self, database: BoardDatabase, household_id: str):
+    def __init__(self, database: BoardDatabase, household_id: str, member_id: str):
         self.database = database
         self.household_id = household_id
+        self.member_id = member_id
         self.graph = build_conversation_graph(database, household_id)
 
     def get_board(self, result: dict | None = None) -> dict:
@@ -24,17 +25,16 @@ class BoardService:
         return get_today(self.database, self.household_id, target, timezone_name)
 
     async def message(self, command: dict) -> dict:
-        actor_id = self.database.require_member(self.household_id, command.get("actor_id"))
         text = command.get("text", "").strip()
         if not text:
             raise ValueError("Message cannot be empty")
         session = (
             add_message(
-                self.database, self.household_id, command["session_id"], actor_id, "user", text
+                self.database, self.household_id, command["session_id"], self.member_id, "user", text
             )
             if command.get("session_id")
             else create_conversation(
-                self.database, self.household_id, actor_id, command.get("timezone", "UTC"), text
+                self.database, self.household_id, self.member_id, command.get("timezone", "UTC"), text
             )
         )
         state = await self.graph.ainvoke({"command": command, "session": session})
@@ -43,7 +43,6 @@ class BoardService:
     def confirm_capture(
         self,
         session_id: str,
-        actor_id: str,
         remind_member_ids: list[str | None],
         accepted_preparations: list[bool],
     ) -> dict:
@@ -51,36 +50,36 @@ class BoardService:
             self.database,
             self.household_id,
             session_id,
-            actor_id,
+            self.member_id,
             remind_member_ids,
             accepted_preparations,
         )
         return self.get_board(result)
 
-    def update_item(self, item_id: str, actor_id: str, fields: dict) -> dict:
-        self.database.update_item(self.household_id, item_id, actor_id, fields)
+    def update_item(self, item_id: str, fields: dict) -> dict:
+        self.database.update_item(self.household_id, item_id, self.member_id, fields)
         return self.get_board({"action": "updated", "item_id": item_id})
 
-    def add_item_note(self, item_id: str, actor_id: str, content: str) -> dict:
-        note_id = self.database.add_item_note(self.household_id, item_id, actor_id, content)
+    def add_item_note(self, item_id: str, content: str) -> dict:
+        note_id = self.database.add_item_note(self.household_id, item_id, self.member_id, content)
         return self.get_board({"action": "note_added", "note_id": note_id})
 
     def update_occurrence(
-        self, item_id: str, occurrence_date: str, actor_id: str, fields: dict
+        self, item_id: str, occurrence_date: str, fields: dict
     ) -> dict:
         self.database.update_occurrence(
-            self.household_id, item_id, occurrence_date, actor_id, fields
+            self.household_id, item_id, occurrence_date, self.member_id, fields
         )
         return self.get_board({"action": "occurrence_updated"})
 
     def cancel_occurrence(
-        self, item_id: str, occurrence_date: str, actor_id: str
+        self, item_id: str, occurrence_date: str
     ) -> dict:
         self.database.cancel_occurrence(
-            self.household_id, item_id, occurrence_date, actor_id
+            self.household_id, item_id, occurrence_date, self.member_id
         )
         return self.get_board({"action": "occurrence_cancelled"})
 
-    def delete_item(self, item_id: str, actor_id: str) -> dict:
-        self.database.delete_item(self.household_id, item_id, actor_id)
+    def delete_item(self, item_id: str) -> dict:
+        self.database.delete_item(self.household_id, item_id, self.member_id)
         return self.get_board({"action": "deleted"})

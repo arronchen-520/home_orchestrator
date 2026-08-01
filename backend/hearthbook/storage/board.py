@@ -48,6 +48,20 @@ class BoardDatabase:
             raise ValueError("Choose a valid family member first")
         return member_id
 
+    def require_user_member(self, household_id: str, user_id: str) -> str:
+        row = self.one(
+            self.client.table("members")
+            .select("id")
+            .eq("household_id", household_id)
+            .eq("user_id", user_id)
+            .is_("deleted_at", "null")
+            .limit(1)
+            .execute()
+        )
+        if row is None:
+            raise ValueError("Member profile setup required")
+        return row["id"]
+
     def get_household_memory(self, household_id: str) -> str:
         row = self.one(
             self.client.table("households").select("memory").eq("id", household_id).limit(1).execute()

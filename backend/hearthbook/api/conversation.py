@@ -18,13 +18,11 @@ router = APIRouter(prefix="/api")
 
 class MessageInput(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
-    actor_id: str
     timezone: str = "UTC"
     session_id: str | None = None
 
 
 class CaptureConfirmation(BaseModel):
-    actor_id: str
     remind_member_ids: list[str | None] = Field(max_length=20)
     accepted_preparations: list[bool] = Field(max_length=20)
 
@@ -37,7 +35,7 @@ async def message(payload: MessageInput, request: Request):
 @router.post("/conversations/{session_id}/confirm", status_code=201)
 async def confirm(session_id: str, payload: CaptureConfirmation, request: Request):
     return board_service(request).confirm_capture(
-        session_id, payload.actor_id, payload.remind_member_ids, payload.accepted_preparations
+        session_id, payload.remind_member_ids, payload.accepted_preparations
     )
 
 
@@ -69,7 +67,6 @@ async def transcribe(file: UploadFile) -> str:
 async def audio_message(
     request: Request,
     file: Annotated[UploadFile, File()],
-    actor_id: Annotated[str, Form()],
     timezone: Annotated[str, Form()] = "UTC",
     session_id: Annotated[str | None, Form()] = None,
 ):
@@ -77,6 +74,6 @@ async def audio_message(
     if not text:
         raise HTTPException(status_code=422, detail="No speech was detected")
     result = await service_call(
-        board_service(request).message({"text": text, "actor_id": actor_id, "timezone": timezone, "session_id": session_id})
+        board_service(request).message({"text": text, "timezone": timezone, "session_id": session_id})
     )
     return {**result, "transcript": text}

@@ -76,8 +76,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 
 .brand svg { width: 25px; fill: var(--brand); }
 .top-actions { display: flex; align-items: center; gap: 4px; }
-.actor select { max-width: 105px; border: 0; background: transparent; font-weight: 650; }
-
 .icon-button, .icon-text, .quiet-button, .text-toggle {
   border: 0;
   background: transparent;

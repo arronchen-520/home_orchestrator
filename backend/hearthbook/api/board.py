@@ -10,7 +10,6 @@ router = APIRouter(prefix="/api")
 
 
 class ItemUpdate(BaseModel):
-    actor_id: str
     title: str | None = Field(default=None, min_length=1, max_length=120)
     details: str | None = Field(default=None, max_length=2000)
     preparation: str | None = Field(default=None, max_length=500)
@@ -27,12 +26,10 @@ class ItemUpdate(BaseModel):
 
 
 class ItemNoteInput(BaseModel):
-    actor_id: str
     content: str = Field(min_length=1, max_length=1000)
 
 
 class OccurrenceUpdate(BaseModel):
-    actor_id: str
     title: str | None = Field(default=None, min_length=1, max_length=120)
     details: str | None = Field(default=None, max_length=2000)
     preparation: str | None = Field(default=None, max_length=500)
@@ -64,30 +61,30 @@ async def calendar(start: date, end: date, request: Request):
 
 @router.patch("/items/{item_id}")
 async def update_item(item_id: str, payload: ItemUpdate, request: Request):
-    fields = payload.model_dump(mode="json", include=payload.model_fields_set - {"actor_id"}, exclude_none=False)
-    return board_service(request).update_item(item_id, payload.actor_id, fields)
+    fields = payload.model_dump(
+        mode="json", include=payload.model_fields_set, exclude_none=False
+    )
+    return board_service(request).update_item(item_id, fields)
 
 
 @router.post("/items/{item_id}/notes", status_code=201)
 async def add_item_note(item_id: str, payload: ItemNoteInput, request: Request):
-    return board_service(request).add_item_note(item_id, payload.actor_id, payload.content)
+    return board_service(request).add_item_note(item_id, payload.content)
 
 
 @router.patch("/items/{item_id}/occurrences/{occurrence_date}")
 async def update_occurrence(item_id: str, occurrence_date: date, payload: OccurrenceUpdate, request: Request):
-    fields = payload.model_dump(mode="json", include=payload.model_fields_set - {"actor_id"}, exclude_none=False)
-    return board_service(request).update_occurrence(
-        item_id, occurrence_date.isoformat(), payload.actor_id, fields
+    fields = payload.model_dump(
+        mode="json", include=payload.model_fields_set, exclude_none=False
     )
+    return board_service(request).update_occurrence(item_id, occurrence_date.isoformat(), fields)
 
 
 @router.delete("/items/{item_id}/occurrences/{occurrence_date}")
-async def cancel_occurrence(item_id: str, occurrence_date: date, actor_id: str, request: Request):
-    return board_service(request).cancel_occurrence(
-        item_id, occurrence_date.isoformat(), actor_id
-    )
+async def cancel_occurrence(item_id: str, occurrence_date: date, request: Request):
+    return board_service(request).cancel_occurrence(item_id, occurrence_date.isoformat())
 
 
 @router.delete("/items/{item_id}")
-async def delete_item(item_id: str, actor_id: str, request: Request):
-    return board_service(request).delete_item(item_id, actor_id)
+async def delete_item(item_id: str, request: Request):
+    return board_service(request).delete_item(item_id)

@@ -2,7 +2,7 @@
 
 const copy = {
   zh: {
-    currentMember: "当前家庭成员", settings: "设置", homeTitle: "今天有什么想记录的吗？",
+    settings: "设置", homeTitle: "今天有什么想记录的吗？",
     homeSubtitle: "记录、查询，或者聊聊。", voiceTitle: "家庭助手",
     tapToTalk: "按住说话", stopRecording: "说完松开", preferTyping: "想打字？",
     messageLabel: "输入记录、问题或消息", messagePlaceholder: "例如：周六三点看牙，提醒妈妈",
@@ -23,13 +23,13 @@ const copy = {
     emptyUnscheduled: "还没有定时间的待办。", emptyNotes: "还没有记录。",
     emptyConversation: "还没有对话。", listening: "正在听…", thinking: "正在处理…",
     saved: "已保存", deleted: "已删除", added: "已添加", confirmed: "已确认",
-    deleteConfirm: "确定删除这条内容吗？", chooseMember: "请先选择你是谁。",
+    deleteConfirm: "确定删除这条内容吗？",
     microphoneError: "无法使用麦克风，可以改用文字输入。", networkError: "暂时连接不上，过一会儿再试。",
     noSpeech: "没有听到声音，再试一次。", familyMembers: "家庭成员", invite: "邀请码",
     recurrence: "重复", daily: "每天", weekly: "每周", monthly: "每月", overdue: "已过期",
   },
   en: {
-    currentMember: "Current family member", settings: "Settings", homeTitle: "Anything you'd like to note today?",
+    settings: "Settings", homeTitle: "Anything you'd like to note today?",
     homeSubtitle: "Add a note, ask a question, or just chat.", voiceTitle: "Family assistant",
     tapToTalk: "Hold to talk", stopRecording: "Release when you're done", preferTyping: "Prefer to type?",
     messageLabel: "Type a plan, question, or message", messagePlaceholder: "Example: Dentist Saturday at 3, remind Mom",
@@ -50,7 +50,7 @@ const copy = {
     emptyUnscheduled: "No tasks without a date.", emptyNotes: "No notes yet.",
     emptyConversation: "No messages yet.", listening: "Listening…", thinking: "Working…",
     saved: "Saved", deleted: "Deleted", added: "Added", confirmed: "Confirmed",
-    deleteConfirm: "Delete this item?", chooseMember: "Choose who you are first.",
+    deleteConfirm: "Delete this item?",
     microphoneError: "The microphone isn't available. You can type instead.", networkError: "Can't connect right now. Try again in a moment.",
     noSpeech: "I didn't hear anything. Try again.", familyMembers: "Family members", invite: "Invite code",
     recurrence: "Repeats", daily: "Daily", weekly: "Weekly", monthly: "Monthly", overdue: "Overdue",
@@ -147,22 +147,7 @@ function applyLanguage() {
   renderAll();
 }
 
-function selectedActor() { return $("#actorSelect").value; }
-
-function requireActor() {
-  if (selectedActor()) return true;
-  showToast(t("chooseMember"), true);
-  return false;
-}
-
 function renderMembers() {
-  const select = $("#actorSelect");
-  const saved = localStorage.getItem("hearthbook-actor");
-  select.replaceChildren(...state.board.members.map((member) => new Option(member.name, member.id)));
-  if (state.board.members.some((member) => member.id === saved)) select.value = saved;
-  if (!select.value && state.board.members[0]) select.value = state.board.members[0].id;
-  if (select.value) localStorage.setItem("hearthbook-actor", select.value);
-
   const household = state.board.household || {};
   const summary = $("#householdSummary");
   summary.replaceChildren();
@@ -327,13 +312,13 @@ function consumeResponse(data) {
 }
 
 async function sendText(text) {
-  if (!text.trim() || !requireActor()) return;
+  if (!text.trim()) return;
   state.messages.push({ role: "user", text: text.trim() }, { role: "assistant", text: t("thinking"), pending: true });
   renderMessages();
   try {
     const data = await api("/api/messages", {
       method: "POST",
-      body: JSON.stringify({ text: text.trim(), actor_id: selectedActor(), timezone, session_id: state.sessionId || null }),
+      body: JSON.stringify({ text: text.trim(), timezone, session_id: state.sessionId || null }),
     });
     state.messages = state.messages.filter((message) => !message.pending);
     consumeResponse(data);
@@ -413,9 +398,9 @@ function renderFollowups(item) {
 }
 
 async function updateSelected(fields) {
-  if (!state.selectedItem || !requireActor()) return;
+  if (!state.selectedItem) return;
   await api(`/api/items/${state.selectedItem.id}`, {
-    method: "PATCH", body: JSON.stringify({ actor_id: selectedActor(), ...fields }),
+    method: "PATCH", body: JSON.stringify(fields),
   });
   await refreshData();
 }
@@ -452,7 +437,6 @@ $("#languageButton").addEventListener("click", () => {
   applyLanguage();
 });
 
-$("#actorSelect").addEventListener("change", (event) => localStorage.setItem("hearthbook-actor", event.target.value));
 $("#settingsButton").addEventListener("click", () => $("#settingsDialog").showModal());
 $("#textToggle").addEventListener("click", () => {
   const form = $("#messageForm");
@@ -487,12 +471,12 @@ window.addEventListener("hashchange", () => {
 });
 
 $("#confirmButton").addEventListener("click", async () => {
-  if (!state.pending || !requireActor()) return;
+  if (!state.pending) return;
   if (state.pending.action) {
     try {
       await api(`/api/items/${state.pending.action.item_id}`, {
         method: "PATCH",
-        body: JSON.stringify({ actor_id: selectedActor(), ...state.pending.action.fields }),
+        body: JSON.stringify(state.pending.action.fields),
       });
       state.pending = null;
       await refreshData();
@@ -506,7 +490,7 @@ $("#confirmButton").addEventListener("click", async () => {
   const accepted_preparations = drafts.map((_, index) => Boolean($("#preparationChoices").querySelector(`[data-draft-index="${index}"]`)?.checked));
   try {
     const data = await api(`/api/conversations/${state.sessionId}/confirm`, {
-      method: "POST", body: JSON.stringify({ actor_id: selectedActor(), remind_member_ids, accepted_preparations }),
+      method: "POST", body: JSON.stringify({ remind_member_ids, accepted_preparations }),
     });
     state.pending = null;
     consumeResponse(data);
@@ -527,9 +511,9 @@ $("#itemForm").addEventListener("submit", async (event) => {
   } catch (error) { showToast(error.message, true); }
 });
 $("#deleteItem").addEventListener("click", async () => {
-  if (!state.selectedItem || !requireActor() || !confirm(t("deleteConfirm"))) return;
+  if (!state.selectedItem || !confirm(t("deleteConfirm"))) return;
   try {
-    await api(`/api/items/${state.selectedItem.id}?actor_id=${encodeURIComponent(selectedActor())}`, { method: "DELETE" });
+    await api(`/api/items/${state.selectedItem.id}`, { method: "DELETE" });
     $("#itemDialog").close();
     await refreshData();
     showToast(t("deleted"));
@@ -545,11 +529,11 @@ $("#toggleDone").addEventListener("click", async () => {
 });
 $("#followupForm").addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!state.selectedItem || !requireActor()) return;
+  if (!state.selectedItem) return;
   const input = $("#followupInput");
   try {
     await api(`/api/items/${state.selectedItem.id}/notes`, {
-      method: "POST", body: JSON.stringify({ actor_id: selectedActor(), content: input.value.trim() }),
+      method: "POST", body: JSON.stringify({ content: input.value.trim() }),
     });
     input.value = "";
     await refreshData();
@@ -562,7 +546,6 @@ $("#followupForm").addEventListener("submit", async (event) => {
 
 $("#recordButton").addEventListener("click", async () => {
   if (state.recorder?.state === "recording") return state.recorder.stop();
-  if (!requireActor()) return;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const chunks = [];
@@ -579,7 +562,6 @@ $("#recordButton").addEventListener("click", async () => {
       if (!audio.size) return showToast(t("noSpeech"), true);
       const form = new FormData();
       form.append("file", audio, "recording.webm");
-      form.append("actor_id", selectedActor());
       form.append("timezone", timezone);
       if (state.sessionId) form.append("session_id", state.sessionId);
       state.messages.push({ role: "assistant", text: t("thinking"), pending: true });
