@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from .api.auth import HOUSEHOLD_COOKIE, authenticate, data_client, router as auth_router, set_auth_cookies
 from .api.board import router as board_router
 from .api.conversation import router as conversation_router
+from .api.notifications import router as notification_router
 
 load_dotenv()
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -23,7 +24,9 @@ FRONTEND_DIR = PROJECT_ROOT / "frontend"
 async def lifespan(app: FastAPI):
     app.state.supabase_url = os.getenv("SUPABASE_URL", "")
     app.state.supabase_key = os.getenv("SUPABASE_PUBLISHABLE_KEY", "")
+    app.state.supabase_secret_key = os.getenv("SUPABASE_SECRET_KEY", "")
     app.state.public_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+    app.state.vapid_public_key = os.getenv("VAPID_PUBLIC_KEY", "")
     if not app.state.supabase_url or not app.state.supabase_key:
         raise RuntimeError("SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required")
     yield
@@ -34,6 +37,7 @@ app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 app.include_router(auth_router)
 app.include_router(board_router)
 app.include_router(conversation_router)
+app.include_router(notification_router)
 
 
 @app.exception_handler(ValueError)
@@ -88,6 +92,15 @@ async def security_headers(request: Request, call_next):
 @app.get("/", include_in_schema=False)
 async def index():
     return FileResponse(FRONTEND_DIR / "index.html")
+
+
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker():
+    return FileResponse(
+        FRONTEND_DIR / "sw.js",
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
+    )
 
 
 @app.get("/health", include_in_schema=False)

@@ -32,6 +32,11 @@ const copy = {
     repeatOn: "重复日期", weekdayMO: "周一", weekdayTU: "周二", weekdayWE: "周三", weekdayTH: "周四", weekdayFR: "周五", weekdaySA: "周六", weekdaySU: "周日",
     thisOccurrence: "只修改这一次", entireSeries: "修改整个系列", date: "日期", ends: "结束",
     specificTime: "指定时间", dueDate: "截止日期", overdue: "已过期",
+    notifications: "通知", notificationHelp: "在提醒时间推送日程和待办，并在每天上午 9 点（本地时间）发送今日摘要。",
+    allowNotifications: "允许通知", disableNotifications: "关闭通知", notificationsEnabled: "通知已开启",
+    notificationsChecking: "正在检查通知状态…", notificationsUnavailable: "通知暂时不可用，请稍后再试。",
+    installForNotifications: "请先将 Hearthbook 添加到主屏幕，再开启通知。",
+    notificationsDenied: "通知权限已被拒绝，请在系统设置中开启。",
   },
   en: {
     settings: "Settings", homeTitle: "Anything you'd like to note today?",
@@ -64,6 +69,11 @@ const copy = {
     repeatOn: "Repeat on", weekdayMO: "Mon", weekdayTU: "Tue", weekdayWE: "Wed", weekdayTH: "Thu", weekdayFR: "Fri", weekdaySA: "Sat", weekdaySU: "Sun",
     thisOccurrence: "Only this occurrence", entireSeries: "Entire series", date: "Date", ends: "Ends",
     specificTime: "Specific time", dueDate: "Due date", overdue: "Overdue",
+    notifications: "Notifications", notificationHelp: "Get event and task reminders, plus a daily summary at 9 AM local time.",
+    allowNotifications: "Allow notifications", disableNotifications: "Turn off notifications", notificationsEnabled: "Notifications are on",
+    notificationsChecking: "Checking notification status…", notificationsUnavailable: "Notifications are temporarily unavailable. Try again later.",
+    installForNotifications: "Add Hearthbook to your Home Screen before turning on notifications.",
+    notificationsDenied: "Notification permission is blocked. Enable it in system settings.",
   },
 };
 
@@ -75,6 +85,7 @@ const state = {
   today: [], calendar: [], messages: [], pending: null, selectedItem: null,
   sessionId: localStorage.getItem("hearthbook-session") || null,
   recorder: null, recordingTimer: null,
+  notification: { ready: false, configured: false, publicKey: "", registration: null, subscription: null },
 };
 
 function t(key) { return copy[state.language][key] || key; }
@@ -125,6 +136,82 @@ function formatDateTime(value, allDay = false) {
   }).format(new Date(value));
 }
 
+function supportsPush() {
+  return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+}
+
+function needsHomeScreenInstall() {
+  return "standalone" in navigator && !navigator.standalone;
+}
+
+function renderNotificationSettings() {
+  const button = $("#notificationButton");
+  const status = $("#notificationStatus");
+  button.className = "secondary-button full-width";
+  button.setAttribute("aria-busy", String(!state.notification.ready));
+  status.dataset.state = "";
+  if (!supportsPush() || needsHomeScreenInstall()) {
+    button.disabled = true;
+    status.textContent = needsHomeScreenInstall() ? t("installForNotifications") : t("notificationsUnavailable");
+    status.dataset.state = "warning";
+  } else if (!state.notification.ready || !state.notification.configured) {
+    button.disabled = true;
+    status.textContent = t(state.notification.ready ? "notificationsUnavailable" : "notificationsChecking");
+    status.dataset.state = state.notification.ready ? "warning" : "";
+  } else if (Notification.permission === "denied") {
+    button.disabled = true;
+    status.textContent = t("notificationsDenied");
+    status.dataset.state = "warning";
+  } else {
+    button.disabled = false;
+    button.className = `${state.notification.subscription ? "secondary" : "primary"}-button full-width`;
+    button.textContent = t(state.notification.subscription ? "disableNotifications" : "allowNotifications");
+    status.textContent = state.notification.subscription ? t("notificationsEnabled") : "";
+    status.dataset.state = state.notification.subscription ? "success" : "";
+  }
+}
+
+function applicationServerKey(value) {
+  const padding = "=".repeat((4 - value.length % 4) % 4);
+  const bytes = atob((value + padding).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(bytes, (character) => character.charCodeAt(0));
+}
+
+async function savePushSubscription(subscription) {
+  const value = subscription.toJSON();
+  await api("/api/notifications/subscriptions", {
+    method: "POST",
+    body: JSON.stringify({ ...value, timezone, language: state.language }),
+  });
+}
+
+async function syncNotifications() {
+  const config = await api("/api/notifications/config");
+  state.notification.ready = true;
+  state.notification.configured = config.enabled;
+  state.notification.publicKey = config.vapid_public_key || "";
+  if (config.enabled && supportsPush() && !needsHomeScreenInstall()) {
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      state.notification.registration = registration;
+      state.notification.subscription = await registration.pushManager.getSubscription();
+      if (state.notification.subscription) await savePushSubscription(state.notification.subscription);
+    } catch (_) { state.notification.configured = false; }
+  }
+  renderNotificationSettings();
+}
+
+async function removePushSubscription() {
+  const subscription = state.notification.subscription;
+  if (!subscription) return;
+  await api("/api/notifications/subscriptions", {
+    method: "DELETE", body: JSON.stringify({ endpoint: subscription.endpoint }),
+  });
+  await subscription.unsubscribe();
+  state.notification.subscription = null;
+  renderNotificationSettings();
+}
+
 function toLocalDateTime(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -161,6 +248,7 @@ function applyLanguage() {
   $("#languageButton").textContent = state.language === "zh" ? "EN" : "中";
   $("#todayDate").textContent = formatDate(dateKey(), { weekday: "long", month: "long", day: "numeric" });
   renderAll();
+  renderNotificationSettings();
 }
 
 function renderMembers() {
@@ -500,6 +588,7 @@ async function loadSession() {
     if (!session.authenticated) return $("#authDialog").showModal();
     if (!session.household_ready) return $("#onboardingDialog").showModal();
     await refreshData();
+    await syncNotifications();
   } catch (error) {
     showToast(error.message, true);
   }
@@ -509,9 +598,23 @@ $("#languageButton").addEventListener("click", () => {
   state.language = state.language === "zh" ? "en" : "zh";
   localStorage.setItem("hearthbook-language", state.language);
   applyLanguage();
+  if (state.notification.subscription) savePushSubscription(state.notification.subscription).catch(() => {});
 });
 
-$("#settingsButton").addEventListener("click", () => $("#settingsDialog").showModal());
+$("#settingsButton").addEventListener("click", () => { renderNotificationSettings(); $("#settingsDialog").showModal(); });
+$("#notificationButton").addEventListener("click", async () => {
+  try {
+    if (state.notification.subscription) return await removePushSubscription();
+    if (await Notification.requestPermission() !== "granted") return renderNotificationSettings();
+    const subscription = await state.notification.registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: applicationServerKey(state.notification.publicKey),
+    });
+    await savePushSubscription(subscription);
+    state.notification.subscription = subscription;
+    renderNotificationSettings();
+  } catch (error) { showToast(error.message, true); }
+});
 $("#textToggle").addEventListener("click", () => {
   const form = $("#messageForm");
   form.hidden = !form.hidden;
@@ -746,6 +849,7 @@ $("#joinHouseholdForm").addEventListener("submit", async (event) => {
   } catch (error) { $("#onboardingError").textContent = error.message; $("#onboardingError").hidden = false; }
 });
 $("#logoutButton").addEventListener("click", async () => {
+  await removePushSubscription().catch(() => {});
   await api("/api/auth/session", { method: "DELETE" });
   location.reload();
 });

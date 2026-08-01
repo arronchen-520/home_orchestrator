@@ -50,6 +50,66 @@ Required: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and
 Apply `supabase/migrations/` in filename order. The mobile refactor intentionally
 replaces the previous application tables; later migrations move forward normally.
 
+## Web Push notifications
+
+Notifications are sent by the Supabase `daily-notifications` Edge Function;
+Railway is not contacted by the Cron job and can sleep when nobody uses the app.
+
+Railway needs only:
+
+- `SUPABASE_SECRET_KEY`: a backend-only `sb_secret_...` key.
+- `VAPID_PUBLIC_KEY`: the public half of one permanent VAPID key pair.
+
+Generate the VAPID pair once:
+
+```powershell
+npx --yes web-push@3.6.7 generate-vapid-keys
+```
+
+Copy `publicKey` to Railway and Supabase; keep `privateKey` in Supabase only.
+Generate the Cron secret once without sharing it:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+Set these Supabase Edge Function secrets. `NOTIFICATION_CRON_SECRET` is a new
+random value used only by the Edge Function and Supabase Vault:
+
+```powershell
+npx supabase@latest login
+npx supabase@latest secrets set --project-ref YOUR_PROJECT_REF VAPID_PUBLIC_KEY=YOUR_PUBLIC_KEY VAPID_PRIVATE_KEY=YOUR_PRIVATE_KEY VAPID_SUBJECT=https://YOUR-RAILWAY-DOMAIN NOTIFICATION_CRON_SECRET=YOUR_RANDOM_SECRET
+npx supabase@latest functions deploy daily-notifications --project-ref YOUR_PROJECT_REF --no-verify-jwt
+```
+
+Then run `202607310005_notifications.sql`, followed by this once in the
+Supabase SQL editor:
+
+```sql
+select vault.create_secret(
+  'https://YOUR-PROJECT-REF.supabase.co/functions/v1/daily-notifications',
+  'hearthbook_notification_edge_url'
+);
+select vault.create_secret(
+  'YOUR_RANDOM_SECRET',
+  'hearthbook_notification_cron_secret'
+);
+```
+
+The migration creates the one-minute `hearthbook-notifications` Cron job. It
+does nothing until both Vault secrets exist. Railway must not contain
+`VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, or `NOTIFICATION_CRON_SECRET`. Verify it with:
+
+```sql
+select jobid, jobname, schedule, active
+from cron.job
+where jobname = 'hearthbook-notifications';
+```
+
+On iOS 16.4 or later, add Hearthbook to the Home Screen before using the
+Settings → Allow notifications button. The saved device timezone is refreshed
+whenever the app opens and controls the local 9 AM daily summary.
+
 ## Test
 
 ```powershell

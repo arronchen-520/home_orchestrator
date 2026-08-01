@@ -176,6 +176,20 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "Only events can recur"):
             ItemDraft(kind="task", title="Trash", recurrence="weekly")
 
+    def test_today_finds_a_recurring_reminder_after_its_occurrence(self):
+        item = ItemDraft(
+            kind="event", title="Medicine", start_date="2026-08-03", all_day=True,
+            recurrence="weekly", reminder_at="2026-08-04T09:00:00-04:00",
+            remind_member_id="sam",
+        ).model_dump(mode="json")
+        item.update(id="medicine", completed_at=None, notes=[])
+
+        result = get_today(
+            MemoryDatabase([item]), "family", date(2026, 8, 4), "America/Toronto"
+        )
+
+        self.assertEqual(result["items"][0]["today_reasons"], ["reminder_today"])
+
     def test_weekly_recurrence_supports_any_weekday_combination(self):
         item = ItemDraft(
             kind="event", title="Workout", start_date="2026-08-03",

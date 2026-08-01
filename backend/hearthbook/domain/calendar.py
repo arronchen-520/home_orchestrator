@@ -101,14 +101,16 @@ def get_today(
 
     for item in calendar:
         add(item, "happens_today" if item["kind"] == "event" else "due_today")
-    # ponytail: expand one year; family boards are small and calendar owns recurrence correctness.
-    for item in get_calendar(
-        database, household_id, target_date, target_date + timedelta(days=370)
-    )["items"]:
-        if item.get("reminder_at") and datetime.fromisoformat(
-            item["reminder_at"]
-        ).astimezone(zone).date() == target_date:
-            add(item, "reminder_today")
+    # ponytail: scan one year around today; family boards are small and this handles reminders after an occurrence.
+    for start, end in (
+        (target_date - timedelta(days=370), target_date - timedelta(days=1)),
+        (target_date, target_date + timedelta(days=370)),
+    ):
+        for item in get_calendar(database, household_id, start, end)["items"]:
+            if item.get("reminder_at") and datetime.fromisoformat(
+                item["reminder_at"]
+            ).astimezone(zone).date() == target_date:
+                add(item, "reminder_today")
     for item in board["items"]:
         if item["kind"] == "note" or item.get("completed_at"):
             continue

@@ -119,7 +119,7 @@ class SupabaseAuthTest(unittest.TestCase):
         for table in (
             "households", "household_memberships", "members", "items",
             "recurrence_exceptions", "item_notes", "conversation_sessions",
-            "conversation_messages",
+            "conversation_messages", "push_subscriptions", "notification_deliveries",
         ):
             self.assertIn(f"alter table public.{table} enable row level security", schema)
         storage = (migrations / "202607310002_simplify_storage.sql").read_text(encoding="utf-8").lower()
@@ -135,6 +135,11 @@ class SupabaseAuthTest(unittest.TestCase):
         join_role = (migrations / "202607310004_join_member_role.sql").read_text(encoding="utf-8").lower()
         self.assertIn("member_role text", join_role)
         self.assertIn("member_role, now_text", join_role)
+        notifications = (migrations / "202607310005_notifications.sql").read_text(encoding="utf-8").lower()
+        self.assertIn("'* * * * *'", notifications)
+        self.assertIn("claim_notification_delivery", notifications)
+        self.assertIn("x-notification-cron-secret", notifications)
+        self.assertIn("timeout_milliseconds := 30000", notifications)
 
 
 if __name__ == "__main__":

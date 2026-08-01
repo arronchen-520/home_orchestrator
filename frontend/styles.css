@@ -32,6 +32,7 @@ body {
 button, input, textarea, select { font: inherit; }
 button { color: inherit; cursor: pointer; touch-action: manipulation; }
 button, input, select { min-height: 44px; }
+button:disabled { cursor: not-allowed; opacity: .5; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
   outline: 3px solid rgb(215 101 59 / 30%);
   outline-offset: 2px;
@@ -320,6 +321,13 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .inline-form button { flex: 0 0 auto; }
 #householdSummary { margin-bottom: 18px; }
 #householdSummary ul { padding-left: 20px; color: var(--muted); }
+.notification-settings { margin: 18px 0; padding: 18px 0; border-block: 1px solid var(--line); }
+.notification-settings h3 { margin: 0 0 6px; }
+.notification-settings p { margin: 0 0 12px; color: var(--muted); line-height: 1.5; }
+.notification-settings .settings-status { min-height: 1.4em; margin: 8px 0 0; font-size: .86rem; }
+.notification-settings .settings-status[data-state="success"] { color: var(--green); }
+.notification-settings .settings-status[data-state="warning"] { color: #a43c2f; }
+.logout-button { width: 100%; margin-top: 8px; border: 0; color: #a43c2f; background: transparent; font-weight: 700; }
 .divider { margin: 22px 0; color: var(--muted); text-align: center; }
 .form-error { margin: 0; color: #a43c2f; }
 
