@@ -35,15 +35,15 @@
       <section id="homeView" class="view active" data-view="home" aria-labelledby="homeTitle">
         <header class="welcome">
           <p id="todayDate" class="eyebrow"></p>
-          <h1 id="homeTitle" data-i18n="homeTitle">今天家里有什么事？</h1>
-          <p data-i18n="homeSubtitle">说一句就好：记录、查询，或者聊聊。</p>
+          <h1 id="homeTitle" data-i18n="homeTitle">今天有什么想记录的吗？</h1>
+          <p data-i18n="homeSubtitle">记录、查询，或者聊聊。</p>
         </header>
 
         <section class="voice-card" aria-labelledby="voiceTitle">
           <h2 id="voiceTitle" class="sr-only" data-i18n="voiceTitle">家庭助手</h2>
           <button id="recordButton" class="voice-button" type="button" aria-pressed="false">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12Z"/></svg>
-            <span data-i18n="tapToTalk">按住心里的事，说出来</span>
+            <span data-i18n="tapToTalk">按住说话</span>
           </button>
           <button id="textToggle" class="text-toggle" type="button" aria-expanded="false" aria-controls="messageForm" data-i18n="preferTyping">不方便说话？输入文字</button>
           <form id="messageForm" class="message-form" hidden>
@@ -77,7 +77,7 @@
         <section class="today-section" aria-labelledby="todayTitle">
           <div class="section-title-row">
             <div>
-              <p class="eyebrow" data-i18n="todayEyebrow">别漏掉</p>
+              <p class="eyebrow" data-i18n="todayEyebrow">今日摘要</p>
               <h2 id="todayTitle" data-i18n="todayTitle">今天</h2>
             </div>
             <button id="refreshToday" class="icon-button" type="button" data-i18n-aria="refresh" aria-label="刷新">
@@ -98,7 +98,7 @@
         </header>
         <div id="calendarItems" class="date-groups" aria-live="polite"></div>
         <section class="unscheduled" aria-labelledby="unscheduledTitle">
-          <h2 id="unscheduledTitle" data-i18n="unscheduled">未安排时间</h2>
+          <h2 id="unscheduledTitle" data-i18n="unscheduled">未定时间</h2>
           <div id="unscheduledItems" class="item-list"></div>
         </section>
       </section>
@@ -106,7 +106,7 @@
       <section id="notesView" class="view" data-view="notes" aria-labelledby="notesTitle" hidden>
         <header class="page-heading">
           <div>
-            <p class="eyebrow" data-i18n="familyMemory">家庭记忆</p>
+            <p class="eyebrow" data-i18n="familyMemory">常用信息</p>
             <h1 id="notesTitle" data-i18n="notes">笔记</h1>
           </div>
         </header>
