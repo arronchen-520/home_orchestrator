@@ -64,9 +64,9 @@ class BoardService:
         self.database.update_item(self.household_id, item_id, self.member_id, fields)
         return self.get_board({"action": "updated", "item_id": item_id})
 
-    def update_member_role(self, role: str) -> dict:
-        self.database.update_member_role(self.household_id, self.member_id, role)
-        return self.get_board({"action": "member_role_updated"})
+    def update_member_profile(self, name: str, role: str) -> dict:
+        self.database.update_member_profile(self.household_id, self.member_id, name, role)
+        return self.get_board({"action": "member_profile_updated"})
 
     def add_item_note(self, item_id: str, content: str) -> dict:
         note_id = self.database.add_item_note(self.household_id, item_id, self.member_id, content)

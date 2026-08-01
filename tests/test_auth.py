@@ -44,15 +44,15 @@ class BoardStub:
         return {"date": target.isoformat(), "items": []}
 
 
-class MemberRoleStub:
-    def update_member_role(self, role):
-        self.role = role
+class MemberProfileStub:
+    def update_member_profile(self, name, role):
+        self.profile = (name, role)
         return {"current_member_id": "member-1", "members": []}
 
 
 class SupabaseAuthTest(unittest.TestCase):
-    def test_member_role_route_updates_only_the_current_member_role(self):
-        service = MemberRoleStub()
+    def test_member_profile_route_updates_only_the_current_member_profile(self):
+        service = MemberProfileStub()
         with (
             patch.dict(
                 os.environ,
@@ -71,10 +71,10 @@ class SupabaseAuthTest(unittest.TestCase):
             patch("backend.hearthbook.api.board.board_service", return_value=service),
             TestClient(app_module.app, base_url="https://testserver") as browser,
         ):
-            response = browser.patch("/api/members/me", json={"role": "Parent"})
+            response = browser.patch("/api/members/me", json={"name": "Alice", "role": "Parent"})
 
         self.assertEqual(response.status_code, 200, response.text)
-        self.assertEqual(service.role, "Parent")
+        self.assertEqual(service.profile, ("Alice", "Parent"))
 
     def test_join_passes_member_role_to_supabase(self):
         client = JoinClient()
@@ -171,6 +171,9 @@ class SupabaseAuthTest(unittest.TestCase):
         role_update = (migrations / "202607310006_update_my_member_role.sql").read_text(encoding="utf-8").lower()
         for expected in ("update_my_member_role", "update public.members", "user_id = auth.uid()", "set role = normalized_role"):
             self.assertIn(expected, role_update)
+        profile_update = (migrations / "202607310008_update_my_member_profile.sql").read_text(encoding="utf-8").lower()
+        for expected in ("update_my_member_profile", "set name = normalized_name, role = normalized_role", "user_id = auth.uid()"):
+            self.assertIn(expected, profile_update)
         notifications = (migrations / "202607310005_notifications.sql").read_text(encoding="utf-8").lower()
         self.assertIn("'* * * * *'", notifications)
         self.assertIn("claim_notification_delivery", notifications)

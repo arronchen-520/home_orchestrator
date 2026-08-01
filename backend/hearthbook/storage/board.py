@@ -175,14 +175,15 @@ class BoardDatabase:
             items.append(item)
         return {"household": self.get_household(household_id), "members": members, "items": items}
 
-    def update_member_role(self, household_id: str, actor_id: str, role: str) -> None:
+    def update_member_profile(self, household_id: str, actor_id: str, name: str, role: str) -> None:
+        name = name.strip()
         role = role.strip()
-        if len(role) > 40:
-            raise ValueError("Member role must be at most 40 characters")
+        if not 1 <= len(name) <= 40 or len(role) > 40:
+            raise ValueError("Invalid member name or role")
         self.require_member(household_id, actor_id)
         self.client.rpc(
-            "update_my_member_role",
-            {"target_household_id": household_id, "member_role": role},
+            "update_my_member_profile",
+            {"target_household_id": household_id, "member_name": name, "member_role": role},
         ).execute()
 
     def add_item_note(self, household_id: str, item_id: str, member_id: str, content: str) -> str:

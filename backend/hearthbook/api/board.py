@@ -32,7 +32,8 @@ class ItemUpdate(BaseModel):
     recurrence_until: date | None = None
 
 
-class MemberRoleInput(BaseModel):
+class MemberProfileInput(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
     role: str = Field(default="", max_length=40)
 
 
@@ -71,8 +72,8 @@ async def calendar(start: date, end: date, request: Request):
 
 
 @router.patch("/members/me")
-async def update_my_member_role(payload: MemberRoleInput, request: Request):
-    return board_service(request).update_member_role(payload.role)
+async def update_my_member_profile(payload: MemberProfileInput, request: Request):
+    return board_service(request).update_member_profile(payload.name, payload.role)
 
 
 @router.patch("/items/{item_id}")
