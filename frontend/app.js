@@ -8,7 +8,8 @@ const copy = {
     messageLabel: "输入记录、问题或消息", messagePlaceholder: "例如：周六三点看牙，提醒妈妈",
     send: "发送", conversation: "对话", clear: "清空", remindWho: "提醒谁",
     preparation: "准备事项", cancel: "取消", confirm: "确认", todayEyebrow: "今日摘要",
-    todayTitle: "今天", refresh: "刷新", plans: "安排", calendar: "日历", chooseMonth: "选择月份",
+    todayTitle: "今天", today: "今天", refresh: "刷新", plans: "安排", calendar: "日历",
+    previousMonth: "上个月", nextMonth: "下个月", emptyCalendarDay: "这一天还没有安排。",
     unscheduled: "未定时间", familyMemory: "常用信息", notes: "笔记",
     notesHelp: "家里常用的信息，放在这里。", home: "首页",
     close: "关闭", title: "标题", details: "详情", delete: "删除", save: "保存",
@@ -19,8 +20,7 @@ const copy = {
     orJoin: "或者加入已有家庭", inviteCode: "家庭邀请码", joinHousehold: "加入家庭",
     event: "日程", task: "待办", note: "笔记", allDay: "全天", due: "截止",
     starts: "开始", reminder: "提醒", remind: "提醒", done: "已完成", markDone: "标记完成", markOpen: "恢复待办",
-    emptyToday: "今天还没有安排。说一句或输入文字来添加。", emptyCalendar: "这个月还没有安排。告诉我需要记下什么。",
-    emptyUnscheduled: "还没有未定时间的待办。", emptyNotes: "还没有笔记。告诉我需要记住什么。",
+    emptyToday: "今天还没有安排。说一句或输入文字来添加。", emptyNotes: "还没有笔记。告诉我需要记住什么。",
     emptyConversation: "还没有对话。", listening: "正在听…", thinking: "正在处理…",
     saved: "已保存", deleted: "已删除", added: "已添加", confirmed: "已确认",
     deleteConfirm: "确定删除这条内容吗？", deleteSeriesConfirm: "确定删除整个重复日程吗？",
@@ -45,7 +45,8 @@ const copy = {
     messageLabel: "Type a plan, question, or message", messagePlaceholder: "Example: Dentist Saturday at 3, remind Mom",
     send: "Send", conversation: "Conversation", clear: "Clear", remindWho: "Who should we remind?",
     preparation: "Preparation", cancel: "Cancel", confirm: "Confirm", todayEyebrow: "Today's summary",
-    todayTitle: "Today", refresh: "Refresh", plans: "Plans", calendar: "Calendar", chooseMonth: "Choose month",
+    todayTitle: "Today", today: "Today", refresh: "Refresh", plans: "Plans", calendar: "Calendar",
+    previousMonth: "Previous month", nextMonth: "Next month", emptyCalendarDay: "Nothing planned for this day.",
     unscheduled: "No date yet", familyMemory: "Household info", notes: "Notes",
     notesHelp: "Keep household details here.", home: "Home",
     close: "Close", title: "Title", details: "Details", delete: "Delete", save: "Save",
@@ -56,8 +57,7 @@ const copy = {
     orJoin: "Or join an existing household", inviteCode: "Household invite code", joinHousehold: "Join household",
     event: "Event", task: "Task", note: "Note", allDay: "All day", due: "Due",
     starts: "Starts", reminder: "Reminder", remind: "Reminder", done: "Done", markDone: "Mark done", markOpen: "Mark open",
-    emptyToday: "Nothing planned today. Speak or type to add something.", emptyCalendar: "Nothing planned this month. Tell me what to add.",
-    emptyUnscheduled: "No tasks without a date.", emptyNotes: "No notes yet. Tell me what to remember.",
+    emptyToday: "Nothing planned today. Speak or type to add something.", emptyNotes: "No notes yet. Tell me what to remember.",
     emptyConversation: "No messages yet.", listening: "Listening…", thinking: "Working…",
     saved: "Saved", deleted: "Deleted", added: "Added", confirmed: "Confirmed",
     deleteConfirm: "Delete this item?", deleteSeriesConfirm: "Delete this entire recurring event?",
@@ -82,7 +82,8 @@ const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 const state = {
   language: localStorage.getItem("hearthbook-language") || (navigator.language.startsWith("zh") ? "zh" : "en"),
   board: { household: {}, members: [], items: [] },
-  today: [], calendar: [], messages: [], pending: null, selectedItem: null,
+  today: [], calendar: [], calendarMonth: dateKey().slice(0, 7), selectedDate: dateKey(),
+  messages: [], pending: null, selectedItem: null,
   sessionId: localStorage.getItem("hearthbook-session") || null,
   recorder: null, recordingTimer: null,
   notification: { ready: false, configured: false, publicKey: "", registration: null, subscription: null },
@@ -310,31 +311,63 @@ function renderToday() {
 }
 
 function renderCalendar() {
-  const container = $("#calendarItems");
-  container.replaceChildren();
-  const groups = state.calendar.filter((item) => itemDate(item)).reduce((result, item) => {
+  const firstDay = state.language === "zh" ? 1 : 0;
+  const [start] = calendarRange();
+  const month = localDate(`${state.calendarMonth}-01`);
+  const byDate = state.calendar.reduce((result, item) => {
     const key = itemDate(item);
-    if (!result.has(key)) result.set(key, []);
-    result.get(key).push(item);
+    if (key) (result.get(key) || result.set(key, []).get(key)).push(item);
     return result;
   }, new Map());
-  [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([key, items]) => {
-    const section = document.createElement("section");
-    section.className = "date-group";
-    section.append(textNode("h2", formatDate(key)));
-    const list = document.createElement("div");
-    list.className = "item-list";
-    items.forEach((item) => list.append(itemCard(item)));
-    section.append(list);
-    container.append(section);
-  });
-  if (!container.children.length) empty(container, "emptyCalendar");
+  const locale = state.language === "zh" ? "zh-CN" : "en-CA";
+  const weekdays = $("#calendarWeekdays");
+  const grid = $("#calendarGrid");
+  const startDate = localDate(start);
 
-  const unscheduled = $("#unscheduledItems");
-  unscheduled.replaceChildren();
-  state.board.items.filter((item) => item.kind === "task" && !itemDate(item) && !item.completed_at)
-    .forEach((item) => unscheduled.append(itemCard(item)));
-  if (!unscheduled.children.length) empty(unscheduled, "emptyUnscheduled");
+  $("#calendarMonthTitle").textContent = new Intl.DateTimeFormat(locale, {
+    year: "numeric", month: "long",
+  }).format(month);
+  weekdays.replaceChildren();
+  grid.replaceChildren();
+  for (let index = 0; index < 7; index += 1) {
+    const date = new Date(2026, 0, 4 + ((index + firstDay) % 7));
+    weekdays.append(textNode("span", new Intl.DateTimeFormat(locale, { weekday: "short" }).format(date)));
+  }
+  for (let index = 0; index < 42; index += 1) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + index);
+    const key = dateKey(date);
+    const items = byDate.get(key) || [];
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "calendar-day";
+    button.classList.toggle("is-outside", date.getMonth() !== month.getMonth());
+    button.classList.toggle("is-today", key === dateKey());
+    button.classList.toggle("is-selected", key === state.selectedDate);
+    button.setAttribute("aria-pressed", String(key === state.selectedDate));
+    button.setAttribute("aria-label", `${formatDate(key)}${items.length ? `, ${items.length} ${t("plans")}` : ""}`);
+    button.append(textNode("span", String(date.getDate()), "calendar-day-number"));
+    if (items.length) {
+      const markers = document.createElement("span");
+      markers.className = "calendar-markers";
+      items.slice(0, 3).forEach((item) => markers.append(textNode("span", "", `calendar-marker ${item.kind}`)));
+      if (items.length > 3) markers.append(textNode("span", `+${items.length - 3}`, "calendar-more"));
+      button.append(markers);
+    }
+    button.addEventListener("click", () => selectCalendarDate(key));
+    grid.append(button);
+  }
+
+  const container = $("#calendarItems");
+  container.replaceChildren();
+  const selectedItems = byDate.get(state.selectedDate) || [];
+  $("#agendaTitle").textContent = formatDate(state.selectedDate);
+  const count = $("#agendaCount");
+  count.hidden = !selectedItems.length;
+  count.textContent = String(selectedItems.length);
+  selectedItems.forEach((item) => container.append(itemCard(item)));
+  if (!container.children.length) empty(container, "emptyCalendarDay");
+
 }
 
 function renderNotes() {
@@ -342,6 +375,12 @@ function renderNotes() {
   container.replaceChildren();
   state.board.items.filter((item) => item.kind === "note").forEach((item) => container.append(itemCard(item)));
   if (!container.children.length) empty(container, "emptyNotes");
+
+  const unscheduled = $("#unscheduledItems");
+  unscheduled.replaceChildren();
+  const unscheduledItems = state.board.items.filter((item) => item.kind === "task" && !itemDate(item) && !item.completed_at);
+  $("#unscheduledSection").hidden = !unscheduledItems.length;
+  unscheduledItems.forEach((item) => unscheduled.append(itemCard(item)));
 }
 
 function renderMessages() {
@@ -461,12 +500,35 @@ async function loadToday() {
 }
 
 async function loadCalendar() {
-  const month = $("#calendarMonth").value || dateKey().slice(0, 7);
-  const [year, monthNumber] = month.split("-").map(Number);
-  const start = `${month}-01`;
-  const end = dateKey(new Date(year, monthNumber, 0));
+  const [start, end] = calendarRange();
   state.calendar = (await api(`/api/calendar?start=${start}&end=${end}`)).items;
   renderCalendar();
+}
+
+function calendarRange() {
+  const first = localDate(`${state.calendarMonth}-01`);
+  const offset = (first.getDay() - (state.language === "zh" ? 1 : 0) + 7) % 7;
+  const start = new Date(first);
+  start.setDate(first.getDate() - offset);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 41);
+  return [dateKey(start), dateKey(end)];
+}
+
+function selectCalendarDate(key) {
+  state.selectedDate = key;
+  if (key.slice(0, 7) !== state.calendarMonth) {
+    state.calendarMonth = key.slice(0, 7);
+    loadCalendar().catch((error) => showToast(error.message, true));
+  } else renderCalendar();
+}
+
+function moveCalendar(direction) {
+  const month = localDate(`${state.calendarMonth}-01`);
+  month.setMonth(month.getMonth() + direction);
+  state.calendarMonth = dateKey(month).slice(0, 7);
+  state.selectedDate = `${state.calendarMonth}-01`;
+  loadCalendar().catch((error) => showToast(error.message, true));
 }
 
 async function refreshData() {
@@ -612,6 +674,7 @@ $("#languageButton").addEventListener("click", () => {
   state.language = state.language === "zh" ? "en" : "zh";
   localStorage.setItem("hearthbook-language", state.language);
   applyLanguage();
+  loadCalendar().catch((error) => showToast(error.message, true));
   if (state.notification.subscription) savePushSubscription(state.notification.subscription).catch(() => {});
 });
 
@@ -657,7 +720,13 @@ $("#clearConversation").addEventListener("click", () => {
   startNewConversation();
 });
 $("#refreshToday").addEventListener("click", () => loadToday().catch((error) => showToast(error.message, true)));
-$("#calendarMonth").addEventListener("change", () => loadCalendar().catch((error) => showToast(error.message, true)));
+$("#previousMonth").addEventListener("click", () => moveCalendar(-1));
+$("#nextMonth").addEventListener("click", () => moveCalendar(1));
+$("#calendarTodayButton").addEventListener("click", () => {
+  state.calendarMonth = dateKey().slice(0, 7);
+  state.selectedDate = dateKey();
+  loadCalendar().catch((error) => showToast(error.message, true));
+});
 document.querySelectorAll(".bottom-tab").forEach((tab) => tab.addEventListener("click", () => {
   const hash = `#${tab.dataset.tab}`;
   if (location.hash === hash) switchTab(tab.dataset.tab);
@@ -874,7 +943,6 @@ $("#logoutButton").addEventListener("click", async () => {
   location.reload();
 });
 
-$("#calendarMonth").value = dateKey().slice(0, 7);
 applyLanguage();
 switchTab(["home", "calendar", "notes"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "home");
 loadSession();

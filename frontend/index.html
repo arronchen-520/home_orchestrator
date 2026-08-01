@@ -84,17 +84,32 @@
       </section>
 
       <section id="calendarView" class="view" data-view="calendar" aria-labelledby="calendarTitle" hidden>
-        <header class="page-heading">
+        <header class="page-heading calendar-heading">
           <div>
             <p class="eyebrow" data-i18n="plans">安排</p>
             <h1 id="calendarTitle" data-i18n="calendar">日历</h1>
           </div>
-          <input id="calendarMonth" type="month" data-i18n-aria="chooseMonth" aria-label="选择月份">
+          <button id="calendarTodayButton" class="secondary-button calendar-today-button" type="button" data-i18n="today">今天</button>
         </header>
-        <div id="calendarItems" class="date-groups" aria-live="polite"></div>
-        <section class="unscheduled" aria-labelledby="unscheduledTitle">
-          <h2 id="unscheduledTitle" data-i18n="unscheduled">未定时间</h2>
-          <div id="unscheduledItems" class="item-list"></div>
+        <section class="calendar-surface" aria-labelledby="calendarMonthTitle">
+          <div class="calendar-toolbar">
+            <button id="previousMonth" class="icon-button" type="button" data-i18n-aria="previousMonth" aria-label="上个月">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <h2 id="calendarMonthTitle" aria-live="polite"></h2>
+            <button id="nextMonth" class="icon-button" type="button" data-i18n-aria="nextMonth" aria-label="下个月">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </div>
+          <div id="calendarWeekdays" class="calendar-weekdays" aria-hidden="true"></div>
+          <div id="calendarGrid" class="calendar-grid" data-i18n-aria="calendar" aria-label="日历"></div>
+        </section>
+        <section class="calendar-agenda" aria-labelledby="agendaTitle">
+          <div class="section-title-row">
+            <h2 id="agendaTitle"></h2>
+            <span id="agendaCount" class="agenda-count" hidden></span>
+          </div>
+          <div id="calendarItems" class="item-list" aria-live="polite"></div>
         </section>
       </section>
 
@@ -107,6 +122,10 @@
         </header>
         <p class="page-intro" data-i18n="notesHelp">门锁密码、购物偏好、学校信息，都放在这里。</p>
         <div id="notesItems" class="notes-grid" aria-live="polite"></div>
+        <section id="unscheduledSection" class="unscheduled" aria-labelledby="unscheduledTitle">
+          <h2 id="unscheduledTitle" data-i18n="unscheduled">未定时间</h2>
+          <div id="unscheduledItems" class="item-list"></div>
+        </section>
       </section>
     </main>
 
