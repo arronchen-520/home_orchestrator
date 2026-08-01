@@ -15,7 +15,7 @@ const copy = {
     followups: "补充记录", addFollowup: "添加补充记录", followupPlaceholder: "补充最新情况…",
     add: "添加", logout: "退出登录", authTitle: "登录 Hearthbook", email: "邮箱",
     password: "密码", login: "登录", signup: "创建账号", householdSetup: "设置家庭",
-    householdName: "家庭名称", yourName: "你的名字", createHousehold: "创建家庭",
+    householdName: "家庭名称", yourName: "你的名字", memberRole: "你的身份（可选）", createHousehold: "创建家庭",
     orJoin: "或者加入已有家庭", inviteCode: "家庭邀请码", joinHousehold: "加入家庭",
     event: "日程", task: "待办", note: "笔记", allDay: "全天", due: "截止",
     starts: "开始", reminder: "提醒", remind: "提醒", done: "已完成", markDone: "标记完成", markOpen: "恢复待办",
@@ -46,7 +46,7 @@ const copy = {
     followups: "Notes", addFollowup: "Add a note", followupPlaceholder: "Add a note…",
     add: "Add", logout: "Log out", authTitle: "Sign in to Hearthbook", email: "Email",
     password: "Password", login: "Sign in", signup: "Create account", householdSetup: "Set up your household",
-    householdName: "Household name", yourName: "Your name", createHousehold: "Create household",
+    householdName: "Household name", yourName: "Your name", memberRole: "Your role (optional)", createHousehold: "Create household",
     orJoin: "Or join an existing household", inviteCode: "Household invite code", joinHousehold: "Join household",
     event: "Event", task: "Task", note: "Note", allDay: "All day", due: "Due",
     starts: "Starts", reminder: "Reminder", remind: "Reminder", done: "Done", markDone: "Mark done", markOpen: "Mark open",
@@ -714,7 +714,7 @@ $("#createHouseholdForm").addEventListener("submit", async (event) => {
 $("#joinHouseholdForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    await api("/api/households/join", { method: "POST", body: JSON.stringify({ invite_code: $("#inviteCode").value, member_name: $("#joinerName").value }) });
+    await api("/api/households/join", { method: "POST", body: JSON.stringify({ invite_code: $("#inviteCode").value, member_name: $("#joinerName").value, member_role: $("#joinerRole").value }) });
     $("#onboardingDialog").close();
     await refreshData();
   } catch (error) { $("#onboardingError").textContent = error.message; $("#onboardingError").hidden = false; }

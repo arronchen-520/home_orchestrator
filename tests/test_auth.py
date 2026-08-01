@@ -22,6 +22,15 @@ class MembershipClient:
         return SimpleNamespace(data=[{"household_id": "family"}])
 
 
+class JoinClient(MembershipClient):
+    def rpc(self, name, payload):
+        self.rpc_call = (name, payload)
+        return self
+
+    def execute(self):
+        return SimpleNamespace(data="family") if hasattr(self, "rpc_call") else super().execute()
+
+
 class BoardStub:
     def get_board(self):
         return {
@@ -36,6 +45,44 @@ class BoardStub:
 
 
 class SupabaseAuthTest(unittest.TestCase):
+    def test_join_passes_member_role_to_supabase(self):
+        client = JoinClient()
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "SUPABASE_URL": "https://example.supabase.co",
+                    "SUPABASE_PUBLISHABLE_KEY": "test-key",
+                },
+                clear=True,
+            ),
+            patch.object(
+                app_module,
+                "authenticate",
+                return_value=(SimpleNamespace(id="user-1"), "token", None),
+            ),
+            patch.object(app_module, "data_client", return_value=client),
+            patch("backend.hearthbook.api.auth.data_client", return_value=client),
+            TestClient(app_module.app, base_url="https://testserver") as browser,
+        ):
+            response = browser.post(
+                "/api/households/join",
+                json={"invite_code": "ABC", "member_name": "Sam", "member_role": "Driver"},
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            client.rpc_call,
+            (
+                "join_household",
+                {
+                    "household_invite_code": "ABC",
+                    "member_name": "Sam",
+                    "member_role": "Driver",
+                },
+            ),
+        )
+
     def test_authenticated_board_route_and_security_headers(self):
         with (
             patch.dict(
@@ -85,6 +132,9 @@ class SupabaseAuthTest(unittest.TestCase):
         identity = (migrations / "202607310003_account_member_identity.sql").read_text(encoding="utf-8").lower()
         self.assertIn("members_household_user_unique", identity)
         self.assertIn("members_household_read", identity)
+        join_role = (migrations / "202607310004_join_member_role.sql").read_text(encoding="utf-8").lower()
+        self.assertIn("member_role text", join_role)
+        self.assertIn("member_role, now_text", join_role)
 
 
 if __name__ == "__main__":

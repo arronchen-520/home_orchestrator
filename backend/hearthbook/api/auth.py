@@ -28,6 +28,7 @@ class HouseholdInput(BaseModel):
 class JoinInput(BaseModel):
     invite_code: str = Field(min_length=1, max_length=40)
     member_name: str = Field(min_length=1, max_length=40)
+    member_role: str = Field(default="", max_length=40)
 
 
 class SelectInput(BaseModel):
@@ -137,7 +138,7 @@ async def logout(response: Response):
 
 def safe_household_error(exc: Exception) -> str:
     error = str(exc)
-    for message in ("Invalid household or member name", "Invalid household invite", "Invalid member name", "This account already belongs to this household"):
+    for message in ("Invalid household or member name", "Invalid household invite", "Invalid member name", "Invalid member name or role", "This account already belongs to this household"):
         if message in error:
             return message
     logger.exception("Household operation failed")
@@ -160,7 +161,11 @@ async def create_household(payload: HouseholdInput, request: Request, response: 
 async def join_household(payload: JoinInput, request: Request, response: Response):
     try:
         result = data_client(request, request.state.access_token).rpc(
-            "join_household", {"household_invite_code": payload.invite_code, "member_name": payload.member_name}
+            "join_household", {
+                "household_invite_code": payload.invite_code,
+                "member_name": payload.member_name,
+                "member_role": payload.member_role,
+            }
         ).execute()
     except Exception as exc:
         raise HTTPException(status_code=400, detail=safe_household_error(exc)) from exc
