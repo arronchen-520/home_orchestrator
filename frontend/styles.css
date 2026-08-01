@@ -233,6 +233,10 @@ textarea { resize: vertical; line-height: 1.45; }
 .calendar-surface { padding: 14px 0 0; border-block: 1px solid var(--line); background: rgb(255 255 255 / 62%); }
 .calendar-toolbar { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; padding: 0 12px 10px; }
 .calendar-toolbar h2 { font-size: 1.1rem; text-align: center; }
+.calendar-filter { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 0 16px 12px; padding: 4px; border: 1px solid var(--line); border-radius: 14px; background: #f4f0e9; }
+.calendar-filter-button { min-height: 44px; border: 1px solid transparent; border-radius: 10px; color: var(--muted); background: transparent; font-weight: 750; transition: background-color .15s ease, color .15s ease, transform .15s ease; }
+.calendar-filter-button.active { border-color: #efd4c5; color: var(--brand-dark); background: white; }
+.calendar-filter-button:active { transform: scale(.98); }
 .calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
 .calendar-weekdays { padding: 0 2px 4px; color: var(--muted); font-size: .72rem; font-weight: 750; text-align: center; }
 .calendar-day { position: relative; display: grid; min-width: 0; min-height: 46px; padding: 5px 3px; border: 1px solid transparent; border-radius: 10px; place-items: center; color: var(--ink); background: transparent; font-size: .88rem; font-weight: 750; transition: background-color .15s ease, color .15s ease, transform .15s ease; }

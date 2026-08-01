@@ -25,6 +25,19 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('const unscheduledItems = state.board.items.filter', app)
         self.assertIn('.calendar-weekdays, .calendar-grid { display: grid;', styles)
 
+    def test_calendar_filter_uses_the_current_members_reminders(self):
+        index = Path("frontend/index.html").read_text(encoding="utf-8")
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+        styles = Path("frontend/styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('data-calendar-filter="all"', index)
+        self.assertIn('data-calendar-filter="mine"', index)
+        self.assertIn('filterMine: "我的"', app)
+        self.assertIn('function filteredCalendarItems()', app)
+        self.assertIn('item.remind_member_id === state.board.current_member_id', app)
+        self.assertIn('localStorage.setItem("hearthbook-calendar-filter", state.calendarFilter)', app)
+        self.assertIn('.calendar-filter-button { min-height: 44px;', styles)
+
 
 if __name__ == "__main__":
     unittest.main()

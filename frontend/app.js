@@ -10,6 +10,7 @@ const copy = {
     preparation: "准备事项", cancel: "取消", confirm: "确认", todayEyebrow: "今日摘要",
     todayTitle: "今天", today: "今天", refresh: "刷新", plans: "安排", calendar: "日历",
     previousMonth: "上个月", nextMonth: "下个月", emptyCalendarDay: "这一天还没有安排。",
+    calendarFilter: "筛选安排", filterAll: "全部", filterMine: "我的",
     unscheduled: "未定时间", familyMemory: "常用信息", notes: "笔记",
     notesHelp: "家里常用的信息，放在这里。", home: "首页",
     close: "关闭", title: "标题", details: "详情", delete: "删除", save: "保存",
@@ -47,6 +48,7 @@ const copy = {
     preparation: "Preparation", cancel: "Cancel", confirm: "Confirm", todayEyebrow: "Today's summary",
     todayTitle: "Today", today: "Today", refresh: "Refresh", plans: "Plans", calendar: "Calendar",
     previousMonth: "Previous month", nextMonth: "Next month", emptyCalendarDay: "Nothing planned for this day.",
+    calendarFilter: "Filter plans", filterAll: "All", filterMine: "Mine",
     unscheduled: "No date yet", familyMemory: "Household info", notes: "Notes",
     notesHelp: "Keep household details here.", home: "Home",
     close: "Close", title: "Title", details: "Details", delete: "Delete", save: "Save",
@@ -83,6 +85,7 @@ const state = {
   language: localStorage.getItem("hearthbook-language") || (navigator.language.startsWith("zh") ? "zh" : "en"),
   board: { household: {}, members: [], items: [] },
   today: [], calendar: [], calendarMonth: dateKey().slice(0, 7), selectedDate: dateKey(),
+  calendarFilter: localStorage.getItem("hearthbook-calendar-filter") === "mine" ? "mine" : "all",
   messages: [], pending: null, selectedItem: null,
   sessionId: localStorage.getItem("hearthbook-session") || null,
   recorder: null, recordingTimer: null,
@@ -310,11 +313,16 @@ function renderToday() {
   if (!list.children.length) empty(list, "emptyToday");
 }
 
+function filteredCalendarItems() {
+  if (state.calendarFilter !== "mine") return state.calendar;
+  return state.calendar.filter((item) => item.remind_member_id === state.board.current_member_id);
+}
+
 function renderCalendar() {
   const firstDay = state.language === "zh" ? 1 : 0;
   const [start] = calendarRange();
   const month = localDate(`${state.calendarMonth}-01`);
-  const byDate = state.calendar.reduce((result, item) => {
+  const byDate = filteredCalendarItems().reduce((result, item) => {
     const key = itemDate(item);
     if (key) (result.get(key) || result.set(key, []).get(key)).push(item);
     return result;
@@ -327,6 +335,11 @@ function renderCalendar() {
   $("#calendarMonthTitle").textContent = new Intl.DateTimeFormat(locale, {
     year: "numeric", month: "long",
   }).format(month);
+  document.querySelectorAll("[data-calendar-filter]").forEach((button) => {
+    const active = button.dataset.calendarFilter === state.calendarFilter;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
   weekdays.replaceChildren();
   grid.replaceChildren();
   for (let index = 0; index < 7; index += 1) {
@@ -531,6 +544,12 @@ function moveCalendar(direction) {
   loadCalendar().catch((error) => showToast(error.message, true));
 }
 
+function setCalendarFilter(value) {
+  state.calendarFilter = value === "mine" ? "mine" : "all";
+  localStorage.setItem("hearthbook-calendar-filter", state.calendarFilter);
+  renderCalendar();
+}
+
 async function refreshData() {
   await Promise.all([loadBoard(), loadToday(), loadCalendar()]);
 }
@@ -726,6 +745,9 @@ $("#calendarTodayButton").addEventListener("click", () => {
   state.calendarMonth = dateKey().slice(0, 7);
   state.selectedDate = dateKey();
   loadCalendar().catch((error) => showToast(error.message, true));
+});
+document.querySelectorAll("[data-calendar-filter]").forEach((button) => {
+  button.addEventListener("click", () => setCalendarFilter(button.dataset.calendarFilter));
 });
 document.querySelectorAll(".bottom-tab").forEach((tab) => tab.addEventListener("click", () => {
   const hash = `#${tab.dataset.tab}`;
