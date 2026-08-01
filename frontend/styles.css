@@ -254,8 +254,14 @@ textarea { resize: vertical; line-height: 1.45; }
 .calendar-agenda > .section-title-row { margin-bottom: 12px; }
 .calendar-agenda h2 { font-size: 1.15rem; }
 .agenda-count { min-width: 24px; padding: 3px 8px; border-radius: 999px; color: var(--brand-dark); background: #fff0e5; font-size: .78rem; font-weight: 800; text-align: center; }
-.unscheduled { margin-top: 28px; padding: 16px; border-radius: 18px; background: #f4f0e9; }
-.unscheduled h2 { margin-bottom: 12px; font-size: 1.05rem; }
+.task-section { display: grid; gap: 24px; }
+.task-group { display: grid; gap: 12px; }
+.task-group h3, .notes-section h2 { margin: 0; font-size: 1.05rem; letter-spacing: -.02em; }
+.task-group:first-of-type h3 { color: #9f3928; }
+.more-tasks { border-top: 1px solid var(--line); }
+.more-tasks summary { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; color: var(--brand-dark); font-weight: 800; }
+.more-tasks[open] summary { margin-bottom: 12px; }
+.notes-section { margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--line); }
 .notes-grid { grid-template-columns: 1fr; margin-top: 20px; }
 
 .bottom-tabs {

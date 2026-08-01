@@ -11,7 +11,7 @@ const copy = {
     todayTitle: "今天", today: "今天", refresh: "刷新", plans: "安排", calendar: "日历",
     previousMonth: "上个月", nextMonth: "下个月", emptyCalendarDay: "这一天还没有安排。",
     calendarFilter: "筛选安排", filterAll: "全部", filterMine: "我的",
-    unscheduled: "未定时间", familyMemory: "常用信息", notes: "笔记",
+    unscheduled: "未定时间", taskSpace: "待办与笔记", tasks: "待办", dueSoon: "未来 7 天", moreTasks: "展开更多", emptyTasks: "没有待办。", familyMemory: "常用信息", notes: "笔记",
     notesHelp: "家里常用的信息，放在这里。", home: "首页",
     close: "关闭", title: "标题", details: "详情", delete: "删除", save: "保存",
     followups: "补充记录", addFollowup: "添加补充记录", followupPlaceholder: "补充最新情况…",
@@ -49,7 +49,7 @@ const copy = {
     todayTitle: "Today", today: "Today", refresh: "Refresh", plans: "Plans", calendar: "Calendar",
     previousMonth: "Previous month", nextMonth: "Next month", emptyCalendarDay: "Nothing planned for this day.",
     calendarFilter: "Filter plans", filterAll: "All", filterMine: "Mine",
-    unscheduled: "No date yet", familyMemory: "Household info", notes: "Notes",
+    unscheduled: "No date yet", taskSpace: "Tasks and notes", tasks: "Tasks", dueSoon: "Due in 7 days", moreTasks: "Show more", emptyTasks: "No tasks yet.", familyMemory: "Household info", notes: "Notes",
     notesHelp: "Keep household details here.", home: "Home",
     close: "Close", title: "Title", details: "Details", delete: "Delete", save: "Save",
     followups: "Notes", addFollowup: "Add a note", followupPlaceholder: "Add a note…",
@@ -84,7 +84,7 @@ const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 const state = {
   language: localStorage.getItem("hearthbook-language") || (navigator.language.startsWith("zh") ? "zh" : "en"),
   board: { household: {}, members: [], items: [] },
-  today: [], calendar: [], calendarMonth: dateKey().slice(0, 7), selectedDate: dateKey(),
+  today: [], calendar: [], calendarMonth: dateKey().slice(0, 7), selectedDate: dateKey(), calendarAgendaOpen: false,
   calendarFilter: localStorage.getItem("hearthbook-calendar-filter") === "mine" ? "mine" : "all",
   messages: [], pending: null, selectedItem: null,
   sessionId: localStorage.getItem("hearthbook-session") || null,
@@ -371,6 +371,10 @@ function renderCalendar() {
     grid.append(button);
   }
 
+  const agenda = $("#calendarAgenda");
+  agenda.hidden = !state.calendarAgendaOpen;
+  if (!state.calendarAgendaOpen) return;
+
   const container = $("#calendarItems");
   container.replaceChildren();
   const selectedItems = byDate.get(state.selectedDate) || [];
@@ -383,17 +387,45 @@ function renderCalendar() {
 
 }
 
+function taskGroups() {
+  const today = dateKey();
+  const weekEnd = dateKey(new Date(localDate(today).setDate(localDate(today).getDate() + 6)));
+  const groups = { overdue: [], upcoming: [], unscheduled: [], later: [] };
+  state.board.items.filter((item) => item.kind === "task" && !item.completed_at).forEach((item) => {
+    const due = itemDate(item);
+    if (!due) groups.unscheduled.push(item);
+    else if (due < today) groups.overdue.push(item);
+    else if (due <= weekEnd) groups.upcoming.push(item);
+    else groups.later.push(item);
+  });
+  [groups.overdue, groups.upcoming, groups.later].forEach((items) => items.sort((left, right) => itemDate(left).localeCompare(itemDate(right))));
+  return groups;
+}
+
+function renderTaskGroup(section, container, items) {
+  $(section).hidden = !items.length;
+  const list = $(container);
+  list.replaceChildren();
+  items.forEach((item) => list.append(itemCard(item)));
+}
+
 function renderNotes() {
+  const groups = taskGroups();
+  renderTaskGroup("#overdueSection", "#overdueItems", groups.overdue);
+  renderTaskGroup("#upcomingSection", "#upcomingItems", groups.upcoming);
+  renderTaskGroup("#unscheduledSection", "#unscheduledItems", groups.unscheduled);
+  const moreTasks = $("#moreTasks");
+  moreTasks.hidden = !groups.later.length;
+  $("#moreTasksCount").textContent = groups.later.length ? String(groups.later.length) : "";
+  const later = $("#laterItems");
+  later.replaceChildren();
+  groups.later.forEach((item) => later.append(itemCard(item)));
+  $("#emptyTasks").hidden = Boolean(groups.overdue.length || groups.upcoming.length || groups.unscheduled.length || groups.later.length);
+
   const container = $("#notesItems");
   container.replaceChildren();
   state.board.items.filter((item) => item.kind === "note").forEach((item) => container.append(itemCard(item)));
   if (!container.children.length) empty(container, "emptyNotes");
-
-  const unscheduled = $("#unscheduledItems");
-  unscheduled.replaceChildren();
-  const unscheduledItems = state.board.items.filter((item) => item.kind === "task" && !itemDate(item) && !item.completed_at);
-  $("#unscheduledSection").hidden = !unscheduledItems.length;
-  unscheduledItems.forEach((item) => unscheduled.append(itemCard(item)));
 }
 
 function renderMessages() {
@@ -530,6 +562,7 @@ function calendarRange() {
 
 function selectCalendarDate(key) {
   state.selectedDate = key;
+  state.calendarAgendaOpen = true;
   if (key.slice(0, 7) !== state.calendarMonth) {
     state.calendarMonth = key.slice(0, 7);
     loadCalendar().catch((error) => showToast(error.message, true));
@@ -541,6 +574,7 @@ function moveCalendar(direction) {
   month.setMonth(month.getMonth() + direction);
   state.calendarMonth = dateKey(month).slice(0, 7);
   state.selectedDate = `${state.calendarMonth}-01`;
+  state.calendarAgendaOpen = false;
   loadCalendar().catch((error) => showToast(error.message, true));
 }
 
@@ -744,6 +778,7 @@ $("#nextMonth").addEventListener("click", () => moveCalendar(1));
 $("#calendarTodayButton").addEventListener("click", () => {
   state.calendarMonth = dateKey().slice(0, 7);
   state.selectedDate = dateKey();
+  state.calendarAgendaOpen = false;
   loadCalendar().catch((error) => showToast(error.message, true));
 });
 document.querySelectorAll("[data-calendar-filter]").forEach((button) => {

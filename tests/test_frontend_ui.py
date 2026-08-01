@@ -12,18 +12,33 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('status.dataset.state = state.notification.subscription ? "success" : ""', app)
         self.assertIn('button:disabled { cursor: not-allowed; opacity: .5; }', styles)
 
-    def test_calendar_keeps_month_grid_and_unscheduled_tasks_with_notes(self):
+    def test_calendar_keeps_month_grid_and_only_shows_date_details_after_a_tap(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")
         app = Path("frontend/app.js").read_text(encoding="utf-8")
         styles = Path("frontend/styles.css").read_text(encoding="utf-8")
 
         self.assertIn('id="calendarGrid"', index)
-        self.assertIn('id="agendaTitle"', index)
-        self.assertGreater(index.index('id="unscheduledSection"'), index.index('id="notesView"'))
+        self.assertIn('id="calendarAgenda"', index)
+        self.assertIn('calendarAgendaOpen: false', app)
+        self.assertIn('agenda.hidden = !state.calendarAgendaOpen;', app)
         self.assertIn("function calendarRange()", app)
         self.assertIn("function selectCalendarDate(key)", app)
-        self.assertIn('const unscheduledItems = state.board.items.filter', app)
+        self.assertIn('state.calendarAgendaOpen = true;', app)
         self.assertIn('.calendar-weekdays, .calendar-grid { display: grid;', styles)
+
+    def test_tasks_precede_notes_and_are_grouped_by_due_date(self):
+        index = Path("frontend/index.html").read_text(encoding="utf-8")
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+
+        self.assertLess(index.index('id="tasksTitle"'), index.index('id="notesSectionTitle"'))
+        self.assertIn('id="overdueSection"', index)
+        self.assertIn('id="upcomingSection"', index)
+        self.assertIn('id="unscheduledSection"', index)
+        self.assertIn('id="moreTasks"', index)
+        self.assertIn("function taskGroups()", app)
+        self.assertIn('item.kind === "task" && !item.completed_at', app)
+        self.assertIn("groups.upcoming", app)
+        self.assertIn("groups.unscheduled", app)
 
     def test_calendar_filter_uses_the_current_members_reminders(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")

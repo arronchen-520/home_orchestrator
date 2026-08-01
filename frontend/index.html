@@ -108,7 +108,7 @@
           <div id="calendarWeekdays" class="calendar-weekdays" aria-hidden="true"></div>
           <div id="calendarGrid" class="calendar-grid" data-i18n-aria="calendar" aria-label="日历"></div>
         </section>
-        <section class="calendar-agenda" aria-labelledby="agendaTitle">
+        <section id="calendarAgenda" class="calendar-agenda" aria-labelledby="agendaTitle" hidden>
           <div class="section-title-row">
             <h2 id="agendaTitle"></h2>
             <span id="agendaCount" class="agenda-count" hidden></span>
@@ -120,15 +120,34 @@
       <section id="notesView" class="view" data-view="notes" aria-labelledby="notesTitle" hidden>
         <header class="page-heading">
           <div>
-            <p class="eyebrow" data-i18n="familyMemory">常用信息</p>
-            <h1 id="notesTitle" data-i18n="notes">笔记</h1>
+            <p class="eyebrow" data-i18n="taskSpace">待办与笔记</p>
+            <h1 id="notesTitle" data-i18n="tasks">待办</h1>
           </div>
         </header>
-        <p class="page-intro" data-i18n="notesHelp">门锁密码、购物偏好、学校信息，都放在这里。</p>
-        <div id="notesItems" class="notes-grid" aria-live="polite"></div>
-        <section id="unscheduledSection" class="unscheduled" aria-labelledby="unscheduledTitle">
-          <h2 id="unscheduledTitle" data-i18n="unscheduled">未定时间</h2>
-          <div id="unscheduledItems" class="item-list"></div>
+        <section class="task-section" aria-labelledby="tasksTitle">
+          <h2 id="tasksTitle" class="sr-only" data-i18n="tasks">待办</h2>
+          <section id="overdueSection" class="task-group" aria-labelledby="overdueTitle" hidden>
+            <h3 id="overdueTitle" data-i18n="overdue">已过期</h3>
+            <div id="overdueItems" class="item-list"></div>
+          </section>
+          <section id="upcomingSection" class="task-group" aria-labelledby="upcomingTitle" hidden>
+            <h3 id="upcomingTitle" data-i18n="dueSoon">未来 7 天</h3>
+            <div id="upcomingItems" class="item-list"></div>
+          </section>
+          <section id="unscheduledSection" class="task-group" aria-labelledby="unscheduledTitle" hidden>
+            <h3 id="unscheduledTitle" data-i18n="unscheduled">未定时间</h3>
+            <div id="unscheduledItems" class="item-list"></div>
+          </section>
+          <details id="moreTasks" class="more-tasks" hidden>
+            <summary><span data-i18n="moreTasks">展开更多</span><span id="moreTasksCount" class="agenda-count"></span></summary>
+            <div id="laterItems" class="item-list"></div>
+          </details>
+          <p id="emptyTasks" class="empty" data-i18n="emptyTasks" hidden>没有待办。</p>
+        </section>
+        <section class="notes-section" aria-labelledby="notesSectionTitle">
+          <h2 id="notesSectionTitle" data-i18n="notes">笔记</h2>
+          <p class="page-intro" data-i18n="notesHelp">家里常用的信息，放在这里。</p>
+          <div id="notesItems" class="notes-grid" aria-live="polite"></div>
         </section>
       </section>
     </main>
@@ -144,7 +163,7 @@
       </button>
       <button class="bottom-tab" type="button" data-tab="notes">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14a2 2 0 0 1 2 2v16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm3 5h8m-8 4h8m-8 4h5"/></svg>
-        <span data-i18n="notes">笔记</span>
+        <span data-i18n="tasks">待办</span>
       </button>
     </nav>
 
