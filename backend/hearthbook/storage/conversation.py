@@ -132,4 +132,5 @@ def confirm_conversation(
     database.client.table("conversation_sessions").update(
         {"status": "confirmed", "payload": {}, "updated_at": now_text()}
     ).eq("id", session_id).execute()
+    database.client.table("conversation_messages").delete().eq("session_id", session_id).execute()
     return {"action": "created", "item_ids": item_ids}

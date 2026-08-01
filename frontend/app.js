@@ -418,6 +418,14 @@ function consumeResponse(data) {
   renderMessages();
 }
 
+function startNewConversation() {
+  state.messages = [];
+  state.pending = null;
+  state.sessionId = null;
+  localStorage.removeItem("hearthbook-session");
+  renderMessages();
+}
+
 async function sendText(text) {
   if (!text.trim()) return;
   state.messages.push({ role: "user", text: text.trim() }, { role: "assistant", text: t("thinking"), pending: true });
@@ -640,11 +648,7 @@ $("#messageForm").addEventListener("submit", async (event) => {
   await sendText(value);
 });
 $("#clearConversation").addEventListener("click", () => {
-  state.messages = [];
-  state.pending = null;
-  state.sessionId = null;
-  localStorage.removeItem("hearthbook-session");
-  renderMessages();
+  startNewConversation();
 });
 $("#refreshToday").addEventListener("click", () => loadToday().catch((error) => showToast(error.message, true)));
 $("#calendarMonth").addEventListener("change", () => loadCalendar().catch((error) => showToast(error.message, true)));
@@ -677,11 +681,10 @@ $("#confirmButton").addEventListener("click", async () => {
   const remind_member_ids = drafts.map((_, index) => $("#remindChoices").querySelector(`[data-draft-index="${index}"]`)?.value || null);
   const accepted_preparations = drafts.map((_, index) => Boolean($("#preparationChoices").querySelector(`[data-draft-index="${index}"]`)?.checked));
   try {
-    const data = await api(`/api/conversations/${state.sessionId}/confirm`, {
+    await api(`/api/conversations/${state.sessionId}/confirm`, {
       method: "POST", body: JSON.stringify({ remind_member_ids, accepted_preparations }),
     });
-    state.pending = null;
-    consumeResponse(data);
+    startNewConversation();
     await refreshData();
     showToast(t("confirmed"));
   } catch (error) { showToast(error.message, true); }

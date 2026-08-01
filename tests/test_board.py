@@ -11,6 +11,7 @@ from backend.hearthbook.llm.graph import conversation_text
 from backend.hearthbook.llm.query import query_assistant
 from backend.hearthbook.services.board import BoardService
 from backend.hearthbook.storage.board import BoardDatabase
+from backend.hearthbook.storage.conversation import confirm_conversation
 
 
 class EmptyExceptions:
@@ -175,6 +176,31 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
     def test_recurrence_remains_event_only(self):
         with self.assertRaisesRegex(ValueError, "Only events can recur"):
             ItemDraft(kind="task", title="Trash", recurrence="weekly")
+
+    def test_confirm_clears_session_messages_after_creating_items(self):
+        database = MagicMock()
+        session_table = MagicMock()
+        message_table = MagicMock()
+        database.client.table.side_effect = lambda name: {
+            "conversation_sessions": session_table,
+            "conversation_messages": message_table,
+        }[name]
+        message_table.delete.return_value = message_table
+        database.create_items.return_value = ["item-1"]
+        session = {
+            "id": "session",
+            "status": "review",
+            "intent": "capture",
+            "timezone": "UTC",
+            "payload": {"drafts": [{"kind": "note", "title": "Buy milk"}]},
+            "messages": [{"role": "user", "content": "Buy milk"}],
+        }
+        with patch("backend.hearthbook.storage.conversation.get_conversation", return_value=session):
+            result = confirm_conversation(database, "family", "session", "lin", [None], [False])
+
+        self.assertEqual(result["item_ids"], ["item-1"])
+        message_table.delete.assert_called_once_with()
+        message_table.eq.assert_called_once_with("session_id", "session")
 
     def test_today_finds_a_recurring_reminder_after_its_occurrence(self):
         item = ItemDraft(
