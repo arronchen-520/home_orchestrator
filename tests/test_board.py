@@ -134,6 +134,47 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(create.call_args.args[2], "lin")
         route.ainvoke.assert_awaited_once()
 
+    async def test_task_reminder_defaults_to_proposer(self):
+        SESSION.clear()
+        SESSION.update(
+            id="session",
+            actor_id="lin",
+            timezone="America/Toronto",
+            status="active",
+            intent=None,
+            payload={},
+            messages=[{"role": "user", "content": "Buy milk tomorrow"}],
+        )
+        route = SimpleNamespace(ainvoke=AsyncMock(return_value=RouteDecision(intent="capture")))
+        capture = SimpleNamespace(
+            ainvoke=AsyncMock(
+                return_value=CaptureAnalysis(
+                    status="review",
+                    message="Please check this.",
+                    items=[
+                        ItemDraft(
+                            kind="task",
+                            title="Buy milk",
+                            due_date="2026-08-02",
+                            reminder_at="2026-08-02T09:00:00-04:00",
+                        )
+                    ],
+                )
+            )
+        )
+        with (
+            patch("backend.hearthbook.llm.graph.router_chain", return_value=route),
+            patch("backend.hearthbook.llm.graph.capture_chain", return_value=capture),
+            patch("backend.hearthbook.services.board.create_conversation", return_value=deepcopy(SESSION)),
+            patch("backend.hearthbook.llm.graph.add_message", side_effect=add_message),
+            patch("backend.hearthbook.llm.graph.update_conversation", side_effect=update_conversation),
+        ):
+            response = await BoardService(MemoryDatabase(), "family", "lin").message(
+                {"text": "Buy milk tomorrow", "timezone": "America/Toronto"}
+            )
+
+        self.assertEqual(response["drafts"][0]["remind_member_id"], "lin")
+
     def test_today_and_read_only_sql_projection(self):
         items = [
             {
