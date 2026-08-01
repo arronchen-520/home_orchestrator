@@ -129,23 +129,12 @@ function itemTime(item) {
   return "";
 }
 
-function asItems(data) {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.items)) return data.items;
-  return ["events", "tasks", "reminders", "overdue"].flatMap((key) => Array.isArray(data?.[key]) ? data[key] : []);
-}
-
 function memberName(id) {
   return state.board.members.find((member) => member.id === id)?.name || "";
 }
 
 function reminderNames(item) {
-  const raw = item.remind_member_ids || (item.remind_member_id ? [item.remind_member_id] : []);
-  return raw.map((entry) => typeof entry === "object" ? entry.name || memberName(entry.id) : memberName(entry)).filter(Boolean);
-}
-
-function followups(item) {
-  return item.notes || [];
+  return item.remind_member_id ? [memberName(item.remind_member_id)].filter(Boolean) : [];
 }
 
 function applyLanguage() {
@@ -282,7 +271,7 @@ function renderConfirmation() {
   }
   $("#remindChoices").hidden = false;
   $("#preparationChoices").hidden = false;
-  const drafts = state.pending.drafts || state.pending.items || [];
+  const drafts = state.pending.drafts || [];
   const summary = $("#confirmationSummary");
   summary.replaceChildren();
   drafts.forEach((draft) => summary.append(textNode("p", `${t(draft.kind || "event")}: ${draft.title || draft.details || ""}`, "draft-summary")));
@@ -323,11 +312,6 @@ function renderAll() {
   renderMessages();
 }
 
-function responseText(data) {
-  return data.reply || data.answer || data.response || data.assistant_message
-    || (typeof data.message === "string" ? data.message : "") || data.content || "";
-}
-
 function consumeResponse(data) {
   if (data.session_id) {
     state.sessionId = data.session_id;
@@ -338,12 +322,7 @@ function consumeResponse(data) {
   if (latest?.content && state.messages.at(-1)?.text !== latest.content) {
     state.messages.push({ role: "assistant", text: latest.content });
   }
-  const direct = responseText(data);
-  if (direct && !messages.some((message) => (message.content || message.text) === direct)) state.messages.push({ role: "assistant", text: direct });
-  const needsConfirmation = data.requires_confirmation || data.pending_confirmation
-    || ["review", "confirm", "confirmation", "needs_confirmation", "awaiting_confirmation"].includes(data.status)
-    || Array.isArray(data.drafts);
-  state.pending = data.action ? { action: data.action } : needsConfirmation ? (data.pending_confirmation || data) : null;
+  state.pending = data.action ? { action: data.action } : data.status === "review" ? data : null;
   renderMessages();
 }
 
@@ -374,7 +353,7 @@ async function loadBoard() {
 }
 
 async function loadToday() {
-  state.today = asItems(await api(`/api/today?date=${dateKey()}&timezone=${encodeURIComponent(timezone)}`));
+  state.today = (await api(`/api/today?date=${dateKey()}&timezone=${encodeURIComponent(timezone)}`)).items;
   renderToday();
 }
 
@@ -383,7 +362,7 @@ async function loadCalendar() {
   const [year, monthNumber] = month.split("-").map(Number);
   const start = `${month}-01`;
   const end = dateKey(new Date(year, monthNumber, 0));
-  state.calendar = asItems(await api(`/api/calendar?start=${start}&end=${end}`));
+  state.calendar = (await api(`/api/calendar?start=${start}&end=${end}`)).items;
   renderCalendar();
 }
 
@@ -422,9 +401,9 @@ function openItem(item) {
 function renderFollowups(item) {
   const list = $("#followupList");
   list.replaceChildren();
-  followups(item).forEach((note) => {
-    const content = typeof note === "string" ? note : note.content || note.text || "";
-    const author = typeof note === "object" ? note.member_name || memberName(note.member_id) : "";
+  (item.notes || []).forEach((note) => {
+    const content = note.content;
+    const author = memberName(note.member_id);
     const row = document.createElement("article");
     row.append(textNode("p", content));
     if (author || note.created_at) row.append(textNode("small", [author, note.created_at ? formatDateTime(note.created_at) : ""].filter(Boolean).join(" · ")));

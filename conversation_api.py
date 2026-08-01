@@ -36,10 +36,8 @@ async def message(payload: MessageInput, request: Request):
 
 @router.post("/conversations/{session_id}/confirm", status_code=201)
 async def confirm(session_id: str, payload: CaptureConfirmation, request: Request):
-    return await service_call(
-        board_service(request).confirm_capture(
-            session_id, payload.actor_id, payload.remind_member_ids, payload.accepted_preparations
-        )
+    return board_service(request).confirm_capture(
+        session_id, payload.actor_id, payload.remind_member_ids, payload.accepted_preparations
     )
 
 

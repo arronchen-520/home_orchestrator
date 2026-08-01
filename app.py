@@ -13,7 +13,6 @@ from fastapi.staticfiles import StaticFiles
 from auth import HOUSEHOLD_COOKIE, authenticate, data_client, router as auth_router, set_auth_cookies
 from board_api import router as board_router
 from conversation_api import router as conversation_router
-from weather import WeatherService
 
 load_dotenv()
 ROOT = Path(__file__).parent
@@ -27,7 +26,6 @@ async def lifespan(app: FastAPI):
     app.state.public_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
     if not app.state.supabase_url or not app.state.supabase_key:
         raise RuntimeError("SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required")
-    app.state.weather = WeatherService(os.getenv("OPENWEATHER_API_KEY"))
     yield
 
 
@@ -36,6 +34,11 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(auth_router)
 app.include_router(board_router)
 app.include_router(conversation_router)
+
+
+@app.exception_handler(ValueError)
+async def invalid_input(_request: Request, exc: ValueError):
+    return JSONResponse({"detail": str(exc)}, status_code=400)
 
 
 @app.middleware("http")
@@ -57,12 +60,7 @@ async def require_session(request: Request, call_next):
     request.state.household_id = requested if requested in household_ids else household_ids[0] if household_ids else None
     if request.state.household_id is None and path not in {"/api/households", "/api/households/join"}:
         return JSONResponse({"detail": "Household setup required"}, status_code=409)
-    try:
-        response = await call_next(request)
-    finally:
-        database = getattr(request.state, "database", None)
-        if database:
-            database.close()
+    response = await call_next(request)
     if refreshed:
         set_auth_cookies(response, refreshed, request)
     return response
@@ -72,7 +70,7 @@ async def require_session(request: Request, call_next):
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; img-src 'self' data: https://openweathermap.org; "
+        "default-src 'self'; img-src 'self' data:; "
         "script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; "
         "object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
     )

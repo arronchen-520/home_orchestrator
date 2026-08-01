@@ -79,7 +79,6 @@ class RouteDecision(BaseModel):
 class CaptureAnalysis(BaseModel):
     status: Literal["clarify", "review"]
     message: str = Field(min_length=1, max_length=1000)
-    assumptions: list[str] = Field(default_factory=list, max_length=5)
     items: list[ItemDraft] = Field(default_factory=list, max_length=20)
     updated_memory: str | None = None
 

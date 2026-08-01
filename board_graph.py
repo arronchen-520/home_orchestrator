@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import os
-from datetime import date, datetime
+from datetime import datetime
 from functools import lru_cache
 from typing import TypedDict
 from uuid import uuid4
@@ -14,7 +13,12 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 
+from assistant_query import query_assistant
 from board_db import HOUSEHOLD_MEMORY_MAX_CHARS, BoardDatabase
+from conversation_db import (
+    add_message,
+    update_conversation,
+)
 from models import AgentReply, CaptureAnalysis, QueryPlan, RouteDecision
 
 
@@ -75,8 +79,8 @@ def capture_chain():
         """You are the capture specialist for a bilingual family assistant.
 Turn the conversation into one or more event, task, or standalone note drafts.
 Ask one short question only when date, time, item type, or recurrence is materially
-ambiguous. Ask no more than two questions; when Remaining questions is 0, review
-using explicit assumptions. Preserve the user's language.
+ambiguous. Ask no more than two questions; when Remaining questions is 0, state any
+assumptions in the review message. Preserve the user's language.
 
 Events can recur daily, weekly, or monthly. Tasks and notes cannot recur. Every dated
 event or task needs a sensible reminder_at. Suggest remind_member_id only when a named
@@ -201,17 +205,17 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
             if draft.get("remind_member_id") not in valid_members:
                 draft["remind_member_id"] = None
             drafts.append(draft)
-        conflicts = database.find_draft_conflicts(household_id, drafts, session["timezone"]) if drafts else []
         payload = {
             "message": analysis.message,
-            "assumptions": analysis.assumptions,
             "drafts": drafts,
-            "conflicts": conflicts,
             "clarification_count": previous_count + int(analysis.status == "clarify"),
             "capture_message_start": capture_start,
         }
-        session = database.add_conversation_message(household_id, session["id"], session["actor_id"], "assistant", analysis.message)
-        session = database.update_conversation(
+        session = add_message(
+            database, household_id, session["id"], session["actor_id"], "assistant", analysis.message
+        )
+        session = update_conversation(
+            database,
             household_id,
             session["id"],
             session["actor_id"],
@@ -251,7 +255,7 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
             if not plan.sql:
                 break
             try:
-                results = database.query_assistant(household_id, session["timezone"], plan.sql)
+                results = query_assistant(database, household_id, session["timezone"], plan.sql)
                 error = ""
                 break
             except ValueError as exc:
@@ -266,9 +270,12 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
                 "memory": memory,
             }
         )
-        session = database.add_conversation_message(household_id, session["id"], session["actor_id"], "assistant", reply.message)
-        session = database.update_conversation(
-            household_id, session["id"], session["actor_id"], status="active", intent="query", payload={}
+        session = add_message(
+            database, household_id, session["id"], session["actor_id"], "assistant", reply.message
+        )
+        session = update_conversation(
+            database, household_id, session["id"], session["actor_id"],
+            status="active", intent="query", payload={}
         )
         if reply.updated_memory is not None:
             database.set_household_memory(household_id, reply.updated_memory)
@@ -292,9 +299,12 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
                 "memory": database.get_household_memory(household_id),
             }
         )
-        session = database.add_conversation_message(household_id, session["id"], session["actor_id"], "assistant", reply.message)
-        session = database.update_conversation(
-            household_id, session["id"], session["actor_id"], status="active", intent="chat", payload={}
+        session = add_message(
+            database, household_id, session["id"], session["actor_id"], "assistant", reply.message
+        )
+        session = update_conversation(
+            database, household_id, session["id"], session["actor_id"],
+            status="active", intent="chat", payload={}
         )
         if reply.updated_memory is not None:
             database.set_household_memory(household_id, reply.updated_memory)
@@ -319,85 +329,3 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
     graph.add_edge("query", END)
     graph.add_edge("chat", END)
     return graph.compile()
-
-
-class BoardService:
-    def __init__(self, database: BoardDatabase, household_id: str):
-        self.database = database
-        self.household_id = household_id
-        self.graph = build_conversation_graph(database, household_id)
-        # ponytail: one-process serialization; Supabase RPCs own cross-row atomicity.
-        self._lock = asyncio.Lock()
-
-    async def get_board(self, result: dict | None = None) -> dict:
-        return {**self.database.get_board(self.household_id), "result": result}
-
-    def get_calendar(self, start: date, end: date) -> dict:
-        return self.database.get_calendar(self.household_id, start, end)
-
-    def get_today(self, target: date, timezone_name: str) -> dict:
-        return self.database.get_today(self.household_id, target, timezone_name)
-
-    async def message(self, command: dict) -> dict:
-        async with self._lock:
-            actor_id = self.database.require_member(self.household_id, command.get("actor_id"))
-            text = command.get("text", "").strip()
-            if not text:
-                raise ValueError("Message cannot be empty")
-            session = (
-                self.database.add_conversation_message(
-                    self.household_id, command["session_id"], actor_id, "user", text
-                )
-                if command.get("session_id")
-                else self.database.create_conversation(
-                    self.household_id, actor_id, command.get("timezone", "UTC"), text
-                )
-            )
-            state = await self.graph.ainvoke({"command": command, "session": session})
-            return state["response"]
-
-    async def confirm_capture(
-        self,
-        session_id: str,
-        actor_id: str,
-        remind_member_ids: list[str | None],
-        accepted_preparations: list[bool],
-    ) -> dict:
-        async with self._lock:
-            result = self.database.confirm_conversation(
-                self.household_id, session_id, actor_id, remind_member_ids, accepted_preparations
-            )
-            return await self.get_board(result)
-
-    async def set_household_location(self, location: dict) -> dict:
-        self.database.set_household_location(self.household_id, location)
-        return await self.get_board({"action": "household_updated"})
-
-    def get_weather_location(self) -> dict | None:
-        return self.database.get_weather_location(self.household_id)
-
-    async def execute(self, command: dict) -> dict:
-        async with self._lock:
-            kind = command["type"]
-            if kind == "add_member":
-                member_id = self.database.add_member(self.household_id, command["name"], command.get("role", ""))
-                return await self.get_board({"action": "member_added", "member_id": member_id})
-            if kind == "delete_member":
-                self.database.delete_member(self.household_id, command["member_id"])
-                return await self.get_board({"action": "member_deleted"})
-            if kind == "update_item":
-                self.database.update_item(self.household_id, command["item_id"], command["actor_id"], command["fields"])
-                return await self.get_board({"action": "updated", "item_id": command["item_id"]})
-            if kind == "add_item_note":
-                note_id = self.database.add_item_note(self.household_id, command["item_id"], command["actor_id"], command["content"])
-                return await self.get_board({"action": "note_added", "note_id": note_id})
-            if kind == "update_occurrence":
-                self.database.update_occurrence(self.household_id, command["item_id"], command["occurrence_date"], command["actor_id"], command["fields"])
-                return await self.get_board({"action": "occurrence_updated"})
-            if kind == "cancel_occurrence":
-                self.database.cancel_occurrence(self.household_id, command["item_id"], command["occurrence_date"], command["actor_id"])
-                return await self.get_board({"action": "occurrence_cancelled"})
-            if kind == "delete_item":
-                self.database.delete_item(self.household_id, command["item_id"], command["actor_id"])
-                return await self.get_board({"action": "deleted"})
-            raise ValueError("Unsupported command")

@@ -15,13 +15,16 @@ standalone notes. Events can recur daily, weekly, or monthly.
 
 ## Architecture
 
-- `board_db.py`: Supabase Data API queries, deterministic Today, and mutations.
+- `board_db.py`: Supabase household and item persistence.
+- `conversation_db.py`: conversation persistence and capture confirmation.
+- `board_calendar.py`: recurrence-backed calendar and deterministic Today summary.
+- `assistant_query.py`: household-scoped read-only SQLite projection.
 - `board_graph.py`: OpenRouter router plus capture/query/chat graph nodes.
+- `board_service.py`: application operations used by HTTP routes.
 - `auth.py`, `board_api.py`, `conversation_api.py`: focused FastAPI routes.
 - `recurrence.py`: server-side recurrence expansion and exceptions.
 - The family assistant is read-only: AI-generated SQL runs only against a
   household-scoped in-memory SQLite projection, never the writable board connection.
-- `weather.py`: OpenWeather city lookup, five-day aggregation, and short cache.
 - `app.py`: FastAPI setup, middleware, and static file serving.
 - `conversation_api.py`: Deepgram speech-to-text and unified messages.
 - `static/`: dependency-free bilingual browser UI.
@@ -45,7 +48,6 @@ standalone notes. Events can recur daily, weekly, or monthly.
 - Keep primary mobile navigation to Home, Calendar, and Notes.
 - Dated tasks belong in Calendar; undated tasks stay in a small Unscheduled list.
 - Events and tasks support append-only follow-up notes.
-- Keep weather optional: provider failures must not block board data.
 - Store one row per recurring event series and expand requested calendar ranges
   on the server. Series edits and deletion apply to every occurrence.
 - Keep recurrence event-only and limited to daily, weekly, and monthly. Preserve

@@ -20,16 +20,20 @@ Hearthbook 是一个移动端优先的双语家庭助手。用户通过同一个
 - Tasks use `completed_at` instead of workflow columns.
 - Every message is routed to a capture, query, or conversation node.
 - Capture writes require review. Queries use a household-scoped, read-only
-  in-memory SQLite projection.
+  in-memory SQLite projection that can scale independently from capture.
 
 ## Architecture
 
 - `app.py`: FastAPI setup, authentication middleware, and security headers.
 - `auth.py`: Supabase Auth and household onboarding routes.
-- `board_api.py`: Today, calendar, item, follow-up, member, and weather routes.
+- `board_api.py`: Today, calendar, item, and follow-up routes.
 - `conversation_api.py`: shared text/audio conversation endpoints.
 - `board_graph.py`: LangGraph router and specialist capture/query/chat nodes.
-- `board_db.py`: Supabase Data API operations and deterministic summaries.
+- `board_service.py`: application operations used by HTTP routes.
+- `board_db.py`: Supabase household and item persistence.
+- `conversation_db.py`: conversation persistence and capture confirmation.
+- `board_calendar.py`: calendar expansion and deterministic Today summary.
+- `assistant_query.py`: read-only SQLite projection for query agents.
 - `recurrence.py`: recurrence expansion and occurrence exceptions.
 - `static/`: dependency-free mobile bilingual UI.
 - `supabase/migrations/`: Postgres schema, RPC transactions, and RLS.
@@ -46,11 +50,10 @@ uv run python app.py
 Open <http://127.0.0.1:8000>.
 
 Required: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and
-`OPENROUTER_API_KEY`. Voice needs `DEEPGRAM_API_KEY`; weather needs
-`OPENWEATHER_API_KEY`.
+`OPENROUTER_API_KEY`. Voice needs `DEEPGRAM_API_KEY`.
 
-Apply `supabase/migrations/` in filename order. The mobile refactor migration
-intentionally replaces the previous application tables.
+Apply `supabase/migrations/` in filename order. The mobile refactor intentionally
+replaces the previous application tables; later migrations move forward normally.
 
 ## Test
 
@@ -58,5 +61,4 @@ intentionally replaces the previous application tables.
 uv run python -m unittest -v
 ```
 
-Tests use local fakes and do not call AI, transcription, weather, or Supabase
-providers.
+Tests use small contract stubs and do not call AI, transcription, or Supabase providers.
