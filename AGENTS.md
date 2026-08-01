@@ -1,11 +1,10 @@
-# Home Orchestrator agent guide
+# Hearthbook agent guide
 
 ## Goal
 
 Build the smallest useful mobile-first bilingual family assistant. Supabase
-Postgres is the source of truth; LangGraph routes every message to capture,
-query, or conversation specialists. The assistant has events, tasks, and
-standalone notes. Events can recur daily, weekly, or monthly.
+Postgres is the source of truth. LangGraph routes every message to capture,
+query, or chat. The board contains events, tasks, and standalone notes.
 
 ## Commands
 
@@ -13,45 +12,71 @@ standalone notes. Events can recur daily, weekly, or monthly.
 - Run: `uv run python -m backend.hearthbook.main`
 - Test: `uv run python -m unittest -v`
 
-## Architecture
+## Current structure
 
-- `backend/hearthbook/api/`: focused FastAPI routes and request dependencies.
-- `backend/hearthbook/llm/`: OpenRouter graph nodes and read-only SQL projection.
-- `backend/hearthbook/domain/`: models, recurrence, calendar, and Today logic.
-- `backend/hearthbook/services/`: application operations used by HTTP routes.
+- `backend/hearthbook/main.py`: FastAPI app, session/household middleware,
+  security headers, static serving, and `/health`.
+- `backend/hearthbook/api/`: auth and household setup, board CRUD, unified
+  text/audio messages, and push-subscription routes.
+- `backend/hearthbook/domain/`: Pydantic item models, recurrence expansion,
+  Calendar, and deterministic Today logic.
+- `backend/hearthbook/llm/`: OpenRouter model/graph, capture and chat nodes,
+  safe query planning, and the in-memory SQLite projection.
+- `backend/hearthbook/services/`: `BoardService`, the API boundary for board
+  reads, writes, conversation handling, and confirmation.
 - `backend/hearthbook/storage/`: Supabase board and conversation persistence.
-- The family assistant is read-only: AI-generated SQL runs only against a
-  household-scoped in-memory SQLite projection, never the writable board connection.
-- `backend/hearthbook/main.py`: FastAPI setup, middleware, and static serving.
-- `backend/hearthbook/api/conversation.py`: Deepgram speech-to-text and unified messages.
-- `frontend/`: dependency-free bilingual browser UI.
-- `supabase/migrations/`: Postgres schema, household membership, and RLS.
-- `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`: required.
+- `frontend/`: dependency-free bilingual browser/PWA UI for Home, Calendar,
+  Notes, review/confirmation, editing, and notifications.
+- `supabase/migrations/`: Postgres tables, RPC transactions, household
+  membership, RLS, and notification delivery bookkeeping.
+- `supabase/functions/daily-notifications/`: Supabase Cron/Web Push delivery.
+- `design-system/`: visual reference material; runtime UI remains in `frontend/`.
+- `tests/`: focused runnable contract and behavior checks.
 
-## Working rules
+## Architecture rules
 
-- Route every message through LangGraph; keep ordinary CRUD in `BoardDatabase`
-  behind `BoardService`.
 - Keep board state in Supabase domain tables, not LangGraph checkpoints.
-- AI may infer who should be reminded from household context. This is never
-  ownership or assignment, and it must remain visible and correctable.
-- AI may propose one preparation for an event or task; save it only when the
-  user accepts it, and keep it manually editable afterward.
-- Keep conversations continuous. Queries remain read-only; proposed item changes
-  require explicit confirmation. Never expose generated SQL.
-- Preserve the input language in generated titles and details.
-- Keep Chinese and English UI strings in `frontend/app.js`.
+- Route every message through LangGraph. Keep ordinary CRUD in
+  `BoardDatabase` behind `BoardService`.
+- Capture produces drafts and requires explicit confirmation before creating
+  items. Query SQL is only a read-only `SELECT` over a household-scoped,
+  in-memory SQLite projection; never run generated SQL against Supabase.
+- Query replies may propose one supported item update. The browser must show
+  it and require confirmation before calling the normal item `PATCH` route.
+- Never expose generated SQL to users.
+- Keep conversations continuous and preserve the input language in generated
+  titles, details, and replies.
+- AI may infer who should be reminded from household context. This is visible
+  and correctable, and is never ownership or assignment. Preserve
+  `remind_member_id` semantics and use it for Calendar/Tasks “Mine” filters.
+- AI may suggest one preparation for an event or task. Save it only after the
+  user accepts it; keep it manually editable.
 - Keep Home limited to unified voice/text conversation and deterministic Today.
-- Keep primary mobile navigation to Home, Calendar, and Notes.
-- Dated tasks belong in Calendar; undated tasks stay in a small Unscheduled list.
-- Events and tasks support append-only follow-up notes.
-- Store one row per recurring event series and expand requested calendar ranges
-  on the server. Series edits and deletion apply to every occurrence.
-- Keep recurrence event-only and limited to daily, weekly, and monthly. Preserve
-  fixed day-of-month versus month-end rules and inclusive recurrence end dates.
+  Primary mobile navigation is Home, Calendar, and Notes.
+- Dated tasks belong in Calendar; undated tasks stay in `Unscheduled`.
+- Events and tasks support append-only follow-up notes. Notes themselves do not
+  have reminders or follow-up notes.
+- Store one row per recurring event series. Expand requested ranges on the
+  server; series edits/deletion affect all occurrences.
+- Recurrence is event-only and limited to daily, weekly, and monthly. Preserve
+  weekly weekday sets, fixed day-of-month versus month-end rules, and inclusive
+  recurrence end dates.
 - Store cancelled or moved occurrences in `recurrence_exceptions`, keyed by the
   original local occurrence date. Never materialize every future occurrence.
-- Do not add React, an ORM, social login, or notification delivery until a concrete
-  requirement needs them.
-- Never commit `.env`, database credentials, API keys, or audio.
-- Add one focused runnable test for non-trivial state behavior.
+- Keep Web Push delivery in the Supabase Edge Function. The app only manages
+  subscriptions; never move VAPID private keys or Cron secrets into the client.
+
+## Boundaries
+
+- Required app configuration: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and
+  `OPENROUTER_API_KEY`. Voice additionally needs `DEEPGRAM_API_KEY`.
+- `OPENROUTER_MODEL` defaults to `openrouter/free`; `DEEPGRAM_MODEL` defaults
+  to `nova-3`.
+- `SUPABASE_SECRET_KEY` and `VAPID_PUBLIC_KEY` are backend notification
+  configuration. VAPID private material and `NOTIFICATION_CRON_SECRET` stay in
+  Supabase only.
+- Never commit `.env`, credentials, API keys, private keys, or audio.
+- Do not add React, an ORM, social login, or another service until a concrete
+  requirement needs it.
+- Add one focused runnable test for non-trivial state behavior. Keep tests
+  provider-free unless a live integration is explicitly requested.
