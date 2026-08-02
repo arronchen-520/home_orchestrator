@@ -201,6 +201,47 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response["drafts"][0]["remind_member_id"], "lin")
 
+    async def test_event_reminder_defaults_to_proposer(self):
+        SESSION.clear()
+        SESSION.update(
+            id="session",
+            actor_id="lin",
+            timezone="America/Toronto",
+            status="active",
+            intent=None,
+            payload={},
+            messages=[{"role": "user", "content": "My flight tomorrow"}],
+        )
+        route = SimpleNamespace(ainvoke=AsyncMock(return_value=RouteDecision(intent="capture")))
+        capture = SimpleNamespace(
+            ainvoke=AsyncMock(
+                return_value=CaptureAnalysis(
+                    status="review",
+                    message="Please check this.",
+                    items=[
+                        ItemDraft(
+                            kind="event",
+                            title="Flight",
+                            start_at="2026-08-02T09:00:00-04:00",
+                            reminder_at="2026-08-02T07:00:00-04:00",
+                        )
+                    ],
+                )
+            )
+        )
+        with (
+            patch("backend.hearthbook.llm.graph.router_chain", return_value=route),
+            patch("backend.hearthbook.llm.graph.capture_chain", return_value=capture),
+            patch("backend.hearthbook.services.board.create_conversation", return_value=deepcopy(SESSION)),
+            patch("backend.hearthbook.llm.graph.add_message", side_effect=add_message),
+            patch("backend.hearthbook.llm.graph.update_conversation", side_effect=update_conversation),
+        ):
+            response = await BoardService(MemoryDatabase(), "family", "lin").message(
+                {"text": "My flight tomorrow", "timezone": "America/Toronto"}
+            )
+
+        self.assertEqual(response["drafts"][0]["remind_member_id"], "lin")
+
     async def test_capture_separates_scheduled_event_from_action_task(self):
         SESSION.clear()
         SESSION.update(
