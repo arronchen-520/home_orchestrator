@@ -295,6 +295,9 @@ class SupabaseAuthTest(unittest.TestCase):
         self.assertIn("claim_notification_delivery", notifications)
         self.assertIn("x-notification-cron-secret", notifications)
         self.assertIn("timeout_milliseconds := 30000", notifications)
+        recipients = (migrations / "202608020003_multiple_reminder_recipients.sql").read_text(encoding="utf-8").lower()
+        for expected in ("remind_member_ids text[]", "array[remind_member_id]", "unnest(items.remind_member_ids)", "drop column remind_member_id"):
+            self.assertIn(expected, recipients)
 
 
 if __name__ == "__main__":

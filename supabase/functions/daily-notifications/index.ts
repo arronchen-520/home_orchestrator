@@ -150,7 +150,7 @@ Deno.serve(async (request) => {
     for (const [householdId, memberIds] of homes) {
       const { items, exceptions } = await load(householdId);
       for (const item of items) {
-        if (!item.reminder_at || item.completed_at || !memberIds.has(item.remind_member_id)) continue;
+        if (!item.reminder_at || item.completed_at || !item.remind_member_ids?.some((id: string) => memberIds.has(id))) continue;
         const occurrences = item.recurrence ? candidates(item, now, exceptions) : [{ ...item, series_id: null, occurrence_date: null }];
         for (const occurrence of occurrences) {
           const due = item.recurrence ? reminderTime(item, occurrence) : zoned(item.reminder_at, subscription.timezone);

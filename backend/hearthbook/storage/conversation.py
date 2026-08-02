@@ -106,7 +106,7 @@ def confirm_conversation(
     household_id: str,
     session_id: str,
     actor_id: str,
-    remind_member_ids: list[str | None],
+    remind_member_ids: list[list[str]],
     accepted_preparations: list[bool],
 ) -> dict:
     session = get_conversation(database, household_id, session_id, actor_id)
@@ -115,12 +115,14 @@ def confirm_conversation(
     drafts = session["payload"].get("drafts") or []
     if len(remind_member_ids) != len(drafts) or len(accepted_preparations) != len(drafts):
         raise ValueError("Review every draft before confirming")
-    for draft, member_id, accepted in zip(
+    for draft, member_ids, accepted in zip(
         drafts, remind_member_ids, accepted_preparations, strict=True
     ):
-        if member_id is not None:
-            database.require_member(household_id, member_id)
-        draft["remind_member_id"] = member_id if draft["kind"] != "note" else None
+        draft["remind_member_ids"] = (
+            database.validate_reminder_members(household_id, member_ids)
+            if draft["kind"] != "note"
+            else []
+        )
         if not accepted or draft["kind"] == "note":
             draft["preparation"] = None
     original_text = "\n".join(

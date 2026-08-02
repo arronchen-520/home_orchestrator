@@ -92,7 +92,7 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('data-task-filter="mine"', index)
         self.assertIn('taskFilter: localStorage.getItem("hearthbook-task-filter")', app)
         self.assertIn("function filteredTasks()", app)
-        self.assertIn('item.remind_member_id === state.board.current_member_id', app)
+        self.assertIn('item.remind_member_ids?.includes(state.board.current_member_id)', app)
         self.assertIn('localStorage.setItem("hearthbook-task-filter", state.taskFilter)', app)
 
     def test_calendar_filter_uses_the_current_members_reminders(self):
@@ -104,7 +104,7 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('data-calendar-filter="mine"', index)
         self.assertIn('filterMine: "我的"', app)
         self.assertIn('function filteredCalendarItems()', app)
-        self.assertIn('item.remind_member_id === state.board.current_member_id', app)
+        self.assertIn('item.remind_member_ids?.includes(state.board.current_member_id)', app)
         self.assertIn('localStorage.setItem("hearthbook-calendar-filter", state.calendarFilter)', app)
         self.assertIn('.calendar-filter-button { min-height: 44px;', styles)
 

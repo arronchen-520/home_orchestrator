@@ -47,7 +47,7 @@ class BoardService:
     def confirm_capture(
         self,
         session_id: str,
-        remind_member_ids: list[str | None],
+        remind_member_ids: list[list[str]],
         accepted_preparations: list[bool],
     ) -> dict:
         result = confirm_conversation(

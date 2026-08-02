@@ -245,7 +245,7 @@ function memberName(id) {
 }
 
 function reminderNames(item) {
-  return item.remind_member_id ? [memberName(item.remind_member_id)].filter(Boolean) : [];
+  return (item.remind_member_ids || []).map(memberName).filter(Boolean);
 }
 
 function applyLanguage() {
@@ -328,12 +328,12 @@ function renderToday() {
 
 function filteredCalendarItems() {
   if (state.calendarFilter !== "mine") return state.calendar;
-  return state.calendar.filter((item) => item.remind_member_id === state.board.current_member_id);
+  return state.calendar.filter((item) => item.remind_member_ids?.includes(state.board.current_member_id));
 }
 
 function filteredTasks() {
   return state.board.items.filter((item) => item.kind === "task" && !item.completed_at
-    && (state.taskFilter !== "mine" || item.remind_member_id === state.board.current_member_id));
+    && (state.taskFilter !== "mine" || item.remind_member_ids?.includes(state.board.current_member_id)));
 }
 
 function calendarSummary(items) {
@@ -487,16 +487,25 @@ function renderConfirmation() {
   drafts.forEach((draft) => summary.append(textNode("p", `${t(draft.kind || "event")}: ${draft.title || draft.details || ""}`, "draft-summary")));
 
   const reminders = $("#remindChoices");
-  reminders.querySelectorAll("label").forEach((label) => label.remove());
+  reminders.replaceChildren();
   drafts.forEach((draft, index) => {
-    const label = document.createElement("label");
-    const select = document.createElement("select");
-    select.dataset.draftIndex = index;
-    select.append(new Option("—", ""));
-    state.board.members.forEach((member) => select.append(new Option(member.name, member.id)));
-    select.value = draft.remind_member_id || "";
-    label.append(document.createTextNode(`${draft.title}: `), select);
-    reminders.append(label);
+    if (draft.kind === "note") return;
+    const group = document.createElement("div");
+    group.className = "reminder-choice-group";
+    group.append(textNode("p", draft.title, "reminder-choice-title"));
+    const selected = new Set(draft.remind_member_ids || []);
+    state.board.members.forEach((member) => {
+      const label = document.createElement("label");
+      label.className = "checkbox-row";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.value = member.id;
+      input.dataset.draftIndex = index;
+      input.checked = selected.has(member.id);
+      label.append(input, document.createTextNode(member.name));
+      group.append(label);
+    });
+    reminders.append(group);
   });
 
   const preparations = $("#preparationChoices");
@@ -681,7 +690,6 @@ function fillEditor(item, scope) {
   $("#editTitle").value = item.title || "";
   $("#editDetails").value = item.details || "";
   $("#editRemindMemberField").hidden = item.kind === "note" || scope === "occurrence";
-  $("#editRemindMember").value = item.remind_member_id || "";
   $("#editEventFields").hidden = item.kind !== "event";
   $("#editTaskFields").hidden = item.kind !== "task";
   if (item.kind === "event") {
@@ -706,8 +714,19 @@ function openItem(item) {
   $("#itemKind").textContent = t(item.kind || "event");
   $("#itemKind").className = `badge ${item.kind || "event"}`;
   $("#itemTitle").textContent = item.title || "";
-  const remindSelect = $("#editRemindMember");
-  remindSelect.replaceChildren(new Option("—", ""), ...state.board.members.map((member) => new Option(member.name, member.id)));
+  const reminderChoices = $("#editRemindMembers");
+  reminderChoices.replaceChildren();
+  const selected = new Set(item.remind_member_ids || []);
+  state.board.members.forEach((member) => {
+    const label = document.createElement("label");
+    label.className = "checkbox-row";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = member.id;
+    input.checked = selected.has(member.id);
+    label.append(input, document.createTextNode(member.name));
+    reminderChoices.append(label);
+  });
   $("#editScopeField").hidden = !item.is_occurrence;
   $("#editScope").value = item.is_occurrence ? "occurrence" : "series";
   $("#itemFormError").hidden = true;
@@ -919,7 +938,9 @@ $("#confirmButton").addEventListener("click", async () => {
     return;
   }
   const drafts = state.pending.drafts || [];
-  const remind_member_ids = drafts.map((_, index) => $("#remindChoices").querySelector(`[data-draft-index="${index}"]`)?.value || null);
+  const remind_member_ids = drafts.map((_, index) => [
+    ...$("#remindChoices").querySelectorAll(`[data-draft-index="${index}"]:checked`),
+  ].map((input) => input.value));
   const accepted_preparations = drafts.map((_, index) => Boolean($("#preparationChoices").querySelector(`[data-draft-index="${index}"]`)?.checked));
   try {
     await api(`/api/conversations/${state.sessionId}/confirm`, {
@@ -952,7 +973,10 @@ $("#itemForm").addEventListener("submit", async (event) => {
   $("#itemFormError").hidden = true;
   try {
     const fields = { title: $("#editTitle").value.trim(), details: $("#editDetails").value.trim() };
-    if (item.kind !== "note" && scope === "series") fields.remind_member_id = $("#editRemindMember").value || null;
+    if (item.kind !== "note" && scope === "series") {
+      fields.remind_member_ids = [...$("#editRemindMembers").querySelectorAll("input:checked")]
+        .map((input) => input.value);
+    }
     if (item.kind === "event") {
       if ($("#editAllDay").checked) {
         fields.start_date = $("#editStartDate").value;

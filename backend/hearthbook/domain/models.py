@@ -19,7 +19,7 @@ class ItemDraft(BaseModel):
     title: str = Field(min_length=1, max_length=120)
     details: str = Field(default="", max_length=2000)
     preparation: str | None = Field(default=None, max_length=500)
-    remind_member_id: str | None = None
+    remind_member_ids: list[str] = Field(default_factory=list, max_length=20)
     schedule_timezone: str | None = None
     start_at: datetime | None = None
     end_at: datetime | None = None
@@ -79,7 +79,8 @@ class ItemDraft(BaseModel):
         else:
             self.start_at = self.end_at = self.start_date = None
             self.due_at = self.due_date = self.reminder_at = None
-            self.preparation = self.remind_member_id = self.schedule_timezone = None
+            self.preparation = self.schedule_timezone = None
+            self.remind_member_ids = []
             self.recurrence = self.recurrence_until = None
             self.weekdays = []
             self.monthly_on_last_day = self.all_day = False
@@ -112,13 +113,13 @@ class CaptureAnalysis(BaseModel):
 
 class ProposedUpdate(BaseModel):
     item_id: str
-    fields: dict[str, str | bool | None]
+    fields: dict[str, str | bool | list[str] | None]
     confirmation: str = Field(min_length=1, max_length=500)
 
     @model_validator(mode="after")
     def supported_fields(self) -> "ProposedUpdate":
         allowed = {
-            "title", "details", "preparation", "remind_member_id", "completed",
+            "title", "details", "preparation", "remind_member_ids", "completed",
             "start_at", "end_at", "start_date", "due_at", "due_date",
             "reminder_at", "schedule_timezone", "all_day", "recurrence_until",
         }

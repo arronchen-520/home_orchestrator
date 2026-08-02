@@ -18,7 +18,7 @@ class ItemUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=120)
     details: str | None = Field(default=None, max_length=2000)
     preparation: str | None = Field(default=None, max_length=500)
-    remind_member_id: str | None = None
+    remind_member_ids: list[str] = Field(default_factory=list, max_length=20)
     completed: bool | None = None
     start_at: datetime | None = None
     end_at: datetime | None = None

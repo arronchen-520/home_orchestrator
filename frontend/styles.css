@@ -333,6 +333,10 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .editor-fields { display: grid; gap: 14px; }
 .item-form .checkbox-row { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .checkbox-row input { width: 22px; min-height: 22px; }
+.reminder-choice-group { display: grid; gap: 4px; margin: 12px 0; }
+.reminder-choice-title { margin: 0; font-weight: 700; }
+#editRemindMemberField { border: 0; margin: 0; padding: 0; }
+#editRemindMembers { display: grid; gap: 4px; }
 .weekday-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; }
 .weekday-picker legend { margin-bottom: 6px; font-weight: 700; }
 .weekday-picker label { display: grid; place-items: center; min-width: 44px; min-height: 44px; border: 1px solid var(--line); border-radius: 14px; cursor: pointer; }

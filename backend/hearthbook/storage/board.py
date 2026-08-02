@@ -49,6 +49,14 @@ class BoardDatabase:
             raise ValueError("Choose a valid family member first")
         return member_id
 
+    def validate_reminder_members(self, household_id: str, member_ids: list[str]) -> list[str]:
+        if len(member_ids) > 20:
+            raise ValueError("Choose at most 20 reminder recipients")
+        result = list(dict.fromkeys(member_ids))
+        for member_id in result:
+            self.require_member(household_id, member_id)
+        return result
+
     def require_user_member(self, household_id: str, user_id: str) -> str:
         row = self.one(
             self.client.table("members")
@@ -100,8 +108,9 @@ class BoardDatabase:
             draft = ItemDraft.model_validate(raw).model_dump(mode="json")
             if draft["kind"] != "note":
                 draft["schedule_timezone"] = draft.get("schedule_timezone") or timezone_name
-            if draft["remind_member_id"] is not None:
-                self.require_member(household_id, draft["remind_member_id"])
+            draft["remind_member_ids"] = self.validate_reminder_members(
+                household_id, draft["remind_member_ids"]
+            )
             rows.append(
                 {
                     "id": str(uuid4()),
@@ -142,7 +151,7 @@ class BoardDatabase:
         rows = (
             self.client.table("items")
             .select(
-                "id,conversation_id,kind,title,details,preparation,remind_member_id,completed_at,"
+                "id,conversation_id,kind,title,details,preparation,remind_member_ids,completed_at,"
                 "start_at,end_at,start_date,due_at,due_date,reminder_at,schedule_timezone,all_day,recurrence,"
                 "weekdays,monthly_on_last_day,recurrence_until,created_by,created_at,updated_at,original_text"
             )
@@ -204,7 +213,7 @@ class BoardDatabase:
 
     def update_item(self, household_id: str, item_id: str, actor_id: str, fields: dict) -> None:
         allowed = {
-            "title", "details", "preparation", "remind_member_id", "completed",
+            "title", "details", "preparation", "remind_member_ids", "completed",
             "start_at", "end_at", "start_date", "due_at", "due_date", "reminder_at", "schedule_timezone",
             "all_day", "recurrence", "monthly_on_last_day", "recurrence_until",
             "weekdays",
@@ -225,8 +234,9 @@ class BoardDatabase:
         item.update(fields)
         if item["kind"] == "note" and set(fields) - {"title", "details"}:
             raise ValueError("Notes only have a title and details")
-        if item.get("remind_member_id") is not None:
-            self.require_member(household_id, item["remind_member_id"])
+        item["remind_member_ids"] = self.validate_reminder_members(
+            household_id, item.get("remind_member_ids") or []
+        )
         if completed is not None:
             if item["kind"] != "task":
                 raise ValueError("Only tasks can be completed")

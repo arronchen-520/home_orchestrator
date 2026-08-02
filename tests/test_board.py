@@ -129,7 +129,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
                             title="School pickup",
                             start_at="2026-08-01T15:30:00-04:00",
                             reminder_at="2026-08-01T15:00:00-04:00",
-                            remind_member_id="sam",
+                            remind_member_ids=["sam", "lin"],
                         )
                     ],
                 )
@@ -155,7 +155,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response["intent"], "capture")
         self.assertEqual(response["status"], "review")
-        self.assertEqual(response["drafts"][0]["remind_member_id"], "sam")
+        self.assertEqual(response["drafts"][0]["remind_member_ids"], ["sam", "lin"])
         self.assertEqual(response["drafts"][0]["schedule_timezone"], "America/Toronto")
         self.assertEqual(create.call_args.args[2], "lin")
         route.ainvoke.assert_awaited_once()
@@ -199,7 +199,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
                 {"text": "Buy milk tomorrow", "timezone": "America/Toronto"}
             )
 
-        self.assertEqual(response["drafts"][0]["remind_member_id"], "lin")
+        self.assertEqual(response["drafts"][0]["remind_member_ids"], ["lin"])
 
     async def test_event_reminder_defaults_to_proposer(self):
         SESSION.clear()
@@ -240,7 +240,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
                 {"text": "My flight tomorrow", "timezone": "America/Toronto"}
             )
 
-        self.assertEqual(response["drafts"][0]["remind_member_id"], "lin")
+        self.assertEqual(response["drafts"][0]["remind_member_ids"], ["lin"])
 
     async def test_capture_separates_scheduled_event_from_action_task(self):
         SESSION.clear()
@@ -298,7 +298,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
                 "reminder_at": "2026-08-01T14:00:00-04:00", "all_day": False,
                 "recurrence": None, "recurrence_until": None,
                 "monthly_on_last_day": False, "completed_at": None,
-                "preparation": None, "remind_member_id": "sam", "notes": [],
+                "preparation": None, "remind_member_ids": ["sam"], "notes": [],
                 "created_at": "2026-07-31T00:00:00+00:00",
                 "updated_at": "2026-07-31T00:00:00+00:00", "original_text": "Dentist",
             },
@@ -308,7 +308,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
                 "due_date": "2026-07-31", "reminder_at": None, "all_day": False,
                 "recurrence": None, "recurrence_until": None,
                 "monthly_on_last_day": False, "completed_at": None,
-                "preparation": None, "remind_member_id": None,
+                "preparation": None, "remind_member_ids": [],
                 "notes": [{"id": "n1", "member_id": "lin", "content": "Renewed", "created_at": "2026-07-31T01:00:00+00:00"}],
                 "created_at": "2026-07-30T00:00:00+00:00",
                 "updated_at": "2026-07-30T00:00:00+00:00", "original_text": "Return book",
@@ -343,7 +343,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         )
         flight = ItemDraft(
             kind="event", title="Flight to Shanghai", start_at="2026-08-03T09:00:00-04:00",
-            reminder_at="2026-08-03T07:00:00-04:00", remind_member_id="lin",
+            reminder_at="2026-08-03T07:00:00-04:00", remind_member_ids=["lin", "sam"],
         ).model_dump(mode="json")
         flight.update(id="flight", completed_at=None, notes=[])
         route = SimpleNamespace(ainvoke=AsyncMock(return_value=RouteDecision(intent="query")))
@@ -378,7 +378,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         )
         flight = ItemDraft(
             kind="event", title="Flight to Shanghai", start_at="2026-08-03T09:00:00-04:00",
-            details="Check in 3 hours early", remind_member_id="lin",
+            details="Check in 3 hours early", remind_member_ids=["lin"],
         ).model_dump(mode="json")
         flight.update(id="flight", completed_at=None, notes=[])
         route = SimpleNamespace(ainvoke=AsyncMock(return_value=RouteDecision(intent="query")))
@@ -409,6 +409,18 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "Only events can recur"):
             ItemDraft(kind="task", title="Trash", recurrence="weekly")
 
+    def test_reminder_recipients_are_deduplicated_and_limited(self):
+        database = BoardDatabase(MagicMock())
+        database.require_member = MagicMock()
+
+        self.assertEqual(
+            database.validate_reminder_members("family", ["lin", "sam", "lin"]),
+            ["lin", "sam"],
+        )
+        self.assertEqual(database.require_member.call_count, 2)
+        with self.assertRaisesRegex(ValueError, "at most 20"):
+            database.validate_reminder_members("family", [str(index) for index in range(21)])
+
     def test_confirm_clears_session_messages_after_creating_items(self):
         database = MagicMock()
         session_table = MagicMock()
@@ -428,7 +440,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
             "messages": [{"role": "user", "content": "Buy milk"}],
         }
         with patch("backend.hearthbook.storage.conversation.get_conversation", return_value=session):
-            result = confirm_conversation(database, "family", "session", "lin", [None], [False])
+            result = confirm_conversation(database, "family", "session", "lin", [[]], [False])
 
         self.assertEqual(result["item_ids"], ["item-1"])
         message_table.delete.assert_called_once_with()
@@ -438,7 +450,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         item = ItemDraft(
             kind="event", title="Medicine", start_date="2026-08-03", all_day=True,
             recurrence="weekly", reminder_at="2026-08-04T09:00:00-04:00",
-            remind_member_id="sam",
+            remind_member_ids=["sam"],
         ).model_dump(mode="json")
         item.update(id="medicine", completed_at=None, notes=[])
 
@@ -496,7 +508,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         row = {
             "id": "series", "household_id": "family", "kind": "event",
             "title": "Pickup", "details": "", "preparation": None,
-            "remind_member_id": None, "completed_at": None,
+            "remind_member_ids": [], "completed_at": None,
             "start_at": "2026-08-24T15:00:00-04:00",
             "end_at": "2026-08-24T16:00:00-04:00", "start_date": None,
             "due_at": None, "due_date": None, "reminder_at": None,

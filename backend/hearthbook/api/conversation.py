@@ -29,7 +29,7 @@ class MessageInput(BaseModel):
 
 
 class CaptureConfirmation(BaseModel):
-    remind_member_ids: list[str | None] = Field(max_length=20)
+    remind_member_ids: list[list[str]] = Field(max_length=20)
     accepted_preparations: list[bool] = Field(max_length=20)
 
 
