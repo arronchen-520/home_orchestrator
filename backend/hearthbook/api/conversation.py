@@ -12,9 +12,10 @@ from pydantic import BaseModel, Field
 
 from .dependencies import board_service
 from .errors import service_call
+from ..domain.models import MAX_REMINDER_RECIPIENTS
 from ..llm.graph import model
 
-MAX_AUDIO_BYTES = 10 * 1024 * 1024
+MAX_AUDIO_BYTES = 5 * 1024 * 1024
 MAX_IMAGE_BYTES = 3 * 1024 * 1024
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 JPEG_SIGNATURE = b"\xff\xd8\xff"
@@ -23,13 +24,13 @@ router = APIRouter(prefix="/api")
 
 
 class MessageInput(BaseModel):
-    text: str = Field(min_length=1, max_length=2000)
+    text: str = Field(min_length=1, max_length=1000)
     timezone: str = "UTC"
     session_id: str | None = None
 
 
 class CaptureConfirmation(BaseModel):
-    remind_member_ids: list[list[str]] = Field(max_length=20)
+    remind_member_ids: list[Annotated[list[str], Field(max_length=MAX_REMINDER_RECIPIENTS)]] = Field(max_length=20)
     accepted_preparations: list[bool] = Field(max_length=20)
 
 
@@ -53,7 +54,7 @@ async def transcribe(file: UploadFile, language: Literal["en", "zh"]) -> str:
         raise HTTPException(status_code=415, detail="Upload an audio file")
     audio = await file.read(MAX_AUDIO_BYTES + 1)
     if len(audio) > MAX_AUDIO_BYTES:
-        raise HTTPException(status_code=413, detail="Audio must be 10 MB or smaller")
+        raise HTTPException(status_code=413, detail="Audio must be 5 MB or smaller")
     content_type = (file.content_type or "audio/webm").split(";", 1)[0]
     try:
         async with httpx.AsyncClient(timeout=60) as client:

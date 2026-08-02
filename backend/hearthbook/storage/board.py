@@ -5,7 +5,7 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from supabase import Client
 
-from ..domain.models import ItemDraft, WEEKDAYS
+from ..domain.models import MAX_REMINDER_RECIPIENTS, ItemDraft, WEEKDAYS
 from ..domain.recurrence import base_occurrences, item_date, validate_month_end
 
 HOUSEHOLD_MEMORY_MAX_CHARS = 2000
@@ -50,8 +50,8 @@ class BoardDatabase:
         return member_id
 
     def validate_reminder_members(self, household_id: str, member_ids: list[str]) -> list[str]:
-        if len(member_ids) > 20:
-            raise ValueError("Choose at most 20 reminder recipients")
+        if len(member_ids) > MAX_REMINDER_RECIPIENTS:
+            raise ValueError(f"Choose at most {MAX_REMINDER_RECIPIENTS} reminder recipients")
         result = list(dict.fromkeys(member_ids))
         for member_id in result:
             self.require_member(household_id, member_id)

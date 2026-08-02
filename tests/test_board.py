@@ -4,6 +4,9 @@ from datetime import date
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from pydantic import ValidationError
+
+from backend.hearthbook.api.conversation import CaptureConfirmation, MAX_AUDIO_BYTES, MessageInput
 from backend.hearthbook.domain.calendar import get_calendar, get_today
 from backend.hearthbook.domain.models import AgentReply, CaptureAnalysis, ItemDraft, QueryDecision, RouteDecision
 from backend.hearthbook.domain.recurrence import base_occurrences
@@ -103,6 +106,19 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         }
 
         self.assertEqual(conversation_text(session, limit=1), "user: Latest request")
+
+    def test_capture_context_keeps_only_ten_messages(self):
+        session = {"messages": [{"role": "user", "content": str(index)} for index in range(11)]}
+
+        self.assertNotIn("user: 0", conversation_text(session))
+        self.assertIn("user: 10", conversation_text(session))
+
+    def test_message_audio_and_reminder_limits(self):
+        with self.assertRaises(ValidationError):
+            MessageInput(text="x" * 1001)
+        with self.assertRaises(ValidationError):
+            CaptureConfirmation(remind_member_ids=[[str(index) for index in range(6)]], accepted_preparations=[True])
+        self.assertEqual(MAX_AUDIO_BYTES, 5 * 1024 * 1024)
 
     async def test_capture_routes_to_its_specialist_and_keeps_reminder_target(self):
         SESSION.clear()
@@ -418,8 +434,8 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
             ["lin", "sam"],
         )
         self.assertEqual(database.require_member.call_count, 2)
-        with self.assertRaisesRegex(ValueError, "at most 20"):
-            database.validate_reminder_members("family", [str(index) for index in range(21)])
+        with self.assertRaisesRegex(ValueError, "at most 5"):
+            database.validate_reminder_members("family", [str(index) for index in range(6)])
 
     def test_confirm_clears_session_messages_after_creating_items(self):
         database = MagicMock()

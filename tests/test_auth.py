@@ -298,6 +298,8 @@ class SupabaseAuthTest(unittest.TestCase):
         recipients = (migrations / "202608020003_multiple_reminder_recipients.sql").read_text(encoding="utf-8").lower()
         for expected in ("remind_member_ids text[]", "array[remind_member_id]", "unnest(items.remind_member_ids)", "drop column remind_member_id"):
             self.assertIn(expected, recipients)
+        recipient_limit = (migrations / "202608020004_limit_reminder_recipients.sql").read_text(encoding="utf-8").lower()
+        self.assertIn("cardinality(remind_member_ids) <= 5", recipient_limit)
 
 
 if __name__ == "__main__":

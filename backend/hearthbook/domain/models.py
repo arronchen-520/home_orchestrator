@@ -12,6 +12,7 @@ Intent = Literal["capture", "query", "chat"]
 Recurrence = Literal["daily", "weekly", "monthly"]
 Weekday = Literal["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
 WEEKDAYS = ("MO", "TU", "WE", "TH", "FR", "SA", "SU")
+MAX_REMINDER_RECIPIENTS = 5
 
 
 class ItemDraft(BaseModel):
@@ -19,7 +20,7 @@ class ItemDraft(BaseModel):
     title: str = Field(min_length=1, max_length=120)
     details: str = Field(default="", max_length=2000)
     preparation: str | None = Field(default=None, max_length=500)
-    remind_member_ids: list[str] = Field(default_factory=list, max_length=20)
+    remind_member_ids: list[str] = Field(default_factory=list, max_length=MAX_REMINDER_RECIPIENTS)
     schedule_timezone: str | None = None
     start_at: datetime | None = None
     end_at: datetime | None = None

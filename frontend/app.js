@@ -81,8 +81,18 @@ const copy = {
   },
 };
 
+copy.zh.messageTooLong = "文字最多 1,000 个字符。";
+copy.zh.recordingLimit = "录音最长 60 秒，已发送前 60 秒。";
+copy.zh.audioTooLarge = "录音不能超过 5 MB。";
+copy.en.messageTooLong = "Messages can be up to 1,000 characters.";
+copy.en.recordingLimit = "Recordings can be up to 60 seconds. Sending the first 60 seconds.";
+copy.en.audioTooLarge = "Recordings can be up to 5 MB.";
+
 const $ = (selector) => document.querySelector(selector);
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+const MAX_MESSAGE_CHARS = 1000;
+const MAX_AUDIO_BYTES = 5 * 1024 * 1024;
+const MAX_RECORDING_MS = 60 * 1000;
 const state = {
   language: localStorage.getItem("hearthbook-language") || (navigator.language.startsWith("zh") ? "zh" : "en"),
   board: { household: {}, members: [], items: [] },
@@ -105,7 +115,7 @@ async function api(path, options = {}) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const safeDetail = response.status < 500 && typeof data.detail === "string" ? data.detail : "";
+    const safeDetail = response.status < 500 ? (typeof data.detail === "string" ? data.detail : data.detail?.[0]?.msg || "") : "";
     const error = new Error(safeDetail || t("networkError"));
     error.status = response.status;
     throw error;
@@ -873,6 +883,7 @@ $("#messageForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = $("#messageInput");
   const value = input.value;
+  if (value.length > MAX_MESSAGE_CHARS) return showToast(t("messageTooLong"), true);
   input.value = "";
   await sendText(value);
 });
@@ -1072,6 +1083,7 @@ $("#recordButton").addEventListener("click", async () => {
     const chunks = [];
     const recorder = new MediaRecorder(stream);
     state.recorder = recorder;
+    state.recordingLimitReached = false;
     recorder.addEventListener("dataavailable", (event) => { if (event.data.size) chunks.push(event.data); });
     recorder.addEventListener("stop", async () => {
       clearTimeout(state.recordingTimer);
@@ -1081,6 +1093,8 @@ $("#recordButton").addEventListener("click", async () => {
       $("#recordButton span").textContent = t("tapToTalk");
       const audio = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
       if (!audio.size) return showToast(t("noSpeech"), true);
+      if (audio.size > MAX_AUDIO_BYTES) return showToast(t("audioTooLarge"), true);
+      if (state.recordingLimitReached) showToast(t("recordingLimit"), true);
       const form = new FormData();
       form.append("file", audio, "recording.webm");
       form.append("timezone", timezone);
@@ -1105,7 +1119,11 @@ $("#recordButton").addEventListener("click", async () => {
     $("#recordButton").setAttribute("aria-pressed", "true");
     $("#recordButton span").textContent = t("stopRecording");
     showToast(t("listening"));
-    state.recordingTimer = setTimeout(() => recorder.state === "recording" && recorder.stop(), 60000);
+    state.recordingTimer = setTimeout(() => {
+      if (recorder.state !== "recording") return;
+      state.recordingLimitReached = true;
+      recorder.stop();
+    }, MAX_RECORDING_MS);
   } catch (_) { showToast(t("microphoneError"), true); }
 });
 

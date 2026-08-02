@@ -166,7 +166,7 @@ for durable user-confirmed family preferences, never secrets. {format_instructio
     )
 
 
-def conversation_text(session: dict, source: str | None = None, limit: int = 20) -> str:
+def conversation_text(session: dict, source: str | None = None, limit: int = 10) -> str:
     conversation = "\n".join(
         f'{message["role"]}: {message["content"]}' for message in session["messages"][-limit:]
     )
