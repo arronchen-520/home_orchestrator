@@ -259,31 +259,53 @@
 
     <dialog id="settingsDialog" class="sheet small-sheet">
       <div class="dialog-header"><h2 data-i18n="settings">设置</h2><button id="settingsCloseButton" class="icon-button" type="button" data-i18n-aria="close" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
-      <section class="household-settings" aria-labelledby="householdSettingsTitle">
-        <h3 id="householdSettingsTitle" data-i18n="households">家庭组</h3>
+      <section class="settings-section" aria-labelledby="currentHouseholdTitle">
+        <h3 id="currentHouseholdTitle" data-i18n="currentHousehold">当前家庭</h3>
+        <p id="currentHouseholdName" class="current-household-name" hidden></p>
         <label id="householdSwitcher" hidden><span data-i18n="switchHousehold">切换家庭</span><select id="householdSelect"></select></label>
-        <form id="createAdditionalHouseholdForm" class="stack-form">
-          <label><span data-i18n="memberRole">Your role (optional)</span><input id="additionalCreatorRole" maxlength="40" autocomplete="organization-title"></label>
-          <h4 data-i18n="createAnotherHousehold">创建新家庭</h4>
-          <label><span data-i18n="householdName">家庭名称</span><input id="additionalHouseholdName" maxlength="80" required></label>
-          <label><span data-i18n="yourName">你的名字</span><input id="additionalCreatorName" maxlength="40" autocomplete="name" required></label>
-          <button class="secondary-button" type="submit" data-i18n="createHousehold">创建家庭</button>
+      </section>
+      <section class="settings-section" aria-labelledby="profileTitle">
+        <h3 id="profileTitle" data-i18n="myProfile">我的资料</h3>
+        <form id="memberProfileForm" class="stack-form" hidden>
+          <label><span data-i18n="yourName">你的名字</span><input id="memberName" maxlength="40" autocomplete="name" required></label>
+          <label><span data-i18n="myRole">我的身份</span><input id="memberRole" maxlength="40" autocomplete="organization-title"></label>
+          <button class="secondary-button" type="submit" data-i18n="saveProfile">保存资料</button>
         </form>
       </section>
-      <div id="householdSummary"></div>
-      <form id="memberProfileForm" class="stack-form" hidden>
-        <label><span data-i18n="yourName">你的名字</span><input id="memberName" maxlength="40" autocomplete="name" required></label>
-        <label><span data-i18n="myRole">我的身份</span><input id="memberRole" maxlength="40" autocomplete="organization-title"></label>
-        <button class="secondary-button" type="submit" data-i18n="saveProfile">保存资料</button>
-      </form>
-      <section class="notification-settings" aria-labelledby="notificationTitle">
+      <section class="settings-section" aria-labelledby="notificationTitle">
         <h3 id="notificationTitle" data-i18n="notifications">通知</h3>
         <p data-i18n="notificationHelp">在提醒时间推送日程和待办，并在每天上午 9 点（本地时间）发送今日摘要。</p>
         <button id="notificationButton" class="secondary-button full-width" type="button" data-i18n="allowNotifications">允许通知</button>
         <p id="notificationStatus" class="settings-status" aria-live="polite"></p>
       </section>
-      <button id="leaveHouseholdButton" class="logout-button" type="button" data-i18n="leaveHousehold">退出这个家庭</button>
-      <button id="logoutButton" class="logout-button" type="button" data-i18n="logout">退出登录</button>
+      <section class="settings-section" aria-labelledby="membersTitle">
+        <h3 id="membersTitle" data-i18n="familyMembers">家庭成员</h3>
+        <div id="householdSummary"></div>
+      </section>
+      <details class="settings-details">
+        <summary data-i18n="otherHouseholds">其他家庭</summary>
+        <div class="settings-details-body">
+          <form id="createAdditionalHouseholdForm" class="stack-form">
+            <h3 data-i18n="createAnotherHousehold">创建新家庭</h3>
+            <label><span data-i18n="householdName">家庭名称</span><input id="additionalHouseholdName" maxlength="80" required></label>
+            <label><span data-i18n="yourName">你的名字</span><input id="additionalCreatorName" maxlength="40" autocomplete="name" required></label>
+            <label><span data-i18n="memberRole">你的身份（可选）</span><input id="additionalCreatorRole" maxlength="40" autocomplete="organization-title"></label>
+            <button class="secondary-button" type="submit" data-i18n="createHousehold">创建家庭</button>
+          </form>
+          <form id="joinAdditionalHouseholdForm" class="stack-form">
+            <h3 data-i18n="joinAnotherHousehold">加入已有家庭</h3>
+            <label><span data-i18n="inviteCode">家庭邀请码</span><input id="additionalInviteCode" maxlength="40" required autocomplete="one-time-code"></label>
+            <label><span data-i18n="yourName">你的名字</span><input id="additionalJoinerName" maxlength="40" required autocomplete="name"></label>
+            <label><span data-i18n="memberRole">你的身份（可选）</span><input id="additionalJoinerRole" maxlength="40" autocomplete="organization-title"></label>
+            <button class="secondary-button" type="submit" data-i18n="joinHousehold">加入家庭</button>
+          </form>
+        </div>
+      </details>
+      <section class="settings-section account-settings" aria-labelledby="accountTitle">
+        <h3 id="accountTitle" data-i18n="account">账户</h3>
+        <button id="leaveHouseholdButton" class="logout-button" type="button" data-i18n="leaveHousehold">退出这个家庭</button>
+        <button id="logoutButton" class="logout-button" type="button" data-i18n="logout">退出登录</button>
+      </section>
     </dialog>
 
     <dialog id="authDialog" class="sheet small-sheet">

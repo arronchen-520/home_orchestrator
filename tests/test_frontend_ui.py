@@ -32,6 +32,20 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('id="settingsCloseButton"', index)
         self.assertIn('$("#settingsCloseButton").addEventListener("click", () => $("#settingsDialog").close());', app)
 
+    def test_settings_folds_other_households_after_everyday_controls(self):
+        index = Path("frontend/index.html").read_text(encoding="utf-8")
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+        styles = Path("frontend/styles.css").read_text(encoding="utf-8")
+
+        self.assertLess(index.index('id="currentHouseholdTitle"'), index.index('id="profileTitle"'))
+        self.assertLess(index.index('id="profileTitle"'), index.index('id="notificationTitle"'))
+        self.assertLess(index.index('id="notificationTitle"'), index.index('id="membersTitle"'))
+        self.assertLess(index.index('id="membersTitle"'), index.index('<details class="settings-details">'))
+        self.assertIn('id="joinAdditionalHouseholdForm"', index)
+        self.assertIn('$("#joinAdditionalHouseholdForm").addEventListener("submit", async (event) => {', app)
+        self.assertIn('householdName.hidden = !household.name;', app)
+        self.assertIn('.settings-details summary { min-height: 56px;', styles)
+
     def test_notification_states_are_visually_distinct(self):
         app = Path("frontend/app.js").read_text(encoding="utf-8")
         styles = Path("frontend/styles.css").read_text(encoding="utf-8")
