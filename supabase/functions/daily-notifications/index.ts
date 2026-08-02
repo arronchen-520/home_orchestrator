@@ -148,7 +148,9 @@ Deno.serve(async (request) => {
       }
       if (localNow.hour === 9) summaryItems.push(...todayItems(items, localNow, subscription.timezone, exceptions));
     }
-    if (localNow.hour === 9 && homes.size) await send(`summary:${localNow.toISODate()}`, summaryPayload(summaryItems, subscription.language, localNow.toISODate()!));
+    if (localNow.hour === 9 && homes.size && summaryItems.some((item) => !item.completed_at)) {
+      await send(`summary:${localNow.toISODate()}`, summaryPayload(summaryItems, subscription.language, localNow.toISODate()!));
+    }
   }
   return Response.json({ subscriptions: subscriptions?.length || 0, sent });
 });

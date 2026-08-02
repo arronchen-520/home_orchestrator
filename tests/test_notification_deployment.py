@@ -11,6 +11,11 @@ class NotificationDeploymentTest(unittest.TestCase):
         self.assertNotIn("/internal/notifications/run", migration)
         self.assertIn("NOTIFICATION_CRON_SECRET", function)
 
+    def test_daily_summary_skips_when_no_open_items_exist(self):
+        function = Path("supabase/functions/daily-notifications/index.ts").read_text(encoding="utf-8")
+
+        self.assertIn("summaryItems.some((item) => !item.completed_at)", function)
+
 
 if __name__ == "__main__":
     unittest.main()
