@@ -18,10 +18,11 @@ class FrontendUIContractTest(unittest.TestCase):
         index = Path("frontend/index.html").read_text(encoding="utf-8")
         app = Path("frontend/app.js").read_text(encoding="utf-8")
 
-        self.assertIn('id="imageInput" type="file" accept="image/png"', index)
+        self.assertIn('id="imageInput" type="file" accept="image/png,.png,image/jpeg,.jpg,.jpeg"', index)
         self.assertIn('id="imageText" rows="2" maxlength="2000"', index)
         self.assertNotIn('id="imageText" rows="2" maxlength="2000" required', index)
         self.assertIn('async function sendImage(file, text)', app)
+        self.assertIn('["image/png", "image/jpeg"].includes(file.type)', app)
         self.assertIn('api("/api/image", { method: "POST", body: form })', app)
 
     def test_settings_dialog_has_an_explicit_close_action(self):

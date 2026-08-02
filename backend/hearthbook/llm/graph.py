@@ -177,7 +177,7 @@ def conversation_text(session: dict, source: str | None = None, limit: int = 20)
     if source == "audio":
         return f"这是用户语音输入的，下面是语音转写结果。\n{conversation}"
     if source == "image":
-        return f"这是用户图片输入的，下面是从截图提取的内容。\n{conversation}"
+        return f"这是用户图片输入的，下面是从图片提取的内容。\n{conversation}"
     return conversation
 
 

@@ -45,7 +45,7 @@
             <button id="textToggle" class="text-toggle" type="button" aria-expanded="false" aria-controls="messageForm" data-i18n="preferTyping">文字输入</button>
             <label class="image-toggle" for="imageInput">
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 18 5-5 3.5 3.5 2.5-2.5L20 19"/></svg>
-              <span data-i18n="uploadScreenshot">上传截图</span>
+              <span data-i18n="uploadImage">上传图片</span>
             </label>
           </div>
           <form id="messageForm" class="message-form" hidden>
@@ -55,7 +55,7 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 17 8-17 8 3-8-3-8Zm3 8h14"/></svg>
             </button>
           </form>
-          <input id="imageInput" type="file" accept="image/png" hidden>
+          <input id="imageInput" type="file" accept="image/png,.png,image/jpeg,.jpg,.jpeg" hidden>
           <form id="imageForm" class="image-form" hidden>
             <p id="imageFileName" class="image-file-name" aria-live="polite"></p>
             <label for="imageText" class="sr-only" data-i18n="imageNoteLabel">补充说明（可选）</label>
