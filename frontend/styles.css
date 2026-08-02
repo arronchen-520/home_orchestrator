@@ -341,6 +341,10 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .weekday-picker label:has(input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
 .item-meta { padding: 10px 0; color: var(--muted); }
 .item-meta p { margin: 4px 0; }
+.item-preparation { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+.item-preparation h3, .item-preparation p { margin: 0; }
+.item-preparation h3 { color: var(--brand-dark); font-size: .9rem; }
+.item-preparation p { color: var(--muted); line-height: 1.5; white-space: pre-wrap; }
 .button-row { margin-top: 8px; }
 
 .primary-button, .secondary-button, .danger-button {

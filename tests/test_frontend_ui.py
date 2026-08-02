@@ -120,6 +120,18 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('.calendar-day.has-density-medium:not(.is-selected)', styles)
         self.assertIn('.calendar-day.has-density-high:not(.is-selected)', styles)
 
+    def test_item_dialog_shows_saved_preparation_only_when_present(self):
+        index = Path("frontend/index.html").read_text(encoding="utf-8")
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+        styles = Path("frontend/styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('id="preparationSection"', index)
+        self.assertIn('id="itemPreparation"', index)
+        self.assertIn('const preparation = item.preparation?.trim();', app)
+        self.assertIn('$("#preparationSection").hidden = !preparation;', app)
+        self.assertIn('$("#itemPreparation").textContent = preparation || "";', app)
+        self.assertIn('.item-preparation { display: grid;', styles)
+
 
 if __name__ == "__main__":
     unittest.main()

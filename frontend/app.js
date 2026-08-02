@@ -729,6 +729,9 @@ function openItem(item) {
 
   const reminded = reminderNames(item);
   $("#itemReminders").textContent = reminded.length ? `${t("remind")}: ${reminded.join(", ")}` : "";
+  const preparation = item.preparation?.trim();
+  $("#preparationSection").hidden = !preparation;
+  $("#itemPreparation").textContent = preparation || "";
   renderFollowups(item);
   $("#itemDialog").showModal();
 }
