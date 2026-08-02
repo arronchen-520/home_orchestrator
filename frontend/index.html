@@ -257,6 +257,16 @@
 
     <dialog id="settingsDialog" class="sheet small-sheet">
       <div class="dialog-header"><h2 data-i18n="settings">设置</h2><button id="settingsCloseButton" class="icon-button" type="button" data-i18n-aria="close" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+      <section class="household-settings" aria-labelledby="householdSettingsTitle">
+        <h3 id="householdSettingsTitle" data-i18n="households">家庭组</h3>
+        <label id="householdSwitcher" hidden><span data-i18n="switchHousehold">切换家庭</span><select id="householdSelect"></select></label>
+        <form id="createAdditionalHouseholdForm" class="stack-form">
+          <h4 data-i18n="createAnotherHousehold">创建新家庭</h4>
+          <label><span data-i18n="householdName">家庭名称</span><input id="additionalHouseholdName" maxlength="80" required></label>
+          <label><span data-i18n="yourName">你的名字</span><input id="additionalCreatorName" maxlength="40" autocomplete="name" required></label>
+          <button class="secondary-button" type="submit" data-i18n="createHousehold">创建家庭</button>
+        </form>
+      </section>
       <div id="householdSummary"></div>
       <form id="memberProfileForm" class="stack-form" hidden>
         <label><span data-i18n="yourName">你的名字</span><input id="memberName" maxlength="40" autocomplete="name" required></label>

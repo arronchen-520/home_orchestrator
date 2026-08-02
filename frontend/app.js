@@ -19,7 +19,7 @@ const copy = {
     add: "添加", logout: "退出登录", authTitle: "登录 Hearthbook", email: "邮箱",
     password: "密码", login: "登录", signup: "创建账号", householdSetup: "设置家庭",
     householdName: "家庭名称", yourName: "你的名字", memberRole: "你的身份（可选）", myRole: "我的身份", saveProfile: "保存资料", createHousehold: "创建家庭",
-    orJoin: "或者加入已有家庭", inviteCode: "家庭邀请码", joinHousehold: "加入家庭",
+    orJoin: "或者加入已有家庭", inviteCode: "家庭邀请码", joinHousehold: "加入家庭", households: "家庭组", switchHousehold: "切换家庭", createAnotherHousehold: "创建新家庭",
     event: "日程", task: "待办", note: "笔记", allDay: "全天", due: "截止",
     starts: "开始", reminder: "提醒", remind: "提醒", done: "已完成", markDone: "标记完成", markOpen: "恢复待办",
     emptyToday: "今天还没有安排。说一句或输入文字来添加。", emptyNotes: "还没有笔记。告诉我需要记住什么。",
@@ -58,7 +58,7 @@ const copy = {
     add: "Add", logout: "Log out", authTitle: "Sign in to Hearthbook", email: "Email",
     password: "Password", login: "Sign in", signup: "Create account", householdSetup: "Set up your household",
     householdName: "Household name", yourName: "Your name", memberRole: "Your role (optional)", myRole: "My role", saveProfile: "Save profile", createHousehold: "Create household",
-    orJoin: "Or join an existing household", inviteCode: "Household invite code", joinHousehold: "Join household",
+    orJoin: "Or join an existing household", inviteCode: "Household invite code", joinHousehold: "Join household", households: "Households", switchHousehold: "Switch household", createAnotherHousehold: "Create another household",
     event: "Event", task: "Task", note: "Note", allDay: "All day", due: "Due",
     starts: "Starts", reminder: "Reminder", remind: "Reminder", done: "Done", markDone: "Mark done", markOpen: "Mark open",
     emptyToday: "Nothing planned today. Speak or type to add something.", emptyNotes: "No notes yet. Tell me what to remember.",
@@ -91,6 +91,7 @@ const state = {
   taskFilter: localStorage.getItem("hearthbook-task-filter") === "mine" ? "mine" : "all",
   messages: [], pending: null, selectedItem: null,
   sessionId: localStorage.getItem("hearthbook-session") || null,
+  households: [], activeHouseholdId: null,
   recorder: null, recordingTimer: null,
   notification: { ready: false, configured: false, publicKey: "", registration: null, subscription: null },
 };
@@ -274,6 +275,14 @@ function renderMembers() {
     $("#memberName").value = currentMember.name || "";
     $("#memberRole").value = currentMember.role || "";
   }
+}
+
+function renderHouseholdControls() {
+  const switcher = $("#householdSwitcher");
+  const select = $("#householdSelect");
+  switcher.hidden = state.households.length < 2;
+  select.replaceChildren(...state.households.map((household) => new Option(household.name, household.id)));
+  select.value = state.activeHouseholdId || "";
 }
 
 function textNode(tag, content, className = "") {
@@ -765,6 +774,9 @@ async function loadSession() {
     const session = await api("/api/auth/session");
     if (!session.authenticated) return $("#authDialog").showModal();
     if (!session.household_ready) return $("#onboardingDialog").showModal();
+    state.households = Array.isArray(session.households) ? session.households : [];
+    state.activeHouseholdId = session.active_household_id || null;
+    renderHouseholdControls();
     await refreshData();
     await syncNotifications();
   } catch (error) {
@@ -781,6 +793,20 @@ $("#languageButton").addEventListener("click", () => {
 });
 
 $("#settingsButton").addEventListener("click", () => { renderNotificationSettings(); $("#settingsDialog").showModal(); });
+$("#householdSelect").addEventListener("change", async (event) => {
+  const householdId = event.target.value;
+  if (!householdId || householdId === state.activeHouseholdId) return;
+  try {
+    await api("/api/households/select", { method: "POST", body: JSON.stringify({ household_id: householdId }) });
+    state.activeHouseholdId = householdId;
+    startNewConversation();
+    await refreshData();
+    renderHouseholdControls();
+  } catch (error) {
+    event.target.value = state.activeHouseholdId || "";
+    showToast(error.message, true);
+  }
+});
 $("#settingsCloseButton").addEventListener("click", () => $("#settingsDialog").close());
 $("#memberProfileForm").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -1064,6 +1090,15 @@ $("#createHouseholdForm").addEventListener("submit", async (event) => {
     $("#onboardingDialog").close();
     await refreshData();
   } catch (error) { $("#onboardingError").textContent = error.message; $("#onboardingError").hidden = false; }
+});
+$("#createAdditionalHouseholdForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await api("/api/households", { method: "POST", body: JSON.stringify({ household_name: $("#additionalHouseholdName").value, member_name: $("#additionalCreatorName").value }) });
+    event.target.reset();
+    startNewConversation();
+    await loadSession();
+  } catch (error) { showToast(error.message, true); }
 });
 $("#joinHouseholdForm").addEventListener("submit", async (event) => {
   event.preventDefault();

@@ -363,6 +363,10 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .inline-form button { flex: 0 0 auto; }
 #householdSummary { margin-bottom: 18px; }
 #householdSummary ul { padding-left: 20px; color: var(--muted); }
+.household-settings { display: grid; gap: 12px; margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.household-settings h3, .household-settings h4 { margin: 0; }
+.household-settings label { display: grid; gap: 6px; font-weight: 700; }
+.household-settings select { width: 100%; }
 .notification-settings { margin: 18px 0; padding: 18px 0; border-block: 1px solid var(--line); }
 .notification-settings h3 { margin: 0 0 6px; }
 .notification-settings p { margin: 0 0 12px; color: var(--muted); line-height: 1.5; }
