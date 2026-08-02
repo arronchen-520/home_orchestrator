@@ -759,6 +759,7 @@ $("#languageButton").addEventListener("click", () => {
 });
 
 $("#settingsButton").addEventListener("click", () => { renderNotificationSettings(); $("#settingsDialog").showModal(); });
+$("#settingsCloseButton").addEventListener("click", () => $("#settingsDialog").close());
 $("#memberProfileForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {

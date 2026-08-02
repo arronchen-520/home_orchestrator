@@ -3,6 +3,13 @@ from pathlib import Path
 
 
 class FrontendUIContractTest(unittest.TestCase):
+    def test_settings_dialog_has_an_explicit_close_action(self):
+        index = Path("frontend/index.html").read_text(encoding="utf-8")
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="settingsCloseButton"', index)
+        self.assertIn('$("#settingsCloseButton").addEventListener("click", () => $("#settingsDialog").close());', app)
+
     def test_notification_states_are_visually_distinct(self):
         app = Path("frontend/app.js").read_text(encoding="utf-8")
         styles = Path("frontend/styles.css").read_text(encoding="utf-8")
