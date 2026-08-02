@@ -5,10 +5,9 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from backend.hearthbook.domain.calendar import get_today
-from backend.hearthbook.domain.models import CaptureAnalysis, ItemDraft, RouteDecision
+from backend.hearthbook.domain.models import AgentReply, CaptureAnalysis, ItemDraft, RouteDecision
 from backend.hearthbook.domain.recurrence import base_occurrences
-from backend.hearthbook.llm.graph import conversation_text
-from backend.hearthbook.llm.query import query_assistant
+from backend.hearthbook.llm.graph import conversation_text, query_context
 from backend.hearthbook.services.board import BoardService
 from backend.hearthbook.storage.board import BoardDatabase
 from backend.hearthbook.storage.conversation import confirm_conversation
@@ -289,7 +288,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["drafts"][0]["start_at"], "2026-08-01T15:00:00-04:00")
         self.assertEqual(response["drafts"][1]["due_date"], "2026-08-02")
 
-    def test_today_and_read_only_sql_projection(self):
+    def test_today(self):
         items = [
             {
                 "id": "event", "kind": "event", "title": "Dentist", "details": "",
@@ -320,13 +319,51 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(reasons["event"]), {"happens_today", "reminder_today"})
         self.assertEqual(reasons["overdue"], ["overdue"])
 
-        with patch("backend.hearthbook.llm.query.get_calendar", return_value={"items": []}):
-            self.assertEqual(
-                query_assistant(database, "family", "UTC", "SELECT title FROM items ORDER BY title"),
-                [{"title": "Dentist"}, {"title": "Return book"}],
+    def test_query_context_keeps_recurring_series_compact(self):
+        item = ItemDraft(
+            kind="event", title="Workout", start_date="2026-08-03", all_day=True,
+            recurrence="weekly", weekdays=["MO"], details="Bring shoes",
+        ).model_dump(mode="json")
+        item.update(id="workout", completed_at=None, notes=[])
+
+        context = query_context(
+            MemoryDatabase([item]), "family", "lin", "America/Toronto", date(2026, 8, 2)
+        )
+
+        self.assertEqual(context["current_member"]["id"], "lin")
+        self.assertEqual(len(context["records"]), 1)
+        self.assertEqual(context["records"][0]["repeat"], "every week on Monday")
+        self.assertEqual(context["records"][0]["next_occurrence"]["occurrence_date"], "2026-08-03")
+
+    async def test_query_receives_board_records_and_filters_unknown_references(self):
+        SESSION.clear()
+        SESSION.update(
+            id="session", actor_id="lin", timezone="America/Toronto", status="active",
+            intent=None, payload={}, messages=[{"role": "user", "content": "When is my flight?"}],
+        )
+        flight = ItemDraft(
+            kind="event", title="Flight to Shanghai", start_at="2026-08-03T09:00:00-04:00",
+            reminder_at="2026-08-03T07:00:00-04:00", remind_member_id="lin",
+        ).model_dump(mode="json")
+        flight.update(id="flight", completed_at=None, notes=[])
+        route = SimpleNamespace(ainvoke=AsyncMock(return_value=RouteDecision(intent="query")))
+        query = SimpleNamespace(
+            ainvoke=AsyncMock(return_value=AgentReply(message="Your flight is at 9.", references=["flight", "missing"]))
+        )
+        with (
+            patch("backend.hearthbook.llm.graph.router_chain", return_value=route),
+            patch("backend.hearthbook.llm.graph.query_answer_chain", return_value=query),
+            patch("backend.hearthbook.services.board.create_conversation", return_value=deepcopy(SESSION)),
+            patch("backend.hearthbook.llm.graph.add_message", side_effect=add_message),
+            patch("backend.hearthbook.llm.graph.update_conversation", side_effect=update_conversation),
+        ):
+            response = await BoardService(MemoryDatabase([flight]), "family", "lin").message(
+                {"text": "When is my flight?", "timezone": "America/Toronto"}
             )
-            with self.assertRaisesRegex(ValueError, "read-only SELECT"):
-                query_assistant(database, "family", "UTC", "DELETE FROM items")
+
+        self.assertEqual(response["references"], ["flight"])
+        self.assertIn("Flight to Shanghai", query.ainvoke.call_args.args[0]["board"])
+        self.assertIn('"id": "lin"', query.ainvoke.call_args.args[0]["current_member"])
 
     def test_recurrence_remains_event_only(self):
         with self.assertRaisesRegex(ValueError, "Only events can recur"):

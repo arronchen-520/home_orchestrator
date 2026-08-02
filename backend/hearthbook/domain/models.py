@@ -103,10 +103,6 @@ class CaptureAnalysis(BaseModel):
         return self
 
 
-class QueryPlan(BaseModel):
-    sql: str | None = Field(default=None, max_length=4000)
-
-
 class ProposedUpdate(BaseModel):
     item_id: str
     fields: dict[str, str | bool | None]
@@ -127,4 +123,5 @@ class ProposedUpdate(BaseModel):
 class AgentReply(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     action: ProposedUpdate | None = None
+    references: list[str] = Field(default_factory=list, max_length=20)
     updated_memory: str | None = None

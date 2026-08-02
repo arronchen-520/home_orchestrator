@@ -20,8 +20,8 @@ query, or chat. The board contains events, tasks, and standalone notes.
   text/audio messages, and push-subscription routes.
 - `backend/hearthbook/domain/`: Pydantic item models, recurrence expansion,
   Calendar, and deterministic Today logic.
-- `backend/hearthbook/llm/`: OpenRouter model/graph, capture and chat nodes,
-  safe query planning, and the in-memory SQLite projection.
+- `backend/hearthbook/llm/`: OpenRouter model/graph plus capture, board-context
+  query, and chat nodes.
 - `backend/hearthbook/services/`: `BoardService`, the API boundary for board
   reads, writes, conversation handling, and confirmation.
 - `backend/hearthbook/storage/`: Supabase board and conversation persistence.
@@ -39,11 +39,11 @@ query, or chat. The board contains events, tasks, and standalone notes.
 - Route every message through LangGraph. Keep ordinary CRUD in
   `BoardDatabase` behind `BoardService`.
 - Capture produces drafts and requires explicit confirmation before creating
-  items. Query SQL is only a read-only `SELECT` over a household-scoped,
-  in-memory SQLite projection; never run generated SQL against Supabase.
+  items. Query answers receive a household-scoped board context plus the
+  auth-bound member; the model returns only references to supplied item ids.
 - Query replies may propose one supported item update. The browser must show
   it and require confirmation before calling the normal item `PATCH` route.
-- Never expose generated SQL to users.
+- Validate returned query references against the supplied board context.
 - Keep conversations continuous and preserve the input language in generated
   titles, details, and replies.
 - AI may infer who should be reminded from household context. This is visible
