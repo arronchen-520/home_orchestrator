@@ -335,8 +335,12 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .checkbox-row input { width: 22px; min-height: 22px; }
 .reminder-choice-group { display: grid; gap: 4px; margin: 12px 0; }
 .reminder-choice-title { margin: 0; font-weight: 700; }
-#editRemindMemberField { border: 0; margin: 0; padding: 0; }
-#editRemindMembers { display: grid; gap: 4px; }
+.reminder-picker { margin: 0; border: 1px solid var(--line); border-radius: 14px; }
+.reminder-picker summary { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 8px 12px; cursor: pointer; font-weight: 700; }
+.reminder-picker summary::marker { color: var(--muted); }
+.reminder-picker summary:focus-visible { outline: 3px solid rgb(215 101 59 / 30%); outline-offset: 2px; }
+#editRemindMemberSummary { margin-left: auto; overflow: hidden; color: var(--muted); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+#editRemindMembers { display: grid; gap: 4px; padding: 0 12px 8px; border-top: 1px solid var(--line); }
 .weekday-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; }
 .weekday-picker legend { margin-bottom: 6px; font-weight: 700; }
 .weekday-picker label { display: grid; place-items: center; min-width: 44px; min-height: 44px; border: 1px solid var(--line); border-radius: 14px; cursor: pointer; }

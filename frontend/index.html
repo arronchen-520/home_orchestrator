@@ -204,7 +204,10 @@
             <option value="series" data-i18n="entireSeries">修改整个系列</option>
           </select>
         </label>
-        <fieldset id="editRemindMemberField"><legend data-i18n="remindWho">提醒谁</legend><div id="editRemindMembers"></div></fieldset>
+        <details id="editRemindMemberField" class="reminder-picker">
+          <summary><span data-i18n="remindWho">提醒谁</span><span id="editRemindMemberSummary"></span></summary>
+          <div id="editRemindMembers"></div>
+        </details>
         <div id="editEventFields" class="editor-fields" hidden>
           <label class="checkbox-row"><input id="editAllDay" type="checkbox"><span data-i18n="allDay">全天</span></label>
           <label id="editStartDateField"><span data-i18n="date">日期</span><input id="editStartDate" type="date"></label>

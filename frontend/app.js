@@ -709,6 +709,12 @@ function fillEditor(item, scope) {
   toggleEditorFields();
 }
 
+function updateEditReminderSummary() {
+  const names = [...$("#editRemindMembers").querySelectorAll("input:checked")]
+    .map((input) => memberName(input.value)).filter(Boolean);
+  $("#editRemindMemberSummary").textContent = names.join(", ") || "—";
+}
+
 function openItem(item) {
   state.selectedItem = item;
   $("#itemKind").textContent = t(item.kind || "event");
@@ -727,6 +733,8 @@ function openItem(item) {
     label.append(input, document.createTextNode(member.name));
     reminderChoices.append(label);
   });
+  $("#editRemindMemberField").open = false;
+  updateEditReminderSummary();
   $("#editScopeField").hidden = !item.is_occurrence;
   $("#editScope").value = item.is_occurrence ? "occurrence" : "series";
   $("#itemFormError").hidden = true;
@@ -965,6 +973,7 @@ $("#editRecurrence").addEventListener("change", () => {
   toggleEditorFields();
 });
 $("#editScope").addEventListener("change", (event) => fillEditor(editorItem(event.target.value), event.target.value));
+$("#editRemindMembers").addEventListener("change", updateEditReminderSummary);
 $("#itemForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const scope = state.selectedItem?.is_occurrence ? $("#editScope").value : "series";

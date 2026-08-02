@@ -130,6 +130,16 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('const preparation = item.preparation?.trim();', app)
         self.assertIn('$("#preparationSection").hidden = !preparation;', app)
         self.assertIn('$("#itemPreparation").textContent = preparation || "";', app)
+
+    def test_reminder_picker_is_collapsed_until_the_user_edits_it(self):
+        index = Path("frontend/index.html").read_text(encoding="utf-8")
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+        styles = Path("frontend/styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('<details id="editRemindMemberField" class="reminder-picker">', index)
+        self.assertIn('$("#editRemindMemberField").open = false;', app)
+        self.assertIn('$("#editRemindMembers").addEventListener("change", updateEditReminderSummary);', app)
+        self.assertIn('.reminder-picker summary { display: flex;', styles)
         self.assertIn('.item-preparation { display: grid;', styles)
 
 
