@@ -22,8 +22,8 @@ class BoardService:
             "result": result,
         }
 
-    def get_calendar(self, start: date, end: date) -> dict:
-        return get_calendar(self.database, self.household_id, start, end)
+    def get_calendar(self, start: date, end: date, timezone_name: str) -> dict:
+        return get_calendar(self.database, self.household_id, start, end, timezone_name)
 
     def get_today(self, target: date, timezone_name: str) -> dict:
         return get_today(self.database, self.household_id, target, timezone_name)

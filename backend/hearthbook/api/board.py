@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -25,6 +26,7 @@ class ItemUpdate(BaseModel):
     due_at: datetime | None = None
     due_date: date | None = None
     reminder_at: datetime | None = None
+    schedule_timezone: str | None = Field(default=None, min_length=1, max_length=100)
     all_day: bool | None = None
     recurrence: Literal["daily", "weekly", "monthly"] | None = None
     weekdays: list[Weekday] | None = None
@@ -58,16 +60,18 @@ async def board(request: Request):
 @router.get("/today")
 async def today(request: Request, target: date = Query(alias="date"), timezone: str = "UTC"):
     try:
+        ZoneInfo(timezone)
         return board_service(request).get_today(target, timezone)
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, ZoneInfoNotFoundError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/calendar")
-async def calendar(start: date, end: date, request: Request):
+async def calendar(start: date, end: date, request: Request, timezone: str = "UTC"):
     try:
-        return board_service(request).get_calendar(start, end)
-    except ValueError as exc:
+        ZoneInfo(timezone)
+        return board_service(request).get_calendar(start, end, timezone)
+    except (ValueError, ZoneInfoNotFoundError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 

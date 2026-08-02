@@ -3,6 +3,7 @@ from __future__ import annotations
 from calendar import monthrange
 from datetime import date, datetime
 from typing import Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -19,6 +20,7 @@ class ItemDraft(BaseModel):
     details: str = Field(default="", max_length=2000)
     preparation: str | None = Field(default=None, max_length=500)
     remind_member_id: str | None = None
+    schedule_timezone: str | None = None
     start_at: datetime | None = None
     end_at: datetime | None = None
     start_date: date | None = None
@@ -36,6 +38,11 @@ class ItemDraft(BaseModel):
         for value in (self.start_at, self.end_at, self.due_at, self.reminder_at):
             if value is not None and value.utcoffset() is None:
                 raise ValueError("Date-times require a timezone")
+        if self.schedule_timezone:
+            try:
+                ZoneInfo(self.schedule_timezone)
+            except ZoneInfoNotFoundError as exc:
+                raise ValueError("Invalid schedule timezone") from exc
         if self.kind == "event":
             self.due_at = self.due_date = None
             first = self.start_date or (self.start_at.date() if self.start_at else None)
@@ -72,7 +79,7 @@ class ItemDraft(BaseModel):
         else:
             self.start_at = self.end_at = self.start_date = None
             self.due_at = self.due_date = self.reminder_at = None
-            self.preparation = self.remind_member_id = None
+            self.preparation = self.remind_member_id = self.schedule_timezone = None
             self.recurrence = self.recurrence_until = None
             self.weekdays = []
             self.monthly_on_last_day = self.all_day = False
@@ -113,7 +120,7 @@ class ProposedUpdate(BaseModel):
         allowed = {
             "title", "details", "preparation", "remind_member_id", "completed",
             "start_at", "end_at", "start_date", "due_at", "due_date",
-            "reminder_at", "all_day", "recurrence_until",
+            "reminder_at", "schedule_timezone", "all_day", "recurrence_until",
         }
         if not self.fields or set(self.fields) - allowed:
             raise ValueError("Unsupported proposed update")

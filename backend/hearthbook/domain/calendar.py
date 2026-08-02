@@ -4,19 +4,19 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
-from .recurrence import base_occurrences, item_date, occurrence_item
+from .recurrence import base_occurrences, item_date, occurrence_item, schedule_zone
 
 if TYPE_CHECKING:
     from ..storage.board import BoardDatabase
 
 
 def get_calendar(
-    database: BoardDatabase, household_id: str, start_date: date, end_date: date
+    database: BoardDatabase, household_id: str, start_date: date, end_date: date, timezone_name: str
 ) -> dict:
     if end_date < start_date or (end_date - start_date).days > 370:
         raise ValueError("Invalid calendar range")
+    zone = ZoneInfo(timezone_name)
     board = database.get_board(household_id)
-    timezone_name = board["household"]["timezone"]
     series_ids = [item["id"] for item in board["items"] if item.get("recurrence")]
     exceptions = (
         database.client.table("recurrence_exceptions")
@@ -51,7 +51,10 @@ def get_calendar(
             continue
         exceptions_for_series = by_series.get(item["id"], {})
         seen = set()
-        for occurrence in base_occurrences(item, start_date, end_date, timezone_name):
+        source_zone = schedule_zone(item)
+        source_start = datetime.combine(start_date, datetime.min.time(), zone).astimezone(source_zone).date()
+        source_end = datetime.combine(end_date + timedelta(days=1), datetime.min.time(), zone).astimezone(source_zone).date()
+        for occurrence in base_occurrences(item, source_start, source_end):
             key = occurrence.date().isoformat()
             seen.add(key)
             expanded = occurrence_item(item, occurrence, exceptions_for_series.get(key))
@@ -62,7 +65,7 @@ def get_calendar(
             if key in seen or exception["cancelled"]:
                 continue
             original = date.fromisoformat(key)
-            occurrences = base_occurrences(item, original, original, timezone_name)
+            occurrences = base_occurrences(item, original, original)
             if occurrences:
                 expanded = occurrence_item(item, occurrences[0], exception)
                 target = item_date(expanded, timezone_name) if expanded else None
@@ -85,7 +88,7 @@ def get_today(
     timezone_name: str,
 ) -> dict:
     zone = ZoneInfo(timezone_name)
-    calendar = get_calendar(database, household_id, target_date, target_date)["items"]
+    calendar = get_calendar(database, household_id, target_date, target_date, timezone_name)["items"]
     board = database.get_board(household_id)
     chosen: dict[str, dict] = {}
 
@@ -106,7 +109,7 @@ def get_today(
         (target_date - timedelta(days=370), target_date - timedelta(days=1)),
         (target_date, target_date + timedelta(days=370)),
     ):
-        for item in get_calendar(database, household_id, start, end)["items"]:
+        for item in get_calendar(database, household_id, start, end, timezone_name)["items"]:
             if item.get("reminder_at") and datetime.fromisoformat(
                 item["reminder_at"]
             ).astimezone(zone).date() == target_date:

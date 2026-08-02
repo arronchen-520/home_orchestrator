@@ -599,7 +599,7 @@ async function loadToday() {
 
 async function loadCalendar() {
   const [start, end] = calendarRange();
-  state.calendar = (await api(`/api/calendar?start=${start}&end=${end}`)).items;
+  state.calendar = (await api(`/api/calendar?start=${start}&end=${end}&timezone=${encodeURIComponent(timezone)}`)).items;
   renderCalendar();
 }
 
@@ -972,10 +972,12 @@ $("#itemForm").addEventListener("submit", async (event) => {
         fields.monthly_on_last_day = recurrence === "monthly_last_day";
         fields.recurrence_until = recurrence ? $("#editRecurrenceUntil").value || null : null;
       }
+      fields.schedule_timezone = timezone;
     } else if (item.kind === "task") {
       fields.due_at = $("#editDueTimed").checked && $("#editDueAt").value
         ? new Date($("#editDueAt").value).toISOString() : null;
       fields.due_date = $("#editDueTimed").checked ? null : $("#editDueDate").value || null;
+      fields.schedule_timezone = timezone;
     }
     const path = state.selectedItem.is_occurrence && scope === "occurrence"
       ? `/api/items/${state.selectedItem.series_id}/occurrences/${state.selectedItem.occurrence_date}`

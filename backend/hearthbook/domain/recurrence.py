@@ -9,6 +9,10 @@ from dateutil.rrule import DAILY, FR, MO, MONTHLY, SA, SU, TH, TU, WE, WEEKLY, r
 WEEKDAY_RULES = {"MO": MO, "TU": TU, "WE": WE, "TH": TH, "FR": FR, "SA": SA, "SU": SU}
 
 
+def schedule_zone(item: dict) -> ZoneInfo:
+    return ZoneInfo(item.get("schedule_timezone") or "UTC")
+
+
 def item_date(item: dict, timezone_name: str) -> date | None:
     value = item.get("start_date") if item["kind"] == "event" else item.get("due_date")
     if value:
@@ -21,13 +25,11 @@ def item_date(item: dict, timezone_name: str) -> date | None:
     )
 
 
-def base_occurrences(
-    item: dict, start_date: date, end_date: date, timezone_name: str
-) -> list[datetime]:
-    first_date = item_date(item, timezone_name)
+def base_occurrences(item: dict, start_date: date, end_date: date) -> list[datetime]:
+    zone = schedule_zone(item)
+    first_date = item_date(item, zone.key)
     if first_date is None or item["kind"] != "event":
         return []
-    zone = ZoneInfo(timezone_name)
     first = (
         datetime.combine(first_date, time.min, zone)
         if item["all_day"]
@@ -113,7 +115,7 @@ def occurrence_item(
     return result
 
 
-def validate_month_end(item: dict, timezone_name: str) -> None:
-    first = item_date(item, timezone_name)
+def validate_month_end(item: dict) -> None:
+    first = item_date(item, schedule_zone(item).key)
     if item.get("monthly_on_last_day") and first and first.day != monthrange(first.year, first.month)[1]:
         raise ValueError("Last-day recurrence must start on a month's last day")

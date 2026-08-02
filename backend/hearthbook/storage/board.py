@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from uuid import uuid4
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from supabase import Client
 
 from ..domain.models import ItemDraft, WEEKDAYS
@@ -76,12 +77,12 @@ class BoardDatabase:
     def get_household(self, household_id: str) -> dict:
         row = self.one(
             self.client.table("households")
-            .select("id,name,invite_code,timezone")
+            .select("id,name,invite_code")
             .eq("id", household_id)
             .limit(1)
             .execute()
         )
-        return dict(row) if row else {"id": household_id, "timezone": "UTC"}
+        return dict(row) if row else {"id": household_id}
 
     def create_items(
         self,
@@ -97,6 +98,8 @@ class BoardDatabase:
         rows = []
         for index, raw in enumerate(drafts):
             draft = ItemDraft.model_validate(raw).model_dump(mode="json")
+            if draft["kind"] != "note":
+                draft["schedule_timezone"] = draft.get("schedule_timezone") or timezone_name
             if draft["remind_member_id"] is not None:
                 self.require_member(household_id, draft["remind_member_id"])
             rows.append(
@@ -119,7 +122,6 @@ class BoardDatabase:
             "create_board_items",
             {
                 "target_household_id": household_id,
-                "target_timezone": timezone_name,
                 "target_conversation_id": conversation_id,
                 "item_data": rows,
             },
@@ -141,7 +143,7 @@ class BoardDatabase:
             self.client.table("items")
             .select(
                 "id,conversation_id,kind,title,details,preparation,remind_member_id,completed_at,"
-                "start_at,end_at,start_date,due_at,due_date,reminder_at,all_day,recurrence,"
+                "start_at,end_at,start_date,due_at,due_date,reminder_at,schedule_timezone,all_day,recurrence,"
                 "weekdays,monthly_on_last_day,recurrence_until,created_by,created_at,updated_at,original_text"
             )
             .eq("household_id", household_id)
@@ -203,7 +205,7 @@ class BoardDatabase:
     def update_item(self, household_id: str, item_id: str, actor_id: str, fields: dict) -> None:
         allowed = {
             "title", "details", "preparation", "remind_member_id", "completed",
-            "start_at", "end_at", "start_date", "due_at", "due_date", "reminder_at",
+            "start_at", "end_at", "start_date", "due_at", "due_date", "reminder_at", "schedule_timezone",
             "all_day", "recurrence", "monthly_on_last_day", "recurrence_until",
             "weekdays",
         }
@@ -232,7 +234,11 @@ class BoardDatabase:
         if not isinstance(item.get("title"), str) or not 1 <= len(item["title"].strip()) <= 120:
             raise ValueError("Title must be 1 to 120 characters")
         if item["kind"] == "event":
-            timezone_name = self.get_household(household_id)["timezone"]
+            timezone_name = item.get("schedule_timezone") or "UTC"
+            try:
+                ZoneInfo(timezone_name)
+            except ZoneInfoNotFoundError as exc:
+                raise ValueError("Invalid schedule timezone") from exc
             if set(fields) & {"due_at", "due_date"}:
                 raise ValueError("Events do not have task deadlines")
             item["all_day"] = bool(item["all_day"])
@@ -261,7 +267,7 @@ class BoardDatabase:
                 raise ValueError("Recurrence end date cannot precede its start")
             if item.get("monthly_on_last_day") and item.get("recurrence") != "monthly":
                 raise ValueError("Last-day recurrence must be monthly")
-            validate_month_end(item, timezone_name)
+            validate_month_end(item)
         elif item["kind"] == "task":
             if set(fields) & {
                 "start_at", "end_at", "start_date", "all_day", "recurrence",
@@ -270,6 +276,13 @@ class BoardDatabase:
                 raise ValueError("Tasks do not have event schedule fields")
             if item.get("due_at") and item.get("due_date"):
                 raise ValueError("A task cannot have both a due date and due time")
+            timezone_name = item.get("schedule_timezone") or "UTC"
+            try:
+                ZoneInfo(timezone_name)
+            except ZoneInfoNotFoundError as exc:
+                raise ValueError("Invalid schedule timezone") from exc
+        else:
+            item["schedule_timezone"] = None
         update = {key: item.get(key) for key in allowed - {"completed"}}
         update.update(completed_at=item.get("completed_at"), all_day=bool(item.get("all_day")), updated_at=now_text())
         self.client.table("items").update(update).eq("id", item_id).eq("household_id", household_id).execute()
@@ -294,7 +307,7 @@ class BoardDatabase:
         item["monthly_on_last_day"] = bool(item["monthly_on_last_day"])
         item["weekdays"] = item.get("weekdays") or []
         target = date.fromisoformat(occurrence_date)
-        if not base_occurrences(item, target, target, self.get_household(household_id)["timezone"]):
+        if not base_occurrences(item, target, target):
             raise ValueError("Occurrence not found")
         return item
 

@@ -63,7 +63,7 @@ class CreateClient(MembershipClient):
 class BoardStub:
     def get_board(self):
         return {
-            "household": {"id": "family", "name": "Test home", "timezone": "UTC"},
+            "household": {"id": "family", "name": "Test home"},
             "members": [{"id": "member-1", "name": "Alice", "role": "Owner"}],
             "items": [],
             "result": None,

@@ -14,16 +14,19 @@ function sameSecret(left: string, right: string) {
 }
 function zoned(value: string, zone: string) { return DateTime.fromISO(value, { setZone: true }).setZone(zone); }
 function localDate(value: string, zone: string) { return DateTime.fromISO(`${value}T00:00:00`, { zone }); }
+function scheduleZone(item: Row) { return item.schedule_timezone || "UTC"; }
 function itemDate(item: Row, zone: string) {
   const value = item.kind === "event" ? item.start_date || item.start_at : item.due_date || item.due_at;
   return value ? (value.length === 10 ? value : zoned(value, zone).toISODate()) : null;
 }
-function occurrenceStart(item: Row, occurrenceDate: string, zone: string) {
+function occurrenceStart(item: Row, occurrenceDate: string) {
+  const zone = scheduleZone(item);
   if (item.all_day) return localDate(occurrenceDate, zone);
   const original = zoned(item.start_at, zone);
   return DateTime.fromObject({ year: +occurrenceDate.slice(0, 4), month: +occurrenceDate.slice(5, 7), day: +occurrenceDate.slice(8, 10), hour: original.hour, minute: original.minute, second: original.second, millisecond: original.millisecond }, { zone });
 }
-function isOccurrence(item: Row, day: DateTime, zone: string) {
+function isOccurrence(item: Row, day: DateTime) {
+  const zone = scheduleZone(item);
   const firstDate = itemDate(item, zone);
   if (!firstDate || item.kind !== "event" || !item.recurrence) return false;
   const first = localDate(firstDate, zone).startOf("day"); const current = day.startOf("day");
@@ -38,22 +41,33 @@ function isOccurrence(item: Row, day: DateTime, zone: string) {
 }
 function effectiveOccurrence(item: Row, occurrenceDate: string, zone: string, exceptions: Map<string, Row>) {
   const exception = exceptions.get(`${item.id}:${occurrenceDate}`); if (exception?.cancelled) return null;
-  const base = occurrenceStart(item, occurrenceDate, zone);
+  const base = occurrenceStart(item, occurrenceDate);
   const start = exception?.start_date ? localDate(exception.start_date, zone) : exception?.start_at ? zoned(exception.start_at, zone) : base;
   return { ...item, ...exception, series_id: item.id, occurrence_date: occurrenceDate, start };
 }
-function reminderTime(item: Row, occurrence: Row, zone: string) {
-  const original = occurrenceStart(item, itemDate(item, zone)!, zone);
+function reminderTime(item: Row, occurrence: Row) {
+  const zone = scheduleZone(item);
+  const original = occurrenceStart(item, itemDate(item, zone)!);
   return occurrence.start.plus({ milliseconds: zoned(item.reminder_at, zone).toMillis() - original.toMillis() });
 }
-function candidates(item: Row, now: DateTime, zone: string, exceptions: Map<string, Row>) {
+function candidates(item: Row, now: DateTime, exceptions: Map<string, Row>) {
   if (!item.recurrence || !item.reminder_at) return [];
-  const original = occurrenceStart(item, itemDate(item, zone)!, zone);
+  const zone = scheduleZone(item);
+  const original = occurrenceStart(item, itemDate(item, zone)!);
   const offset = zoned(item.reminder_at, zone).toMillis() - original.toMillis();
   const expected = now.minus({ milliseconds: offset }).setZone(zone).startOf("day");
   return [-1, 0, 1].flatMap((delta) => {
     const day = expected.plus({ days: delta });
-    if (!isOccurrence(item, day, zone)) return [];
+    if (!isOccurrence(item, day)) return [];
+    const occurrence = effectiveOccurrence(item, day.toISODate()!, zone, exceptions);
+    return occurrence ? [occurrence] : [];
+  });
+}
+function scheduledCandidates(item: Row, now: DateTime, exceptions: Map<string, Row>) {
+  const zone = scheduleZone(item); const localNow = now.setZone(zone).startOf("day");
+  return [-1, 0, 1].flatMap((delta) => {
+    const day = localNow.plus({ days: delta });
+    if (!isOccurrence(item, day)) return [];
     const occurrence = effectiveOccurrence(item, day.toISODate()!, zone, exceptions);
     return occurrence ? [occurrence] : [];
   });
@@ -78,8 +92,8 @@ function todayItems(items: Row[], now: DateTime, zone: string, exceptions: Map<s
       if (scheduled === target || reminder === target || (item.kind === "task" && scheduled && scheduled < target)) add(item);
       continue;
     }
-    if (isOccurrence(item, now, zone)) { const occurrence = effectiveOccurrence(item, target, zone, exceptions); if (occurrence) add(occurrence); }
-    for (const occurrence of candidates(item, now, zone, exceptions)) if (reminderTime(item, occurrence, zone).toISODate() === target) add(occurrence);
+    for (const occurrence of scheduledCandidates(item, now, exceptions)) if (occurrence.start.setZone(zone).toISODate() === target) add(occurrence);
+    for (const occurrence of candidates(item, now, exceptions)) if (reminderTime(item, occurrence).setZone(zone).toISODate() === target) add(occurrence);
   }
   return [...result.values()];
 }
@@ -137,9 +151,9 @@ Deno.serve(async (request) => {
       const { items, exceptions } = await load(householdId);
       for (const item of items) {
         if (!item.reminder_at || item.completed_at || !memberIds.has(item.remind_member_id)) continue;
-        const occurrences = item.recurrence ? candidates(item, now, subscription.timezone, exceptions) : [{ ...item, series_id: null, occurrence_date: null }];
+        const occurrences = item.recurrence ? candidates(item, now, exceptions) : [{ ...item, series_id: null, occurrence_date: null }];
         for (const occurrence of occurrences) {
-          const due = item.recurrence ? reminderTime(item, occurrence, subscription.timezone) : zoned(item.reminder_at, subscription.timezone);
+          const due = item.recurrence ? reminderTime(item, occurrence) : zoned(item.reminder_at, subscription.timezone);
           if (due >= now.minus({ minutes: 15 }) && due <= now) {
             const scheduled = { ...occurrence, reminder_at: due.toISO() };
             await send(reminderKey(scheduled), reminderPayload(scheduled, subscription.language));

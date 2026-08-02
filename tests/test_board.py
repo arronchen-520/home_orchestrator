@@ -4,7 +4,7 @@ from datetime import date
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from backend.hearthbook.domain.calendar import get_today
+from backend.hearthbook.domain.calendar import get_calendar, get_today
 from backend.hearthbook.domain.models import AgentReply, CaptureAnalysis, ItemDraft, QueryDecision, RouteDecision
 from backend.hearthbook.domain.recurrence import base_occurrences
 from backend.hearthbook.llm.graph import conversation_text, query_context
@@ -44,7 +44,7 @@ class MemoryDatabase:
 
     def get_board(self, _household_id):
         return {
-            "household": {"id": "family", "timezone": "America/Toronto"},
+            "household": {"id": "family"},
             "members": deepcopy(self.members),
             "items": deepcopy(self.items),
         }
@@ -156,6 +156,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["intent"], "capture")
         self.assertEqual(response["status"], "review")
         self.assertEqual(response["drafts"][0]["remind_member_id"], "sam")
+        self.assertEqual(response["drafts"][0]["schedule_timezone"], "America/Toronto")
         self.assertEqual(create.call_args.args[2], "lin")
         route.ainvoke.assert_awaited_once()
 
@@ -359,12 +360,13 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
             patch("backend.hearthbook.llm.graph.update_conversation", side_effect=update_conversation),
         ):
             response = await BoardService(MemoryDatabase([flight]), "family", "lin").message(
-                {"text": "When is my flight?", "timezone": "America/Toronto"}
+                {"text": "When is my flight?", "timezone": "Asia/Shanghai"}
             )
 
         self.assertEqual(response["references"], ["flight"])
         index = decision.ainvoke.call_args.args[0]["index"]
         self.assertIn("Flight to Shanghai", index)
+        self.assertIn("2026-08-03T21:00:00+08:00", index)
         self.assertNotIn("details", index)
         self.assertIn('"id": "lin"', decision.ainvoke.call_args.args[0]["current_member"])
 
@@ -454,11 +456,34 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(item["weekdays"], ["MO", "WE", "FR"])
         self.assertEqual(
-            [value.date() for value in base_occurrences(
-                item, date(2026, 8, 1), date(2026, 8, 9), "America/Toronto"
-            )],
+            [value.date() for value in base_occurrences(item, date(2026, 8, 1), date(2026, 8, 9))],
             [date(2026, 8, 3), date(2026, 8, 5), date(2026, 8, 7)],
         )
+
+    def test_calendar_groups_a_toronto_time_on_the_shanghai_day(self):
+        item = ItemDraft(
+            kind="event", title="Call", start_at="2026-08-03T22:00:00-04:00",
+            schedule_timezone="America/Toronto",
+        ).model_dump(mode="json")
+        item.update(id="call", completed_at=None, notes=[])
+
+        calendar = get_calendar(
+            MemoryDatabase([item]), "family", date(2026, 8, 4), date(2026, 8, 4), "Asia/Shanghai"
+        )
+
+        self.assertEqual(calendar["items"][0]["occurrence_date"], "2026-08-04")
+
+    def test_recurrence_keeps_its_toronto_wall_time_across_dst(self):
+        item = ItemDraft(
+            kind="event", title="Call", start_at="2026-10-26T22:00:00-04:00",
+            schedule_timezone="America/Toronto", recurrence="weekly",
+        ).model_dump(mode="json")
+
+        occurrences = base_occurrences(item, date(2026, 10, 26), date(2026, 11, 2))
+
+        self.assertEqual([value.isoformat() for value in occurrences], [
+            "2026-10-26T22:00:00-04:00", "2026-11-02T22:00:00-05:00",
+        ])
 
     def test_series_rule_and_single_occurrence_can_be_edited(self):
         client = MagicMock()
