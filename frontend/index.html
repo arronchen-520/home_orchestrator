@@ -49,6 +49,20 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 17 8-17 8 3-8-3-8Zm3 8h14"/></svg>
             </button>
           </form>
+          <input id="imageInput" type="file" accept="image/png" hidden>
+          <label class="image-toggle" for="imageInput">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 18 5-5 3.5 3.5 2.5-2.5L20 19"/></svg>
+            <span data-i18n="uploadScreenshot">上传截图</span>
+          </label>
+          <form id="imageForm" class="image-form" hidden>
+            <p id="imageFileName" class="image-file-name" aria-live="polite"></p>
+            <label for="imageText" class="sr-only" data-i18n="imageNoteLabel">补充说明（可选）</label>
+            <textarea id="imageText" rows="2" maxlength="2000" data-i18n-placeholder="imageNotePlaceholder" placeholder="例如：帮我记到日历"></textarea>
+            <div class="image-actions">
+              <button id="cancelImage" class="quiet-button" type="button" data-i18n="cancel">取消</button>
+              <button class="primary-button" type="submit" data-i18n="sendImage">发送截图</button>
+            </div>
+          </form>
         </section>
 
         <section id="conversation" class="conversation card" aria-labelledby="conversationTitle" aria-live="polite" hidden>

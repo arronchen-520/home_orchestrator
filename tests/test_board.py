@@ -79,6 +79,12 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("这是用户语音输入的", conversation_text(session, "audio"))
         self.assertNotIn("这是用户语音输入的", conversation_text(session))
 
+    def test_image_source_is_marked_only_in_prompt_context(self):
+        session = {"messages": [{"role": "user", "content": "Screenshot content: school event"}]}
+
+        self.assertIn("这是用户图片输入的", conversation_text(session, "image"))
+        self.assertNotIn("这是用户图片输入的", conversation_text(session))
+
     async def test_capture_routes_to_its_specialist_and_keeps_reminder_target(self):
         SESSION.clear()
         SESSION.update(

@@ -144,6 +144,11 @@ h2 { margin: 0; font-size: 1.3rem; letter-spacing: -.02em; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 16px rgb(215 101 59 / 12%), 0 18px 45px rgb(168 63 32 / 30%); } }
 
 .text-toggle { margin-top: 17px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.image-toggle { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; margin-top: 8px; color: var(--muted); cursor: pointer; }
+.image-toggle svg { width: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.image-form { width: 100%; margin-top: 12px; }
+.image-file-name { margin: 0 0 8px; color: var(--muted); font-size: .9rem; }
+.image-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 8px; }
 .message-form, .inline-form { display: flex; width: 100%; gap: 8px; margin-top: 12px; }
 textarea, input, select {
   border: 1px solid var(--line);
