@@ -187,7 +187,7 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
         decision = await router_chain().ainvoke(
             {
                 "pending": session.get("intent") if session.get("status") in {"clarifying", "review"} else "none",
-                "conversation": conversation_text(session, state["command"].get("source")),
+                "conversation": conversation_text(session, state["command"].get("source"), limit=1),
             }
         )
         return {"intent": decision.intent}
@@ -269,7 +269,7 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
     async def query(state: ConversationState) -> dict:
         session = state["session"]
         local_now = datetime.now(ZoneInfo(session["timezone"]))
-        conversation = conversation_text(session, state["command"].get("source"))
+        conversation = conversation_text(session, state["command"].get("source"), limit=1)
         memory = database.get_household_memory(household_id)
         results, error = [], ""
         for _ in range(2):
@@ -326,7 +326,7 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
             {
                 "now": datetime.now(ZoneInfo(session["timezone"])).isoformat(),
                 "timezone": session["timezone"],
-                "conversation": conversation_text(session, state["command"].get("source")),
+                "conversation": conversation_text(session, state["command"].get("source"), limit=1),
                 "memory": database.get_household_memory(household_id),
             }
         )

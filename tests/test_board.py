@@ -94,6 +94,17 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("这是用户图片输入的", conversation_text(session, "image"))
         self.assertNotIn("这是用户图片输入的", conversation_text(session))
 
+    def test_single_message_context_excludes_prior_history(self):
+        session = {
+            "messages": [
+                {"role": "user", "content": "Earlier request"},
+                {"role": "assistant", "content": "Earlier reply"},
+                {"role": "user", "content": "Latest request"},
+            ]
+        }
+
+        self.assertEqual(conversation_text(session, limit=1), "user: Latest request")
+
     async def test_capture_routes_to_its_specialist_and_keeps_reminder_target(self):
         SESSION.clear()
         SESSION.update(
