@@ -48,6 +48,18 @@ class LeaveClient(MembershipClient):
         return SimpleNamespace(data=None) if hasattr(self, "rpc_call") else super().execute()
 
 
+class CreateClient(MembershipClient):
+    def __init__(self):
+        self.rpc_calls = []
+
+    def rpc(self, name, payload):
+        self.rpc_calls.append((name, payload))
+        return self
+
+    def execute(self):
+        return SimpleNamespace(data="new-family" if self.rpc_calls[-1][0] == "create_household" else None)
+
+
 class BoardStub:
     def get_board(self):
         return {
@@ -68,6 +80,43 @@ class MemberProfileStub:
 
 
 class SupabaseAuthTest(unittest.TestCase):
+    def test_create_household_saves_the_creator_role(self):
+        client = CreateClient()
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "SUPABASE_URL": "https://example.supabase.co",
+                    "SUPABASE_PUBLISHABLE_KEY": "test-key",
+                },
+                clear=True,
+            ),
+            patch.object(
+                app_module,
+                "authenticate",
+                return_value=(SimpleNamespace(id="user-1"), "token", None),
+            ),
+            patch.object(app_module, "data_client", return_value=MembershipClient()),
+            patch("backend.hearthbook.api.auth.data_client", return_value=client),
+            TestClient(app_module.app, base_url="https://testserver") as browser,
+        ):
+            response = browser.post(
+                "/api/households",
+                json={"household_name": "New home", "member_name": "Sam", "member_role": "Driver"},
+            )
+
+        self.assertEqual(response.status_code, 201, response.text)
+        self.assertEqual(
+            client.rpc_calls,
+            [
+                ("create_household", {"household_name": "New home", "member_name": "Sam"}),
+                (
+                    "update_my_member_profile",
+                    {"target_household_id": "new-family", "member_name": "Sam", "member_role": "Driver"},
+                ),
+            ],
+        )
+
     def test_member_profile_route_updates_only_the_current_member_profile(self):
         service = MemberProfileStub()
         with (

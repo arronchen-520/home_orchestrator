@@ -23,6 +23,7 @@ class AuthInput(BaseModel):
 class HouseholdInput(BaseModel):
     household_name: str = Field(min_length=1, max_length=80)
     member_name: str = Field(min_length=1, max_length=40)
+    member_role: str = Field(default="", max_length=40)
 
 
 class JoinInput(BaseModel):
@@ -148,8 +149,17 @@ def safe_household_error(exc: Exception) -> str:
 @router.post("/households", status_code=201)
 async def create_household(payload: HouseholdInput, request: Request, response: Response):
     try:
-        result = data_client(request, request.state.access_token).rpc(
+        client = data_client(request, request.state.access_token)
+        result = client.rpc(
             "create_household", {"household_name": payload.household_name, "member_name": payload.member_name}
+        ).execute()
+        client.rpc(
+            "update_my_member_profile",
+            {
+                "target_household_id": result.data,
+                "member_name": payload.member_name,
+                "member_role": payload.member_role,
+            },
         ).execute()
     except Exception as exc:
         raise HTTPException(status_code=400, detail=safe_household_error(exc)) from exc

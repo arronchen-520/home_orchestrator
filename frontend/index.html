@@ -263,6 +263,7 @@
         <h3 id="householdSettingsTitle" data-i18n="households">家庭组</h3>
         <label id="householdSwitcher" hidden><span data-i18n="switchHousehold">切换家庭</span><select id="householdSelect"></select></label>
         <form id="createAdditionalHouseholdForm" class="stack-form">
+          <label><span data-i18n="memberRole">Your role (optional)</span><input id="additionalCreatorRole" maxlength="40" autocomplete="organization-title"></label>
           <h4 data-i18n="createAnotherHousehold">创建新家庭</h4>
           <label><span data-i18n="householdName">家庭名称</span><input id="additionalHouseholdName" maxlength="80" required></label>
           <label><span data-i18n="yourName">你的名字</span><input id="additionalCreatorName" maxlength="40" autocomplete="name" required></label>
@@ -299,6 +300,7 @@
     <dialog id="onboardingDialog" class="sheet small-sheet">
       <div class="dialog-header"><h2 data-i18n="householdSetup">设置家庭</h2></div>
       <form id="createHouseholdForm" class="stack-form">
+        <label><span data-i18n="memberRole">Your role (optional)</span><input id="creatorRole" maxlength="40" autocomplete="organization-title"></label>
         <label><span data-i18n="householdName">家庭名称</span><input id="newHouseholdName" maxlength="80" required></label>
         <label><span data-i18n="yourName">你的名字</span><input id="creatorName" maxlength="40" required autocomplete="name"></label>
         <button class="primary-button" type="submit" data-i18n="createHousehold">创建家庭</button>

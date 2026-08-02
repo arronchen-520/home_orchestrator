@@ -1086,7 +1086,7 @@ async function authenticate(event, action) {
 $("#createHouseholdForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    await api("/api/households", { method: "POST", body: JSON.stringify({ household_name: $("#newHouseholdName").value, member_name: $("#creatorName").value }) });
+    await api("/api/households", { method: "POST", body: JSON.stringify({ household_name: $("#newHouseholdName").value, member_name: $("#creatorName").value, member_role: $("#creatorRole").value }) });
     $("#onboardingDialog").close();
     await refreshData();
   } catch (error) { $("#onboardingError").textContent = error.message; $("#onboardingError").hidden = false; }
@@ -1094,7 +1094,7 @@ $("#createHouseholdForm").addEventListener("submit", async (event) => {
 $("#createAdditionalHouseholdForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    await api("/api/households", { method: "POST", body: JSON.stringify({ household_name: $("#additionalHouseholdName").value, member_name: $("#additionalCreatorName").value }) });
+    await api("/api/households", { method: "POST", body: JSON.stringify({ household_name: $("#additionalHouseholdName").value, member_name: $("#additionalCreatorName").value, member_role: $("#additionalCreatorRole").value }) });
     event.target.reset();
     startNewConversation();
     await loadSession();
