@@ -19,7 +19,7 @@ const copy = {
     add: "添加", logout: "退出登录", authTitle: "登录 Hearthbook", email: "邮箱",
     password: "密码", login: "登录", signup: "创建账号", householdSetup: "设置家庭",
     householdName: "家庭名称", yourName: "你的名字", memberRole: "你的身份（可选）", myRole: "我的身份", saveProfile: "保存资料", createHousehold: "创建家庭",
-    orJoin: "或者加入已有家庭", inviteCode: "家庭邀请码", joinHousehold: "加入家庭", households: "家庭组", switchHousehold: "切换家庭", createAnotherHousehold: "创建新家庭",
+    orJoin: "或者加入已有家庭", inviteCode: "家庭邀请码", joinHousehold: "加入家庭", households: "家庭组", switchHousehold: "切换家庭", createAnotherHousehold: "创建新家庭", leaveHousehold: "退出这个家庭", leaveHouseholdConfirm: "确定退出这个家庭吗？家庭中的记录会保留。",
     event: "日程", task: "待办", note: "笔记", allDay: "全天", due: "截止",
     starts: "开始", reminder: "提醒", remind: "提醒", done: "已完成", markDone: "标记完成", markOpen: "恢复待办",
     emptyToday: "今天还没有安排。说一句或输入文字来添加。", emptyNotes: "还没有笔记。告诉我需要记住什么。",
@@ -58,7 +58,7 @@ const copy = {
     add: "Add", logout: "Log out", authTitle: "Sign in to Hearthbook", email: "Email",
     password: "Password", login: "Sign in", signup: "Create account", householdSetup: "Set up your household",
     householdName: "Household name", yourName: "Your name", memberRole: "Your role (optional)", myRole: "My role", saveProfile: "Save profile", createHousehold: "Create household",
-    orJoin: "Or join an existing household", inviteCode: "Household invite code", joinHousehold: "Join household", households: "Households", switchHousehold: "Switch household", createAnotherHousehold: "Create another household",
+    orJoin: "Or join an existing household", inviteCode: "Household invite code", joinHousehold: "Join household", households: "Households", switchHousehold: "Switch household", createAnotherHousehold: "Create another household", leaveHousehold: "Leave this household", leaveHouseholdConfirm: "Leave this household? Its records will be kept.",
     event: "Event", task: "Task", note: "Note", allDay: "All day", due: "Due",
     starts: "Starts", reminder: "Reminder", remind: "Reminder", done: "Done", markDone: "Mark done", markOpen: "Mark open",
     emptyToday: "Nothing planned today. Speak or type to add something.", emptyNotes: "No notes yet. Tell me what to remember.",
@@ -1107,6 +1107,15 @@ $("#joinHouseholdForm").addEventListener("submit", async (event) => {
     $("#onboardingDialog").close();
     await refreshData();
   } catch (error) { $("#onboardingError").textContent = error.message; $("#onboardingError").hidden = false; }
+});
+$("#leaveHouseholdButton").addEventListener("click", async () => {
+  if (!window.confirm(t("leaveHouseholdConfirm"))) return;
+  try {
+    await api("/api/households/leave", { method: "POST" });
+    startNewConversation();
+    $("#settingsDialog").close();
+    await loadSession();
+  } catch (error) { showToast(error.message, true); }
 });
 $("#logoutButton").addEventListener("click", async () => {
   await removePushSubscription().catch(() => {});

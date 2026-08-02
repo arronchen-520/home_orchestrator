@@ -138,7 +138,7 @@ async def logout(response: Response):
 
 def safe_household_error(exc: Exception) -> str:
     error = str(exc)
-    for message in ("Invalid household or member name", "Invalid household invite", "Invalid member name", "Invalid member name or role", "This account already belongs to this household"):
+    for message in ("Invalid household or member name", "Invalid household invite", "Invalid member name", "Invalid member name or role", "This account already belongs to this household", "Cannot leave the last account in a household"):
         if message in error:
             return message
     logger.exception("Household operation failed")
@@ -171,6 +171,20 @@ async def join_household(payload: JoinInput, request: Request, response: Respons
         raise HTTPException(status_code=400, detail=safe_household_error(exc)) from exc
     set_household_cookie(response, result.data, request)
     return {"joined": True, "household_id": result.data}
+
+
+@router.post("/households/leave")
+async def leave_household(request: Request, response: Response):
+    try:
+        data_client(request, request.state.access_token).rpc(
+            "leave_household", {"target_household_id": request.state.household_id}
+        ).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=safe_household_error(exc)) from exc
+    response.delete_cookie(
+        HOUSEHOLD_COOKIE, httponly=True, secure=secure_request(request), samesite="lax"
+    )
+    return {"left": True}
 
 
 @router.post("/households/select")

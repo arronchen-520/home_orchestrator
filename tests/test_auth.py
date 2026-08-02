@@ -39,6 +39,15 @@ class SelectClient(MembershipClient):
         return SimpleNamespace(data={"household_id": "family-2"})
 
 
+class LeaveClient(MembershipClient):
+    def rpc(self, name, payload):
+        self.rpc_call = (name, payload)
+        return self
+
+    def execute(self):
+        return SimpleNamespace(data=None) if hasattr(self, "rpc_call") else super().execute()
+
+
 class BoardStub:
     def get_board(self):
         return {
@@ -145,6 +154,32 @@ class SupabaseAuthTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200, response.text)
         self.assertIn("hearthbook_household=family-2", response.headers["set-cookie"])
+
+    def test_leaving_the_active_household_clears_its_cookie(self):
+        client = LeaveClient()
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "SUPABASE_URL": "https://example.supabase.co",
+                    "SUPABASE_PUBLISHABLE_KEY": "test-key",
+                },
+                clear=True,
+            ),
+            patch.object(
+                app_module,
+                "authenticate",
+                return_value=(SimpleNamespace(id="user-1"), "token", None),
+            ),
+            patch.object(app_module, "data_client", return_value=MembershipClient()),
+            patch("backend.hearthbook.api.auth.data_client", return_value=client),
+            TestClient(app_module.app, base_url="https://testserver") as browser,
+        ):
+            response = browser.post("/api/households/leave")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(client.rpc_call, ("leave_household", {"target_household_id": "family"}))
+        self.assertIn("hearthbook_household=", response.headers["set-cookie"])
 
     def test_authenticated_board_route_and_security_headers(self):
         with (
