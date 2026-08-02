@@ -73,6 +73,15 @@ SESSION = {}
 
 
 class BoardContractTest(unittest.IsolatedAsyncioTestCase):
+    def test_capture_review_falls_back_to_a_confirmation_message(self):
+        review = CaptureAnalysis(
+            status="review", message="", items=[ItemDraft(kind="note", title="Shopping list")]
+        )
+
+        self.assertEqual(review.message, "Please confirm the following.")
+        with self.assertRaises(ValueError):
+            CaptureAnalysis(status="clarify", message="")
+
     def test_voice_source_is_marked_only_in_prompt_context(self):
         session = {"messages": [{"role": "user", "content": "提醒我买牛奶"}]}
 

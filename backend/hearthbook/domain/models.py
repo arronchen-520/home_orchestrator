@@ -85,16 +85,21 @@ class RouteDecision(BaseModel):
 
 class CaptureAnalysis(BaseModel):
     status: Literal["clarify", "review"]
-    message: str = Field(min_length=1, max_length=1000)
+    message: str = Field(default="", max_length=1000)
     items: list[ItemDraft] = Field(default_factory=list, max_length=20)
     updated_memory: str | None = None
 
     @model_validator(mode="after")
     def match_status(self) -> "CaptureAnalysis":
-        if self.status == "clarify" and self.items:
-            raise ValueError("Clarification cannot include drafts")
-        if self.status == "review" and not self.items:
+        if self.status == "clarify":
+            if self.items:
+                raise ValueError("Clarification cannot include drafts")
+            if not self.message.strip():
+                raise ValueError("Clarification requires a message")
+        elif not self.items:
             raise ValueError("Review requires at least one draft")
+        elif not self.message.strip():
+            self.message = "Please confirm the following."
         return self
 
 
