@@ -125,3 +125,7 @@ class AgentReply(BaseModel):
     action: ProposedUpdate | None = None
     references: list[str] = Field(default_factory=list, max_length=20)
     updated_memory: str | None = None
+
+
+class QueryDecision(AgentReply):
+    status: Literal["answer", "needs_details", "clarify"]

@@ -39,8 +39,8 @@ query, or chat. The board contains events, tasks, and standalone notes.
 - Route every message through LangGraph. Keep ordinary CRUD in
   `BoardDatabase` behind `BoardService`.
 - Capture produces drafts and requires explicit confirmation before creating
-  items. Query answers receive a household-scoped board context plus the
-  auth-bound member; the model returns only references to supplied item ids.
+  items. Query first receives a compact household-scoped index plus the
+  auth-bound member, then receives full details only for item ids it selects.
 - Query replies may propose one supported item update. The browser must show
   it and require confirmation before calling the normal item `PATCH` route.
 - Validate returned query references against the supplied board context.

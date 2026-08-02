@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from backend.hearthbook.domain.calendar import get_today
-from backend.hearthbook.domain.models import AgentReply, CaptureAnalysis, ItemDraft, RouteDecision
+from backend.hearthbook.domain.models import AgentReply, CaptureAnalysis, ItemDraft, QueryDecision, RouteDecision
 from backend.hearthbook.domain.recurrence import base_occurrences
 from backend.hearthbook.llm.graph import conversation_text, query_context
 from backend.hearthbook.services.board import BoardService
@@ -326,14 +326,13 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         ).model_dump(mode="json")
         item.update(id="workout", completed_at=None, notes=[])
 
-        context = query_context(
-            MemoryDatabase([item]), "family", "lin", "America/Toronto", date(2026, 8, 2)
-        )
+        context = query_context(MemoryDatabase([item]), "family", "lin")
 
         self.assertEqual(context["current_member"]["id"], "lin")
-        self.assertEqual(len(context["records"]), 1)
-        self.assertEqual(context["records"][0]["repeat"], "every week on Monday")
-        self.assertEqual(context["records"][0]["next_occurrence"]["occurrence_date"], "2026-08-03")
+        self.assertEqual(len(context["index"]), 1)
+        self.assertEqual(context["index"][0]["repeat"], "every week on Monday")
+        self.assertNotIn("details", context["index"][0])
+        self.assertEqual(context["details"]["workout"]["details"], "Bring shoes")
 
     async def test_query_receives_board_records_and_filters_unknown_references(self):
         SESSION.clear()
@@ -347,12 +346,14 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         ).model_dump(mode="json")
         flight.update(id="flight", completed_at=None, notes=[])
         route = SimpleNamespace(ainvoke=AsyncMock(return_value=RouteDecision(intent="query")))
-        query = SimpleNamespace(
-            ainvoke=AsyncMock(return_value=AgentReply(message="Your flight is at 9.", references=["flight", "missing"]))
+        decision = SimpleNamespace(
+            ainvoke=AsyncMock(return_value=QueryDecision(
+                status="answer", message="Your flight is at 9.", references=["flight", "missing"]
+            ))
         )
         with (
             patch("backend.hearthbook.llm.graph.router_chain", return_value=route),
-            patch("backend.hearthbook.llm.graph.query_answer_chain", return_value=query),
+            patch("backend.hearthbook.llm.graph.query_decision_chain", return_value=decision),
             patch("backend.hearthbook.services.board.create_conversation", return_value=deepcopy(SESSION)),
             patch("backend.hearthbook.llm.graph.add_message", side_effect=add_message),
             patch("backend.hearthbook.llm.graph.update_conversation", side_effect=update_conversation),
@@ -362,8 +363,45 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(response["references"], ["flight"])
-        self.assertIn("Flight to Shanghai", query.ainvoke.call_args.args[0]["board"])
-        self.assertIn('"id": "lin"', query.ainvoke.call_args.args[0]["current_member"])
+        index = decision.ainvoke.call_args.args[0]["index"]
+        self.assertIn("Flight to Shanghai", index)
+        self.assertNotIn("details", index)
+        self.assertIn('"id": "lin"', decision.ainvoke.call_args.args[0]["current_member"])
+
+    async def test_query_fetches_selected_details_only_when_requested(self):
+        SESSION.clear()
+        SESSION.update(
+            id="session", actor_id="lin", timezone="America/Toronto", status="active",
+            intent=None, payload={}, messages=[{"role": "user", "content": "What is the flight note?"}],
+        )
+        flight = ItemDraft(
+            kind="event", title="Flight to Shanghai", start_at="2026-08-03T09:00:00-04:00",
+            details="Check in 3 hours early", remind_member_id="lin",
+        ).model_dump(mode="json")
+        flight.update(id="flight", completed_at=None, notes=[])
+        route = SimpleNamespace(ainvoke=AsyncMock(return_value=RouteDecision(intent="query")))
+        decision = SimpleNamespace(
+            ainvoke=AsyncMock(return_value=QueryDecision(
+                status="needs_details", message="Checking the note.", references=["flight"]
+            ))
+        )
+        answer = SimpleNamespace(
+            ainvoke=AsyncMock(return_value=AgentReply(message="Check in 3 hours early.", references=["flight"]))
+        )
+        with (
+            patch("backend.hearthbook.llm.graph.router_chain", return_value=route),
+            patch("backend.hearthbook.llm.graph.query_decision_chain", return_value=decision),
+            patch("backend.hearthbook.llm.graph.query_answer_chain", return_value=answer),
+            patch("backend.hearthbook.services.board.create_conversation", return_value=deepcopy(SESSION)),
+            patch("backend.hearthbook.llm.graph.add_message", side_effect=add_message),
+            patch("backend.hearthbook.llm.graph.update_conversation", side_effect=update_conversation),
+        ):
+            response = await BoardService(MemoryDatabase([flight]), "family", "lin").message(
+                {"text": "What is the flight note?", "timezone": "America/Toronto"}
+            )
+
+        self.assertEqual(response["references"], ["flight"])
+        self.assertIn("Check in 3 hours early", answer.ainvoke.call_args.args[0]["records"])
 
     def test_recurrence_remains_event_only(self):
         with self.assertRaisesRegex(ValueError, "Only events can recur"):
