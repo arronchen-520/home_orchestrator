@@ -43,6 +43,7 @@ def model():
         base_url="https://openrouter.ai/api/v1",
         model=os.getenv("OPENROUTER_MODEL", "openrouter/free"),
         temperature=0,
+        extra_body={"reasoning": {"effort": "none"}},
         default_headers={"X-OpenRouter-Title": "Hearthbook"},
     )
 
