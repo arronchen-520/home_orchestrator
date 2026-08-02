@@ -3,6 +3,17 @@ from pathlib import Path
 
 
 class FrontendUIContractTest(unittest.TestCase):
+    def test_text_and_screenshot_controls_share_one_row(self):
+        index = Path("frontend/index.html").read_text(encoding="utf-8")
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+        styles = Path("frontend/styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('<div class="input-options">', index)
+        self.assertLess(index.index('id="textToggle"'), index.index('class="image-toggle"'))
+        self.assertIn('preferTyping: "文字输入"', app)
+        self.assertIn('preferTyping: "Text input"', app)
+        self.assertIn('.input-options { display: flex;', styles)
+
     def test_screenshot_can_send_without_an_optional_note(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")
         app = Path("frontend/app.js").read_text(encoding="utf-8")

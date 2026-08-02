@@ -4,7 +4,7 @@ const copy = {
   zh: {
     settings: "设置", homeTitle: "今天有什么想记录的吗？",
     homeSubtitle: "记录、查询，或者聊聊。", voiceTitle: "家庭助手",
-    tapToTalk: "点一下开始说话", stopRecording: "说完点这里发送", preferTyping: "想要打字？", uploadScreenshot: "上传截图",
+    tapToTalk: "点一下开始说话", stopRecording: "说完点这里发送", preferTyping: "文字输入", uploadScreenshot: "上传截图",
     messageLabel: "输入记录、问题或消息", messagePlaceholder: "例如：周六三点看牙，提醒妈妈",
     send: "发送", imageNoteLabel: "补充说明（可选）", imageNotePlaceholder: "例如：帮我记到日历", sendImage: "发送截图", imageUploaded: "已上传截图", imageOnly: "请上传 3 MB 以内的 PNG 截图", conversation: "对话", clear: "清空", remindWho: "提醒谁",
     preparation: "准备事项", cancel: "取消", confirm: "确认", todayEyebrow: "今日摘要",
@@ -43,7 +43,7 @@ const copy = {
   en: {
     settings: "Settings", homeTitle: "Anything you'd like to note today?",
     homeSubtitle: "Add a note, ask a question, or just chat.", voiceTitle: "Family assistant",
-    tapToTalk: "Tap to start talking", stopRecording: "Tap to send", preferTyping: "Prefer to type?", uploadScreenshot: "Upload screenshot",
+    tapToTalk: "Tap to start talking", stopRecording: "Tap to send", preferTyping: "Text input", uploadScreenshot: "Upload screenshot",
     messageLabel: "Type a plan, question, or message", messagePlaceholder: "Example: Dentist Saturday at 3, remind Mom",
     send: "Send", imageNoteLabel: "Optional note", imageNotePlaceholder: "Example: Add this to the calendar", sendImage: "Send screenshot", imageUploaded: "Screenshot uploaded", imageOnly: "Upload a PNG screenshot up to 3 MB", conversation: "Conversation", clear: "Clear", remindWho: "Who should we remind?",
     preparation: "Preparation", cancel: "Cancel", confirm: "Confirm", todayEyebrow: "Today's summary",
