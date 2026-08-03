@@ -36,7 +36,7 @@ const copy = {
     recurrence: "重复", noRecurrence: "不重复", daily: "每天", weekly: "每周", monthly: "每月",
     monthlyLastDay: "每月最后一天", recurrenceEnds: "重复结束", editScope: "修改范围",
     repeatOn: "重复日期", weekdayMO: "周一", weekdayTU: "周二", weekdayWE: "周三", weekdayTH: "周四", weekdayFR: "周五", weekdaySA: "周六", weekdaySU: "周日",
-    thisOccurrence: "只修改这一次", entireSeries: "修改整个系列", occurrenceEditHint: "这次修改只影响当前日期。", restoreOccurrence: "恢复系列默认设置", restoreOccurrenceConfirm: "恢复这个日期的系列默认设置吗？这次单独修改会被移除。", occurrenceRestored: "已恢复系列默认设置", date: "日期", ends: "结束",
+    thisOccurrence: "只修改这一次", entireSeries: "修改整个系列", occurrenceEditHint: "这次修改只影响当前日期。", restoreOccurrence: "恢复系列默认设置", restoreOccurrenceConfirm: "恢复这个日期的系列默认设置吗？这次单独修改会被移除。", occurrenceRestored: "已恢复系列默认设置", date: "日期", time: "时间", ends: "结束",
     specificTime: "指定时间", dueDate: "截止日期", overdue: "已过期",
     notifications: "通知", notificationHelp: "在提醒时间推送日程和待办，并在每天上午 9 点（本地时间）发送今日摘要。",
     allowNotifications: "允许通知", disableNotifications: "关闭通知", notificationsEnabled: "通知已开启",
@@ -80,7 +80,7 @@ const copy = {
     recurrence: "Repeats", noRecurrence: "Does not repeat", daily: "Daily", weekly: "Weekly", monthly: "Monthly",
     monthlyLastDay: "Last day of each month", recurrenceEnds: "Repeat until", editScope: "Edit scope",
     repeatOn: "Repeat on", weekdayMO: "Mon", weekdayTU: "Tue", weekdayWE: "Wed", weekdayTH: "Thu", weekdayFR: "Fri", weekdaySA: "Sat", weekdaySU: "Sun",
-    thisOccurrence: "Only this occurrence", entireSeries: "Entire series", occurrenceEditHint: "Changes here affect this date only.", restoreOccurrence: "Restore series defaults", restoreOccurrenceConfirm: "Restore the series defaults for this date? Its one-off changes will be removed.", occurrenceRestored: "Series defaults restored", date: "Date", ends: "Ends",
+    thisOccurrence: "Only this occurrence", entireSeries: "Entire series", occurrenceEditHint: "Changes here affect this date only.", restoreOccurrence: "Restore series defaults", restoreOccurrenceConfirm: "Restore the series defaults for this date? Its one-off changes will be removed.", occurrenceRestored: "Series defaults restored", date: "Date", time: "Time", ends: "Ends",
     specificTime: "Specific time", dueDate: "Due date", overdue: "Overdue",
     notifications: "Notifications", notificationHelp: "Get event and task reminders, plus a daily summary at 9 AM local time.",
     allowNotifications: "Allow notifications", disableNotifications: "Turn off notifications", notificationsEnabled: "Notifications are on",
@@ -270,6 +270,18 @@ function toLocalDateTime(value) {
   if (!value) return "";
   const date = new Date(value);
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+function setDateTimeParts(prefix, value) {
+  const [date = "", time = ""] = toLocalDateTime(value).split("T");
+  $(`#${prefix}Date`).value = date;
+  $(`#${prefix}Time`).value = time;
+}
+
+function dateTimePartsValue(prefix) {
+  const date = $(`#${prefix}Date`).value;
+  const time = $(`#${prefix}Time`).value;
+  return date && time ? `${date}T${time}` : "";
 }
 
 function itemDate(item) {
@@ -751,10 +763,13 @@ function toggleEditorFields() {
   $("#editStartAtField").hidden = allDay;
   $("#editEndAtField").hidden = allDay;
   $("#editStartDate").required = allDay;
-  $("#editStartAt").required = item.kind === "event" && !allDay;
+  $("#editStartAtDate").required = item.kind === "event" && !allDay;
+  $("#editStartAtTime").required = item.kind === "event" && !allDay;
   const dueTimed = item.kind === "task" && $("#editDueTimed").checked;
   $("#editDueDateField").hidden = dueTimed;
   $("#editDueAtField").hidden = !dueTimed;
+  $("#editDueAtDate").required = dueTimed;
+  $("#editDueAtTime").required = dueTimed;
   const editingOccurrence = $("#editScope").value === "occurrence";
   $("#editRecurrenceField").hidden = editingOccurrence;
   $("#editWeekdaysField").hidden = editingOccurrence || $("#editRecurrence").value !== "weekly";
@@ -772,7 +787,7 @@ function fillEditor(item, scope) {
   const reminderEditable = item.kind !== "note" && scope !== "occurrence";
   $("#editReminderSettings").hidden = !reminderEditable;
   $("#editReminderAtField").hidden = !reminderEditable;
-  $("#editReminderAt").value = reminderEditable ? toLocalDateTime(item.reminder_at) : "";
+  setDateTimeParts("editReminderAt", reminderEditable ? item.reminder_at : null);
   $("#editRemindMemberField").hidden = item.kind === "note" || scope === "occurrence";
   $("#editEventFields").hidden = item.kind !== "event";
   $("#editTaskFields").hidden = item.kind !== "task";
@@ -780,8 +795,8 @@ function fillEditor(item, scope) {
   if (item.kind === "event") {
     $("#editAllDay").checked = Boolean(item.all_day);
     $("#editStartDate").value = item.start_date || "";
-    $("#editStartAt").value = toLocalDateTime(item.start_at);
-    $("#editEndAt").value = toLocalDateTime(item.end_at);
+    setDateTimeParts("editStartAt", item.start_at);
+    setDateTimeParts("editEndAt", item.end_at);
     $("#editRecurrence").value = item.monthly_on_last_day ? "monthly_last_day" : item.recurrence || "";
     const weekdays = item.recurrence === "weekly" ? itemWeekdays(item) : [];
     $("#editWeekdaysField").querySelectorAll("input").forEach((input) => { input.checked = weekdays.includes(input.value); });
@@ -789,7 +804,7 @@ function fillEditor(item, scope) {
   } else if (item.kind === "task") {
     $("#editDueTimed").checked = Boolean(item.due_at);
     $("#editDueDate").value = item.due_date || "";
-    $("#editDueAt").value = toLocalDateTime(item.due_at);
+    setDateTimeParts("editDueAt", item.due_at);
   }
   toggleEditorFields();
   updateEditReminderSummary();
@@ -799,8 +814,8 @@ function updateEditReminderSummary() {
   const names = [...$("#editRemindMembers").querySelectorAll("input:checked")]
     .map((input) => memberName(input.value)).filter(Boolean);
   $("#editRemindMemberSummary").textContent = names.join(", ") || "—";
-  const when = $("#editReminderAt").value
-    ? formatDateTime(new Date($("#editReminderAt").value).toISOString()) : "";
+  const reminderAt = dateTimePartsValue("editReminderAt");
+  const when = reminderAt ? formatDateTime(new Date(reminderAt).toISOString()) : "";
   $("#editReminderSummary").textContent = [when, names.join(", ")].filter(Boolean).join(" · ") || "—";
 }
 
@@ -1083,7 +1098,7 @@ $("#editDueTimed").addEventListener("change", toggleEditorFields);
 $("#editRecurrence").addEventListener("change", () => {
   const inputs = [...$("#editWeekdaysField").querySelectorAll("input")];
   if ($("#editRecurrence").value === "weekly" && !inputs.some((input) => input.checked)) {
-    const value = $("#editAllDay").checked ? `${$("#editStartDate").value}T12:00:00` : $("#editStartAt").value;
+    const value = $("#editAllDay").checked ? `${$("#editStartDate").value}T12:00:00` : dateTimePartsValue("editStartAt");
     const weekday = value && ["SU", "MO", "TU", "WE", "TH", "FR", "SA"][new Date(value).getDay()];
     inputs.forEach((input) => { input.checked = input.value === weekday; });
   }
@@ -1091,7 +1106,7 @@ $("#editRecurrence").addEventListener("change", () => {
 });
 $("#editScope").addEventListener("change", (event) => fillEditor(editorItem(event.target.value), event.target.value));
 $("#editRemindMembers").addEventListener("change", updateEditReminderSummary);
-$("#editReminderAt").addEventListener("change", updateEditReminderSummary);
+["#editReminderAtDate", "#editReminderAtTime"].forEach((selector) => $(selector).addEventListener("change", updateEditReminderSummary));
 $("#editItemButton").addEventListener("click", () => {
   if (!state.selectedItem) return;
   const scope = state.selectedItem.is_occurrence ? $("#editScope").value : "series";
@@ -1110,8 +1125,8 @@ $("#itemForm").addEventListener("submit", async (event) => {
     if (item.kind !== "note" && scope === "series") {
       fields.remind_member_ids = [...$("#editRemindMembers").querySelectorAll("input:checked")]
         .map((input) => input.value);
-      fields.reminder_at = $("#editReminderAt").value
-        ? new Date($("#editReminderAt").value).toISOString() : null;
+      const reminderAt = dateTimePartsValue("editReminderAt");
+      fields.reminder_at = reminderAt ? new Date(reminderAt).toISOString() : null;
     }
     if (item.kind === "event") {
       if ($("#editAllDay").checked) {
@@ -1119,8 +1134,9 @@ $("#itemForm").addEventListener("submit", async (event) => {
         fields.start_at = null;
         fields.end_at = null;
       } else {
-        fields.start_at = new Date($("#editStartAt").value).toISOString();
-        fields.end_at = $("#editEndAt").value ? new Date($("#editEndAt").value).toISOString() : null;
+        fields.start_at = new Date(dateTimePartsValue("editStartAt")).toISOString();
+        const endAt = dateTimePartsValue("editEndAt");
+        fields.end_at = endAt ? new Date(endAt).toISOString() : null;
         fields.start_date = null;
       }
       if (scope === "series") {
@@ -1134,8 +1150,8 @@ $("#itemForm").addEventListener("submit", async (event) => {
       }
       fields.schedule_timezone = timezone;
     } else if (item.kind === "task") {
-      fields.due_at = $("#editDueTimed").checked && $("#editDueAt").value
-        ? new Date($("#editDueAt").value).toISOString() : null;
+      const dueAt = dateTimePartsValue("editDueAt");
+      fields.due_at = $("#editDueTimed").checked && dueAt ? new Date(dueAt).toISOString() : null;
       fields.due_date = $("#editDueTimed").checked ? null : $("#editDueDate").value || null;
       fields.schedule_timezone = timezone;
     }
