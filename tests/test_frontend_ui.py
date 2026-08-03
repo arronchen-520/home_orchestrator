@@ -93,8 +93,7 @@ class FrontendUIContractTest(unittest.TestCase):
     def test_calendar_loading_is_deferred_and_not_repeated_on_tab_switch(self):
         app = Path("frontend/app.js").read_text(encoding="utf-8")
 
-        self.assertIn("calendarLoaded: false", app)
-        self.assertIn('if (name === "calendar" && state.activeHouseholdId && !state.calendarLoaded)', app)
+        self.assertIn('if (name === "calendar" && state.activeHouseholdId && state.calendarDirty)', app)
         self.assertIn("await Promise.all([loadBoard(), loadToday()]);", app)
         self.assertIn('if (location.hash === "#calendar") await loadCalendar();', app)
 
@@ -109,6 +108,22 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('restoreCalendarCache();', app)
         self.assertIn("function clearTabCache()", app)
         self.assertNotIn('writeTabCache("today"', app)
+
+    def test_ai_messages_skip_board_refresh_and_writes_refresh_only_visible_date_data(self):
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+
+        for function_name, next_function in [
+            ("async function sendText", "async function sendImage"),
+            ("async function sendImage", "async function loadBoard"),
+        ]:
+            section = app[app.index(function_name):app.index(next_function)]
+            self.assertNotIn("refreshData()", section)
+        audio_section = app[app.index('api("/api/audio"'):app.index('recorder.start();')]
+        self.assertNotIn("refreshData()", audio_section)
+        self.assertIn("state.todayDirty = true;", app)
+        self.assertIn("state.calendarDirty = true;", app)
+        self.assertIn('if (tab === "home") requests.push(loadToday());', app)
+        self.assertIn('if (tab === "calendar") requests.push(loadCalendar());', app)
 
     def test_tasks_precede_notes_and_are_grouped_by_due_date(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")

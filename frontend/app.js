@@ -109,7 +109,7 @@ const TAB_CACHE_PREFIX = "hearthbook-tab-cache:v1:";
 const state = {
   language: localStorage.getItem("hearthbook-language") || (navigator.language.startsWith("zh") ? "zh" : "en"),
   board: { household: {}, members: [], items: [] },
-  today: [], calendar: [], calendarLoaded: false, calendarMonth: dateKey().slice(0, 7), selectedDate: dateKey(), calendarAgendaOpen: false,
+  today: [], todayDirty: true, calendar: [], calendarDirty: true, calendarMonth: dateKey().slice(0, 7), selectedDate: dateKey(), calendarAgendaOpen: false,
   calendarFilter: localStorage.getItem("hearthbook-calendar-filter") === "mine" ? "mine" : "all",
   taskFilter: localStorage.getItem("hearthbook-task-filter") === "mine" ? "mine" : "all",
   messages: [], pending: null, selectedItem: null,
@@ -159,7 +159,6 @@ function restoreCalendarCache() {
   const calendar = readTabCache("calendar", `${start}:${end}`);
   if (!calendar || !Array.isArray(calendar.items)) return false;
   state.calendar = calendar.items;
-  state.calendarLoaded = true;
   renderCalendar();
   return true;
 }
@@ -167,7 +166,8 @@ function restoreCalendarCache() {
 function resetTabData() {
   state.board = { household: {}, members: [], items: [] };
   state.calendar = [];
-  state.calendarLoaded = false;
+  state.todayDirty = true;
+  state.calendarDirty = true;
   renderMembers();
   renderNotes();
   renderCalendar();
@@ -693,7 +693,6 @@ async function sendText(text) {
     });
     state.messages = state.messages.filter((message) => !message.pending);
     consumeResponse(data);
-    await refreshData();
   } catch (error) {
     state.messages = state.messages.filter((message) => !message.pending);
     showToast(error.message, true);
@@ -715,7 +714,6 @@ async function sendImage(file, text) {
     state.messages = state.messages.filter((message) => !message.pending);
     state.messages.at(-1).text = data.image_summary || state.messages.at(-1).text;
     consumeResponse(data);
-    await refreshData();
   } catch (error) {
     state.messages = state.messages.filter((message) => !message.pending);
     showToast(error.message, true);
@@ -733,6 +731,7 @@ async function loadBoard() {
 
 async function loadToday() {
   state.today = (await api(`/api/today?date=${dateKey()}&timezone=${encodeURIComponent(timezone)}`)).items;
+  state.todayDirty = false;
   renderToday();
 }
 
@@ -741,7 +740,7 @@ async function loadCalendar() {
   const data = await api(`/api/calendar?start=${start}&end=${end}&timezone=${encodeURIComponent(timezone)}`);
   state.calendar = data.items;
   writeTabCache("calendar", `${start}:${end}`, data);
-  state.calendarLoaded = true;
+  state.calendarDirty = false;
   renderCalendar();
 }
 
@@ -786,7 +785,13 @@ function setTaskFilter(value) {
 }
 
 async function refreshData() {
-  await Promise.all([loadBoard(), loadToday(), loadCalendar()]);
+  const tab = ["home", "calendar", "notes"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "home";
+  state.todayDirty = true;
+  state.calendarDirty = true;
+  const requests = [loadBoard()];
+  if (tab === "home") requests.push(loadToday());
+  if (tab === "calendar") requests.push(loadCalendar());
+  await Promise.all(requests);
 }
 
 function editorItem(scope) {
@@ -958,10 +963,13 @@ function switchTab(name) {
     tab.classList.toggle("active", active);
     active ? tab.setAttribute("aria-current", "page") : tab.removeAttribute("aria-current");
   });
-  if (name === "calendar" && state.activeHouseholdId && !state.calendarLoaded) {
+  const requests = [];
+  if (name === "home" && state.activeHouseholdId && state.todayDirty) requests.push(loadToday());
+  if (name === "calendar" && state.activeHouseholdId && state.calendarDirty) {
     restoreCalendarCache();
-    loadCalendar().catch((error) => showToast(error.message, true));
+    requests.push(loadCalendar());
   }
+  if (requests.length) Promise.all(requests).catch((error) => showToast(error.message, true));
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -1300,7 +1308,6 @@ $("#recordButton").addEventListener("click", async () => {
         state.messages = state.messages.filter((message) => !message.pending);
         if (data.transcript) state.messages.push({ role: "user", text: data.transcript });
         consumeResponse(data);
-        await refreshData();
       } catch (error) {
         state.messages = state.messages.filter((message) => !message.pending);
         showToast(error.message, true);
