@@ -367,7 +367,19 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .item-preparation p { color: var(--muted); line-height: 1.5; white-space: pre-wrap; }
 .scope-hint { margin: 0; color: var(--muted); font-size: .875rem; line-height: 1.45; }
 .button-row { margin-top: 8px; }
-.item-form-actions { position: sticky; bottom: 0; display: flex; justify-content: space-between; gap: 8px; padding-top: 12px; background: white; }
+.item-form-actions {
+  position: sticky;
+  z-index: 1;
+  bottom: -20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 -20px -20px;
+  padding: 12px 20px max(20px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--card);
+  box-shadow: 0 -8px 18px rgb(73 49 27 / 8%);
+}
 .item-form-actions .primary-button { min-width: 104px; }
 .item-form-actions .danger-button { min-width: 88px; margin: 0; }
 
