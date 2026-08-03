@@ -49,7 +49,6 @@ class FrontendUIContractTest(unittest.TestCase):
         index = Path("frontend/index.html").read_text(encoding="utf-8")
         app = Path("frontend/app.js").read_text(encoding="utf-8")
         styles = Path("frontend/styles.css").read_text(encoding="utf-8")
-        styles = Path("frontend/styles.css").read_text(encoding="utf-8")
 
         self.assertIn('class="settings-current"', index)
         self.assertLess(index.index('id="currentHouseholdTitle"'), index.index('id="profileTitle"'))
@@ -175,7 +174,7 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertNotIn('position: sticky;', styles[styles.index('.item-form-actions'):styles.index('.primary-button')])
         self.assertIn('.item-dialog-actions .quiet-button { white-space: nowrap; }', styles)
         self.assertIn('.item-dialog-actions .quiet-button:focus-visible { outline: 0;', styles)
-        self.assertIn('.item-form > *, .editor-section, .editor-fields, .reminder-picker, .reminder-settings-body, .reminder-settings-body > * { min-width: 0; }', styles)
+        self.assertIn('.item-overview > *, .item-form > *, .editor-section, .editor-fields, .reminder-picker, .reminder-settings-body, .reminder-settings-body > *, .item-preparation { width: 100%; min-width: 0; max-width: 100%; }', styles)
         self.assertIn('.reminder-settings-body input { max-width: 100%; }', styles)
 
     def test_capture_confirmation_shows_schedule_and_reminder_metadata(self):
@@ -213,20 +212,11 @@ class FrontendUIContractTest(unittest.TestCase):
         app = Path("frontend/app.js").read_text(encoding="utf-8")
         styles = Path("frontend/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn('id="editStartAtDate" type="date"', index)
-        self.assertIn('id="editStartAtTime" type="time"', index)
-        self.assertIn('id="editEndAtDate" type="date"', index)
-        self.assertIn('id="editEndAtTime" type="time"', index)
-        self.assertIn('id="editDueAtDate" type="date"', index)
-        self.assertIn('id="editDueAtTime" type="time"', index)
-        self.assertIn('id="editReminderAtDate" type="date"', index)
-        self.assertIn('id="editReminderAtTime" type="time"', index)
+        self.assertIn('id="editReminderAt" type="datetime-local"', index)
         self.assertIn('const reminderEditable = item.kind !== "note" && scope !== "occurrence";', app)
-        self.assertIn('function setDateTimeParts(prefix, value)', app)
-        self.assertIn('function dateTimePartsValue(prefix)', app)
-        self.assertIn('setDateTimeParts("editReminderAt", reminderEditable ? item.reminder_at : null);', app)
-        self.assertIn('fields.reminder_at = reminderAt ? new Date(reminderAt).toISOString() : null;', app)
-        self.assertIn('.date-time-inputs { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) 96px;', styles)
+        self.assertIn('$("#editReminderAt").value = reminderEditable ? toLocalDateTime(item.reminder_at) : "";', app)
+        self.assertIn('fields.reminder_at = $("#editReminderAt").value', app)
+        self.assertIn('.item-form input[type="datetime-local"] { min-width: 0; width: 100%; max-width: 100%; }', styles)
 
 
 if __name__ == "__main__":

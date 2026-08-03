@@ -334,12 +334,10 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .item-dialog-actions .quiet-button { white-space: nowrap; }
 .item-dialog-actions .quiet-button:focus-visible { outline: 0; color: var(--brand-dark); text-decoration: underline; text-underline-offset: 3px; }
 .item-form, .stack-form { display: grid; gap: 14px; min-width: 0; }
-.item-form > *, .editor-section, .editor-fields, .reminder-picker, .reminder-settings-body, .reminder-settings-body > * { min-width: 0; }
+.item-overview > *, .item-form > *, .editor-section, .editor-fields, .reminder-picker, .reminder-settings-body, .reminder-settings-body > *, .item-preparation { width: 100%; min-width: 0; max-width: 100%; }
 .item-form label, .stack-form label { display: grid; gap: 6px; font-weight: 700; }
 .item-form select { width: 100%; padding: 10px 12px; }
-.date-time-field { display: grid; min-width: 0; gap: 6px; font-weight: 700; }
-.date-time-inputs { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) 96px; gap: 8px; }
-.date-time-inputs label, .date-time-inputs input { min-width: 0; max-width: 100%; }
+.item-form input[type="datetime-local"] { min-width: 0; width: 100%; max-width: 100%; }
 .item-overview { display: grid; gap: 14px; }
 .editor-section { display: grid; gap: 14px; }
 .editor-section h3 { margin: 0; font-size: .95rem; }

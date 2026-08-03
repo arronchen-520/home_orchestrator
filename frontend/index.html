@@ -11,7 +11,7 @@
     <title>Hearthbook</title>
     <link rel="apple-touch-icon" href="/static/assets/hearthbook-icon.png">
     <link rel="manifest" href="/static/manifest.webmanifest">
-    <link rel="stylesheet" href="/static/styles.css?v=20260803-6">
+    <link rel="stylesheet" href="/static/styles.css?v=20260803-7">
   </head>
   <body>
     <header class="topbar">
@@ -229,8 +229,8 @@
           <div id="editEventFields" class="editor-fields" hidden>
             <label class="checkbox-row"><input id="editAllDay" type="checkbox"><span data-i18n="allDay">全天</span></label>
             <label id="editStartDateField"><span data-i18n="date">日期</span><input id="editStartDate" type="date"></label>
-            <div id="editStartAtField" class="date-time-field"><span data-i18n="starts">开始</span><div class="date-time-inputs"><label><span class="sr-only" data-i18n="date">日期</span><input id="editStartAtDate" type="date"></label><label><span class="sr-only" data-i18n="time">时间</span><input id="editStartAtTime" type="time"></label></div></div>
-            <div id="editEndAtField" class="date-time-field"><span data-i18n="ends">结束</span><div class="date-time-inputs"><label><span class="sr-only" data-i18n="date">日期</span><input id="editEndAtDate" type="date"></label><label><span class="sr-only" data-i18n="time">时间</span><input id="editEndAtTime" type="time"></label></div></div>
+            <label id="editStartAtField"><span data-i18n="starts">开始</span><input id="editStartAt" type="datetime-local"></label>
+            <label id="editEndAtField"><span data-i18n="ends">结束</span><input id="editEndAt" type="datetime-local"></label>
             <label id="editRecurrenceField">
               <span data-i18n="recurrence">重复</span>
               <select id="editRecurrence">
@@ -256,13 +256,13 @@
           <div id="editTaskFields" class="editor-fields" hidden>
             <label class="checkbox-row"><input id="editDueTimed" type="checkbox"><span data-i18n="specificTime">指定时间</span></label>
             <label id="editDueDateField"><span data-i18n="dueDate">截止日期</span><input id="editDueDate" type="date"></label>
-            <div id="editDueAtField" class="date-time-field"><span data-i18n="due">截止</span><div class="date-time-inputs"><label><span class="sr-only" data-i18n="date">日期</span><input id="editDueAtDate" type="date"></label><label><span class="sr-only" data-i18n="time">时间</span><input id="editDueAtTime" type="time"></label></div></div>
+            <label id="editDueAtField"><span data-i18n="due">截止</span><input id="editDueAt" type="datetime-local"></label>
           </div>
         </section>
         <details id="editReminderSettings" class="reminder-picker">
           <summary><span data-i18n="reminder">提醒</span><span id="editReminderSummary"></span></summary>
           <div class="reminder-settings-body">
-            <div id="editReminderAtField" class="date-time-field"><span data-i18n="reminder">提醒</span><div class="date-time-inputs"><label><span class="sr-only" data-i18n="date">日期</span><input id="editReminderAtDate" type="date"></label><label><span class="sr-only" data-i18n="time">时间</span><input id="editReminderAtTime" type="time"></label></div></div>
+            <label id="editReminderAtField"><span data-i18n="reminder">提醒</span><input id="editReminderAt" type="datetime-local"></label>
             <details id="editRemindMemberField" class="reminder-picker">
               <summary><span data-i18n="remindWho">提醒谁</span><span id="editRemindMemberSummary"></span></summary>
               <div id="editRemindMembers"></div>
@@ -376,6 +376,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <script src="/static/app.js?v=20260803-6" defer></script>
+    <script src="/static/app.js?v=20260803-7" defer></script>
   </body>
 </html>
