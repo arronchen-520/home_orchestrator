@@ -808,7 +808,6 @@ function setItemEditing(editing) {
   $("#itemOverview").hidden = editing;
   $("#itemForm").hidden = !editing;
   $("#editItemButton").hidden = editing;
-  $("#cancelItemEditButton").hidden = !editing;
   $("#followupsSection").hidden = editing || state.selectedItem?.kind === "note";
 }
 
@@ -1098,10 +1097,6 @@ $("#editItemButton").addEventListener("click", () => {
   const scope = state.selectedItem.is_occurrence ? $("#editScope").value : "series";
   fillEditor(editorItem(scope), scope);
   setItemEditing(true);
-});
-$("#cancelItemEditButton").addEventListener("click", () => {
-  $("#itemFormError").hidden = true;
-  setItemEditing(false);
 });
 $("#itemForm").addEventListener("submit", async (event) => {
   event.preventDefault();

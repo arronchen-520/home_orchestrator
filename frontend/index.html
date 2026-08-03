@@ -11,7 +11,7 @@
     <title>Hearthbook</title>
     <link rel="apple-touch-icon" href="/static/assets/hearthbook-icon.png">
     <link rel="manifest" href="/static/manifest.webmanifest">
-    <link rel="stylesheet" href="/static/styles.css?v=20260803-4">
+    <link rel="stylesheet" href="/static/styles.css?v=20260803-5">
   </head>
   <body>
     <header class="topbar">
@@ -271,9 +271,8 @@
         </details>
         <p id="itemFormError" class="form-error" role="alert" hidden></p>
         <button id="restoreOccurrence" class="secondary-button full-width" type="button" data-i18n="restoreOccurrence" hidden>恢复系列默认设置</button>
-        <button id="deleteItem" class="danger-button full-width" type="button" data-i18n="delete">删除</button>
         <div class="item-form-actions">
-          <button id="cancelItemEditButton" class="secondary-button" type="button" data-i18n="cancel">取消</button>
+          <button id="deleteItem" class="danger-button" type="button" data-i18n="delete">删除</button>
           <button class="primary-button" type="submit" data-i18n="save">保存</button>
         </div>
       </form>
@@ -377,6 +376,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <script src="/static/app.js?v=20260803-4" defer></script>
+    <script src="/static/app.js?v=20260803-5" defer></script>
   </body>
 </html>

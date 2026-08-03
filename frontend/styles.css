@@ -332,6 +332,7 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .dialog-header h2 { margin: 0; }
 .item-dialog-actions { display: flex !important; flex: 0 0 auto; align-items: center; gap: 8px; }
 .item-dialog-actions .quiet-button { white-space: nowrap; }
+.item-dialog-actions .quiet-button:focus-visible { outline: 0; color: var(--brand-dark); text-decoration: underline; text-underline-offset: 3px; }
 .item-form, .stack-form { display: grid; gap: 14px; min-width: 0; }
 .item-form > *, .editor-section, .editor-fields, .reminder-picker, .reminder-settings-body, .reminder-settings-body > * { min-width: 0; }
 .item-form label, .stack-form label { display: grid; gap: 6px; font-weight: 700; }
@@ -361,7 +362,7 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .item-meta { display: grid; gap: 4px; color: var(--muted); }
 .item-meta p { margin: 4px 0; }
 .item-details { margin: 0; color: var(--ink); line-height: 1.5; white-space: pre-wrap; }
-.item-preparation { display: grid; gap: 6px; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.item-preparation { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
 .item-preparation h3, .item-preparation p { margin: 0; }
 .item-preparation h3 { color: var(--brand-dark); font-size: .9rem; }
 .item-preparation p { color: var(--muted); line-height: 1.5; white-space: pre-wrap; }
@@ -373,8 +374,7 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
   gap: 8px;
 }
 .item-form-actions .primary-button { min-width: 104px; }
-.item-form-actions .secondary-button { min-width: 88px; }
-.item-form > .danger-button { margin: 0; }
+.item-form-actions .danger-button { min-width: 88px; margin: 0; }
 
 .primary-button, .secondary-button, .danger-button {
   min-height: 46px;
