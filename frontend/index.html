@@ -344,6 +344,19 @@
         <button id="logoutButton" class="logout-button" type="button" data-i18n="logout">退出登录</button>
         </div>
       </details>
+        <button id="deleteHouseholdButton" class="logout-button" type="button" data-i18n="deleteHousehold" hidden>Delete household</button>
+    </dialog>
+
+    <dialog id="ownerExitDialog" class="sheet small-sheet">
+      <form class="stack-form">
+        <h2 data-i18n="chooseNewOwner">Choose a new household owner</h2>
+        <p data-i18n="chooseNewOwnerHelp">Choose an existing member to become the new owner before you leave.</p>
+        <label><span data-i18n="newOwner">New owner</span><select id="newOwnerSelect"></select></label>
+        <div class="item-form-actions">
+          <button id="ownerExitCancel" class="quiet-button" type="button" data-i18n="cancel">Cancel</button>
+          <button id="ownerExitConfirm" class="danger-button" type="button" data-i18n="transferAndLeave">Transfer and leave</button>
+        </div>
+      </form>
     </dialog>
 
     <dialog id="authDialog" class="sheet small-sheet">

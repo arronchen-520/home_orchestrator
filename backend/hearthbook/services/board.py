@@ -9,16 +9,18 @@ from ..storage.conversation import add_message, confirm_conversation, create_con
 
 
 class BoardService:
-    def __init__(self, database: BoardDatabase, household_id: str, member_id: str):
+    def __init__(self, database: BoardDatabase, household_id: str, member_id: str, household_role: str = "member"):
         self.database = database
         self.household_id = household_id
         self.member_id = member_id
+        self.household_role = household_role
         self.graph = build_conversation_graph(database, household_id)
 
     def get_board(self, result: dict | None = None) -> dict:
         return {
             **self.database.get_board(self.household_id),
             "current_member_id": self.member_id,
+            "household_role": self.household_role,
             "result": result,
         }
 

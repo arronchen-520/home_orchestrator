@@ -17,7 +17,12 @@ def board_service(request: Request) -> BoardService:
             request.state.household_id, request.state.user_id
         )
         request.state.member_id = member_id
-        service = BoardService(database, request.state.household_id, member_id)
+        service = BoardService(
+            database,
+            request.state.household_id,
+            member_id,
+            getattr(request.state, "household_role", "member"),
+        )
         request.state.board_service = service
     return service
 

@@ -97,6 +97,16 @@ copy.zh.audioTooLarge = "录音不能超过 5 MB。";
 copy.en.messageTooLong = "Messages can be up to 1,000 characters.";
 copy.en.recordingLimit = "Recordings can be up to 60 seconds. Sending the first 60 seconds.";
 copy.en.audioTooLarge = "Recordings can be up to 5 MB.";
+Object.assign(copy.zh, {
+  deleteHousehold: "删除家庭", chooseNewOwner: "选择新的家庭 owner", chooseNewOwnerHelp: "退出前请选择一位现有成员成为新的 owner。",
+  newOwner: "新的 owner", transferAndLeave: "转移并退出", transferOwnerConfirm: "确定将家庭 owner 转给所选成员并退出吗？", ownerNeedsMember: "请先邀请另一位成员加入家庭。",
+  deleteHouseholdConfirm: "确定永久删除这个家庭吗？所有日程、待办、笔记和对话都会被删除，无法恢复。",
+});
+Object.assign(copy.en, {
+  deleteHousehold: "Delete household", chooseNewOwner: "Choose a new household owner", chooseNewOwnerHelp: "Choose an existing member to become the new owner before you leave.",
+  newOwner: "New owner", transferAndLeave: "Transfer and leave", transferOwnerConfirm: "Transfer ownership to this member and leave the household?", ownerNeedsMember: "Invite another member before leaving the household.",
+  deleteHouseholdConfirm: "Permanently delete this household? All events, tasks, notes, and conversations will be deleted and cannot be recovered.",
+});
 copy.zh.dailyLimit = "今天的 5 次 AI 请求已用完，请明天再试。";
 copy.en.dailyLimit = "Today's 5 AI requests have been used. Try again tomorrow.";
 
@@ -399,6 +409,7 @@ function renderMembers() {
     $("#memberName").value = currentMember.name || "";
     $("#memberRole").value = currentMember.role || "";
   }
+  $("#deleteHouseholdButton").hidden = state.board.household_role !== "owner";
 }
 
 function renderHouseholdControls() {
@@ -1374,10 +1385,40 @@ $("#joinHouseholdForm").addEventListener("submit", async (event) => {
     await refreshData();
   } catch (error) { $("#onboardingError").textContent = error.message; $("#onboardingError").hidden = false; }
 });
-$("#leaveHouseholdButton").addEventListener("click", async () => {
-  if (!window.confirm(t("leaveHouseholdConfirm"))) return;
+async function leaveHousehold(newOwnerMemberId = null) {
+  if (!window.confirm(t(newOwnerMemberId ? "transferOwnerConfirm" : "leaveHouseholdConfirm"))) return;
   try {
-    await api("/api/households/leave", { method: "POST" });
+    await api("/api/households/leave", {
+      method: "POST",
+      body: JSON.stringify(newOwnerMemberId ? { new_owner_member_id: newOwnerMemberId } : {}),
+    });
+    clearTabCache();
+    startNewConversation();
+    $("#settingsDialog").close();
+    $("#ownerExitDialog").close();
+    await loadSession();
+  } catch (error) { showToast(error.message, true); }
+}
+
+$("#leaveHouseholdButton").addEventListener("click", async () => {
+  if (state.board.household_role === "owner") {
+    const members = state.board.members.filter((member) => member.id !== state.board.current_member_id);
+    if (!members.length) { showToast(t("ownerNeedsMember"), true); return; }
+    $("#newOwnerSelect").replaceChildren(...members.map((member) => new Option(member.name, member.id)));
+    $("#ownerExitDialog").showModal();
+    return;
+  }
+  await leaveHousehold();
+});
+$("#ownerExitCancel").addEventListener("click", () => $("#ownerExitDialog").close());
+$("#ownerExitConfirm").addEventListener("click", async () => {
+  const newOwnerMemberId = $("#newOwnerSelect").value;
+  if (newOwnerMemberId) await leaveHousehold(newOwnerMemberId);
+});
+$("#deleteHouseholdButton").addEventListener("click", async () => {
+  if (!window.confirm(t("deleteHouseholdConfirm"))) return;
+  try {
+    await api("/api/households", { method: "DELETE" });
     clearTabCache();
     startNewConversation();
     $("#settingsDialog").close();

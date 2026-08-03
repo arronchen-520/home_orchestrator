@@ -45,6 +45,16 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('id="settingsCloseButton"', index)
         self.assertIn('$("#settingsCloseButton").addEventListener("click", () => $("#settingsDialog").close());', app)
 
+    def test_owner_household_actions_are_hidden_until_needed(self):
+        index = Path("frontend/index.html").read_text(encoding="utf-8")
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="deleteHouseholdButton"', index)
+        self.assertIn('id="ownerExitDialog"', index)
+        self.assertIn('state.board.household_role !== "owner"', app)
+        self.assertIn('new_owner_member_id: newOwnerMemberId', app)
+        self.assertIn('api("/api/households", { method: "DELETE" })', app)
+
     def test_settings_uses_single_open_sections_after_current_household(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")
         app = Path("frontend/app.js").read_text(encoding="utf-8")

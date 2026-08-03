@@ -73,10 +73,14 @@ async def require_session(request: Request, call_next):
     request.state.access_token = access_token
     client = data_client(request, access_token)
     request.state.data_client = client
-    memberships = client.table("household_memberships").select("household_id").eq("user_id", str(user.id)).execute().data or []
+    memberships = client.table("household_memberships").select("household_id,role").eq("user_id", str(user.id)).execute().data or []
     household_ids = [row["household_id"] for row in memberships]
     requested = request.cookies.get(HOUSEHOLD_COOKIE)
     request.state.household_id = requested if requested in household_ids else household_ids[0] if household_ids else None
+    request.state.household_role = next(
+        (row.get("role", "member") for row in memberships if row["household_id"] == request.state.household_id),
+        "member",
+    )
     if request.state.household_id is None and path not in {"/api/households", "/api/households/join"}:
         return JSONResponse({"detail": "Household setup required"}, status_code=409)
     response = await call_next(request)

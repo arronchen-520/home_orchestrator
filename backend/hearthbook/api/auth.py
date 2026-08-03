@@ -36,6 +36,10 @@ class SelectInput(BaseModel):
     household_id: str = Field(min_length=1, max_length=80)
 
 
+class LeaveInput(BaseModel):
+    new_owner_member_id: str | None = Field(default=None, min_length=1, max_length=80)
+
+
 def auth_client(request: Request) -> Client:
     return create_client(request.app.state.supabase_url, request.app.state.supabase_key)
 
@@ -151,7 +155,7 @@ async def logout(request: Request, response: Response):
 
 def safe_household_error(exc: Exception) -> str:
     error = str(exc)
-    for message in ("Invalid household or member name", "Invalid household invite", "Invalid member name", "Invalid member name or role", "This account already belongs to this household", "Cannot leave the last account in a household"):
+    for message in ("Invalid household or member name", "Invalid household invite", "Invalid member name", "Invalid member name or role", "This account already belongs to this household", "Cannot leave the last account in a household", "Household owner must choose a new owner before leaving", "Choose a valid new household owner", "Only the household owner can delete this household", "Only the household owner can transfer ownership"):
         if message in error:
             return message
     logger.exception("Household operation failed")
@@ -196,10 +200,13 @@ async def join_household(payload: JoinInput, request: Request, response: Respons
 
 
 @router.post("/households/leave")
-async def leave_household(request: Request, response: Response):
+async def leave_household(request: Request, response: Response, payload: LeaveInput | None = None):
     try:
         data_client(request, request.state.access_token).rpc(
-            "leave_household", {"target_household_id": request.state.household_id}
+            "leave_household", {
+                "target_household_id": request.state.household_id,
+                "new_owner_member_id": payload.new_owner_member_id if payload else None,
+            }
         ).execute()
     except Exception as exc:
         raise HTTPException(status_code=400, detail=safe_household_error(exc)) from exc
@@ -207,6 +214,20 @@ async def leave_household(request: Request, response: Response):
         HOUSEHOLD_COOKIE, httponly=True, secure=secure_request(request), samesite="lax"
     )
     return {"left": True}
+
+
+@router.delete("/households")
+async def delete_household(request: Request, response: Response):
+    try:
+        data_client(request, request.state.access_token).rpc(
+            "delete_household", {"target_household_id": request.state.household_id}
+        ).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=safe_household_error(exc)) from exc
+    response.delete_cookie(
+        HOUSEHOLD_COOKIE, httponly=True, secure=secure_request(request), samesite="lax"
+    )
+    return {"deleted": True}
 
 
 @router.post("/households/select")

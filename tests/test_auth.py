@@ -268,7 +268,68 @@ class SupabaseAuthTest(unittest.TestCase):
             response = browser.post("/api/households/leave")
 
         self.assertEqual(response.status_code, 200, response.text)
-        self.assertEqual(client.rpc_call, ("leave_household", {"target_household_id": "family"}))
+        self.assertEqual(
+            client.rpc_call,
+            ("leave_household", {"target_household_id": "family", "new_owner_member_id": None}),
+        )
+        self.assertIn("hearthbook_household=", response.headers["set-cookie"])
+
+    def test_owner_leave_passes_the_selected_new_owner(self):
+        client = LeaveClient()
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "SUPABASE_URL": "https://example.supabase.co",
+                    "SUPABASE_PUBLISHABLE_KEY": "test-key",
+                },
+                clear=True,
+            ),
+            patch.object(
+                app_module,
+                "authenticate",
+                return_value=(SimpleNamespace(id="user-1"), "token", None),
+            ),
+            patch.object(app_module, "data_client", return_value=MembershipClient()),
+            patch("backend.hearthbook.api.auth.data_client", return_value=client),
+            TestClient(app_module.app, base_url="https://testserver") as browser,
+        ):
+            response = browser.post(
+                "/api/households/leave", json={"new_owner_member_id": "member-2"}
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            client.rpc_call,
+            ("leave_household", {"target_household_id": "family", "new_owner_member_id": "member-2"}),
+        )
+
+    def test_deleting_the_active_household_calls_delete_rpc_and_clears_cookie(self):
+        client = LeaveClient()
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "SUPABASE_URL": "https://example.supabase.co",
+                    "SUPABASE_PUBLISHABLE_KEY": "test-key",
+                },
+                clear=True,
+            ),
+            patch.object(
+                app_module,
+                "authenticate",
+                return_value=(SimpleNamespace(id="user-1"), "token", None),
+            ),
+            patch.object(app_module, "data_client", return_value=MembershipClient()),
+            patch("backend.hearthbook.api.auth.data_client", return_value=client),
+            TestClient(app_module.app, base_url="https://testserver") as browser,
+        ):
+            response = browser.delete("/api/households")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            client.rpc_call, ("delete_household", {"target_household_id": "family"})
+        )
         self.assertIn("hearthbook_household=", response.headers["set-cookie"])
 
     def test_authenticated_board_route_and_security_headers(self):
@@ -348,6 +409,13 @@ class SupabaseAuthTest(unittest.TestCase):
             "consume_ai_quota", "auth.uid()", "for update",
         ):
             self.assertIn(expected, quota)
+        owner_controls = (migrations / "202608030001_household_owner_controls.sql").read_text(encoding="utf-8").lower()
+        for expected in (
+            "new_owner_member_id", "household owner must choose a new owner before leaving",
+            "only the household owner can delete this household", "delete from public.households",
+            "role = 'owner'", "role = 'member'",
+        ):
+            self.assertIn(expected, owner_controls)
 
 
 if __name__ == "__main__":
