@@ -8,9 +8,25 @@ create table public.ai_usage_daily (
 
 create table public.ai_user_limits (
     user_id uuid primary key references auth.users(id) on delete cascade,
-    daily_limit integer check (daily_limit is null or daily_limit >= 0),
+    daily_limit integer default 5 check (daily_limit is null or daily_limit >= 0),
     updated_at timestamptz not null default now()
 );
+
+insert into public.ai_user_limits (user_id)
+select id from auth.users
+on conflict (user_id) do nothing;
+
+create function public.create_ai_user_limit()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+    insert into public.ai_user_limits (user_id) values (new.id);
+    return new;
+end;
+$$;
+
+create trigger create_ai_user_limit
+after insert on auth.users
+for each row execute function public.create_ai_user_limit();
 
 alter table public.ai_usage_daily enable row level security;
 alter table public.ai_user_limits enable row level security;

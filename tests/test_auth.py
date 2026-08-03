@@ -301,7 +301,11 @@ class SupabaseAuthTest(unittest.TestCase):
         recipient_limit = (migrations / "202608020004_limit_reminder_recipients.sql").read_text(encoding="utf-8").lower()
         self.assertIn("cardinality(remind_member_ids) <= 5", recipient_limit)
         quota = (migrations / "202608020005_ai_daily_quota.sql").read_text(encoding="utf-8").lower()
-        for expected in ("ai_usage_daily", "ai_user_limits", "consume_ai_quota", "auth.uid()", "for update"):
+        for expected in (
+            "ai_usage_daily", "ai_user_limits", "daily_limit integer default 5",
+            "select id from auth.users", "create trigger create_ai_user_limit",
+            "consume_ai_quota", "auth.uid()", "for update",
+        ):
             self.assertIn(expected, quota)
 
 
