@@ -214,6 +214,7 @@
           <h3 data-i18n="basicInfo">基本信息</h3>
           <label><span data-i18n="title">标题</span><input id="editTitle" maxlength="120" required></label>
           <label><span data-i18n="details">详情</span><textarea id="editDetails" rows="3" maxlength="2000"></textarea></label>
+          <label id="editPreparationField"><span data-i18n="preparation">准备事项</span><textarea id="editPreparation" rows="2" maxlength="500"></textarea></label>
           <label id="editScopeField" hidden>
             <span data-i18n="editScope">修改范围</span>
             <select id="editScope">
@@ -221,6 +222,7 @@
               <option value="series" data-i18n="entireSeries">修改整个系列</option>
             </select>
           </label>
+          <p id="occurrenceEditHint" class="scope-hint" data-i18n="occurrenceEditHint" hidden>这次修改只影响当前日期。</p>
         </section>
         <section id="editScheduleSection" class="editor-section">
           <h3 data-i18n="schedule">时间安排</h3>
@@ -270,6 +272,7 @@
         <p id="itemFormError" class="form-error" role="alert" hidden></p>
         <details id="itemDangerActions" class="item-danger-actions">
           <summary data-i18n="moreActions">更多操作</summary>
+          <button id="restoreOccurrence" class="secondary-button full-width" type="button" data-i18n="restoreOccurrence" hidden>恢复系列默认设置</button>
           <button id="deleteItem" class="danger-button full-width" type="button" data-i18n="delete">删除</button>
         </details>
         <div class="item-form-actions">

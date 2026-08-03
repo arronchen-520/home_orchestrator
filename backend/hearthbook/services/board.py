@@ -88,6 +88,12 @@ class BoardService:
         )
         return self.get_board({"action": "occurrence_cancelled"})
 
+    def restore_occurrence(self, item_id: str, occurrence_date: str) -> dict:
+        self.database.restore_occurrence(
+            self.household_id, item_id, occurrence_date, self.member_id
+        )
+        return self.get_board({"action": "occurrence_restored"})
+
     def delete_item(self, item_id: str) -> dict:
         self.database.delete_item(self.household_id, item_id, self.member_id)
         return self.get_board({"action": "deleted"})

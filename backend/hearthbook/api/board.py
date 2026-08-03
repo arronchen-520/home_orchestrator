@@ -101,6 +101,11 @@ async def update_occurrence(item_id: str, occurrence_date: date, payload: Occurr
     return board_service(request).update_occurrence(item_id, occurrence_date.isoformat(), fields)
 
 
+@router.delete("/items/{item_id}/occurrences/{occurrence_date}/override")
+async def restore_occurrence(item_id: str, occurrence_date: date, request: Request):
+    return board_service(request).restore_occurrence(item_id, occurrence_date.isoformat())
+
+
 @router.delete("/items/{item_id}/occurrences/{occurrence_date}")
 async def cancel_occurrence(item_id: str, occurrence_date: date, request: Request):
     return board_service(request).cancel_occurrence(item_id, occurrence_date.isoformat())

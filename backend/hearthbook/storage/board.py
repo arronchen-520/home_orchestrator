@@ -337,17 +337,20 @@ class BoardDatabase:
             fields["end_at"]
         ) < datetime.fromisoformat(fields["start_at"]):
             raise ValueError("Event end must be after its start")
+        existing = self.one(
+            self.client.table("recurrence_exceptions")
+            .select("*")
+            .eq("series_id", series_id)
+            .eq("occurrence_date", occurrence_date)
+            .limit(1)
+            .execute()
+        ) or {}
         self.client.table("recurrence_exceptions").upsert(
             {
                 "series_id": series_id,
                 "occurrence_date": occurrence_date,
                 "cancelled": False,
-                "start_at": fields.get("start_at"),
-                "end_at": fields.get("end_at"),
-                "start_date": fields.get("start_date"),
-                "title": fields.get("title"),
-                "details": fields.get("details"),
-                "preparation": fields.get("preparation"),
+                **{field: fields[field] if field in fields else existing.get(field) for field in allowed},
                 "updated_at": now_text(),
             },
             on_conflict="series_id,occurrence_date",
@@ -371,3 +374,10 @@ class BoardDatabase:
             },
             on_conflict="series_id,occurrence_date",
         ).execute()
+
+    def restore_occurrence(self, household_id: str, series_id: str, occurrence_date: str, actor_id: str) -> None:
+        self.require_member(household_id, actor_id)
+        self._require_occurrence(household_id, series_id, occurrence_date)
+        self.client.table("recurrence_exceptions").delete().eq(
+            "series_id", series_id
+        ).eq("occurrence_date", occurrence_date).execute()

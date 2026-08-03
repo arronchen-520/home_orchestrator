@@ -190,6 +190,16 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('.reminder-picker summary { display: flex;', styles)
         self.assertIn('.item-preparation { display: grid;', styles)
 
+    def test_item_editor_supports_preparation_and_restoring_one_occurrence(self):
+        index = Path("frontend/index.html").read_text(encoding="utf-8")
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="editPreparation"', index)
+        self.assertIn('id="restoreOccurrence"', index)
+        self.assertIn('$("#editPreparation").value = item.preparation || "";', app)
+        self.assertIn('fields.preparation = $("#editPreparation").value.trim() || null;', app)
+        self.assertIn('/occurrences/${state.selectedItem.occurrence_date}/override', app)
+
     def test_item_dialog_can_edit_a_series_reminder_time(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")
         app = Path("frontend/app.js").read_text(encoding="utf-8")

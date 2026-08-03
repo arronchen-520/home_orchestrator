@@ -36,7 +36,7 @@ const copy = {
     recurrence: "重复", noRecurrence: "不重复", daily: "每天", weekly: "每周", monthly: "每月",
     monthlyLastDay: "每月最后一天", recurrenceEnds: "重复结束", editScope: "修改范围",
     repeatOn: "重复日期", weekdayMO: "周一", weekdayTU: "周二", weekdayWE: "周三", weekdayTH: "周四", weekdayFR: "周五", weekdaySA: "周六", weekdaySU: "周日",
-    thisOccurrence: "只修改这一次", entireSeries: "修改整个系列", date: "日期", ends: "结束",
+    thisOccurrence: "只修改这一次", entireSeries: "修改整个系列", occurrenceEditHint: "这次修改只影响当前日期。", restoreOccurrence: "恢复系列默认设置", restoreOccurrenceConfirm: "恢复这个日期的系列默认设置吗？这次单独修改会被移除。", occurrenceRestored: "已恢复系列默认设置", date: "日期", ends: "结束",
     specificTime: "指定时间", dueDate: "截止日期", overdue: "已过期",
     notifications: "通知", notificationHelp: "在提醒时间推送日程和待办，并在每天上午 9 点（本地时间）发送今日摘要。",
     allowNotifications: "允许通知", disableNotifications: "关闭通知", notificationsEnabled: "通知已开启",
@@ -80,7 +80,7 @@ const copy = {
     recurrence: "Repeats", noRecurrence: "Does not repeat", daily: "Daily", weekly: "Weekly", monthly: "Monthly",
     monthlyLastDay: "Last day of each month", recurrenceEnds: "Repeat until", editScope: "Edit scope",
     repeatOn: "Repeat on", weekdayMO: "Mon", weekdayTU: "Tue", weekdayWE: "Wed", weekdayTH: "Thu", weekdayFR: "Fri", weekdaySA: "Sat", weekdaySU: "Sun",
-    thisOccurrence: "Only this occurrence", entireSeries: "Entire series", date: "Date", ends: "Ends",
+    thisOccurrence: "Only this occurrence", entireSeries: "Entire series", occurrenceEditHint: "Changes here affect this date only.", restoreOccurrence: "Restore series defaults", restoreOccurrenceConfirm: "Restore the series defaults for this date? Its one-off changes will be removed.", occurrenceRestored: "Series defaults restored", date: "Date", ends: "Ends",
     specificTime: "Specific time", dueDate: "Due date", overdue: "Overdue",
     notifications: "Notifications", notificationHelp: "Get event and task reminders, plus a daily summary at 9 AM local time.",
     allowNotifications: "Allow notifications", disableNotifications: "Turn off notifications", notificationsEnabled: "Notifications are on",
@@ -759,12 +759,16 @@ function toggleEditorFields() {
   $("#editRecurrenceField").hidden = editingOccurrence;
   $("#editWeekdaysField").hidden = editingOccurrence || $("#editRecurrence").value !== "weekly";
   $("#editRecurrenceUntilField").hidden = editingOccurrence || !$("#editRecurrence").value;
+  $("#occurrenceEditHint").hidden = !editingOccurrence;
+  $("#restoreOccurrence").hidden = !editingOccurrence;
 }
 
 function fillEditor(item, scope) {
   if (!item) return;
   $("#editTitle").value = item.title || "";
   $("#editDetails").value = item.details || "";
+  $("#editPreparation").value = item.preparation || "";
+  $("#editPreparationField").hidden = item.kind === "note";
   const reminderEditable = item.kind !== "note" && scope !== "occurrence";
   $("#editReminderSettings").hidden = !reminderEditable;
   $("#editReminderAtField").hidden = !reminderEditable;
@@ -1105,6 +1109,7 @@ $("#itemForm").addEventListener("submit", async (event) => {
   $("#itemFormError").hidden = true;
   try {
     const fields = { title: $("#editTitle").value.trim(), details: $("#editDetails").value.trim() };
+    if (item.kind !== "note") fields.preparation = $("#editPreparation").value.trim() || null;
     if (item.kind !== "note" && scope === "series") {
       fields.remind_member_ids = [...$("#editRemindMembers").querySelectorAll("input:checked")]
         .map((input) => input.value);
@@ -1148,6 +1153,15 @@ $("#itemForm").addEventListener("submit", async (event) => {
     $("#itemFormError").textContent = error.message;
     $("#itemFormError").hidden = false;
   }
+});
+$("#restoreOccurrence").addEventListener("click", async () => {
+  if (!state.selectedItem?.is_occurrence || !confirm(t("restoreOccurrenceConfirm"))) return;
+  try {
+    await api(`/api/items/${state.selectedItem.series_id}/occurrences/${state.selectedItem.occurrence_date}/override`, { method: "DELETE" });
+    $("#itemDialog").close();
+    await refreshData();
+    showToast(t("occurrenceRestored"));
+  } catch (error) { showToast(error.message, true); }
 });
 $("#deleteItem").addEventListener("click", async () => {
   if (!state.selectedItem) return;

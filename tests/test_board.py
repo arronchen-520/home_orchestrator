@@ -614,6 +614,11 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
             "monthly_on_last_day": False, "recurrence_until": "2026-12-31",
         }
         items.execute.return_value = SimpleNamespace(data=[row])
+        exceptions.execute.return_value = SimpleNamespace(data=[{
+            "title": "Pickup", "details": "Front entrance", "preparation": "Bring ID",
+            "start_at": "2026-09-30T15:00:00-04:00", "end_at": "2026-09-30T16:00:00-04:00",
+            "start_date": None,
+        }])
         database = BoardDatabase(client)
         database.require_member = MagicMock(return_value="lin")
         database.get_household = MagicMock(return_value={"timezone": "America/Toronto"})
@@ -635,14 +640,18 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         database.update_occurrence(
             "family", "series", "2026-09-30", "lin",
             {
-                "title": "Late pickup", "details": "", "preparation": None,
-                "start_at": "2026-10-01T17:00:00-04:00",
-                "end_at": "2026-10-01T18:00:00-04:00", "start_date": None,
+                "title": "Late pickup",
             },
         )
         exception = exceptions.upsert.call_args.args[0]
         self.assertEqual(exception["occurrence_date"], "2026-09-30")
-        self.assertEqual(exception["start_at"], "2026-10-01T17:00:00-04:00")
+        self.assertEqual(exception["start_at"], "2026-09-30T15:00:00-04:00")
+        self.assertEqual(exception["details"], "Front entrance")
+        self.assertEqual(exception["preparation"], "Bring ID")
+
+        exceptions.reset_mock()
+        database.restore_occurrence("family", "series", "2026-09-30", "lin")
+        exceptions.delete.assert_called_once_with()
 
 
 if __name__ == "__main__":
