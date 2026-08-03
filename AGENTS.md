@@ -43,6 +43,8 @@ query, or chat. The board contains events, tasks, and standalone notes.
   auth-bound member, then receives full details only for item ids it selects.
 - Query replies may propose one supported item update. The browser must show
   it and require confirmation before calling the normal item `PATCH` route.
+- LLM recurrence changes must provide a complete rule and affect the entire
+  event series only, never one occurrence.
 - Validate returned query references against the supplied board context.
 - Current minimal UI intentionally shows an LLM update's `confirmation` text,
   not a field-by-field `action.fields` diff, and does not render query

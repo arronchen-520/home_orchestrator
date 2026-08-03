@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from backend.hearthbook.api.conversation import CaptureConfirmation, MAX_AUDIO_BYTES, MessageInput
 from backend.hearthbook.api.dependencies import consume_ai_quota
 from backend.hearthbook.domain.calendar import get_calendar, get_today
-from backend.hearthbook.domain.models import AgentReply, CaptureAnalysis, ItemDraft, QueryDecision, RouteDecision
+from backend.hearthbook.domain.models import AgentReply, CaptureAnalysis, ItemDraft, ProposedUpdate, QueryDecision, RouteDecision
 from backend.hearthbook.domain.recurrence import base_occurrences
 from backend.hearthbook.llm.graph import conversation_text, query_context
 from backend.hearthbook.services.board import BoardService
@@ -365,6 +365,23 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(context["index"][0]["repeat"], "every week on Monday")
         self.assertNotIn("details", context["index"][0])
         self.assertEqual(context["details"]["workout"]["details"], "Bring shoes")
+        self.assertEqual(context["details"]["workout"]["recurrence"], "weekly")
+        self.assertEqual(context["details"]["workout"]["weekdays"], ["MO"])
+        self.assertFalse(context["details"]["workout"]["monthly_on_last_day"])
+
+    def test_recurrence_update_requires_a_complete_rule(self):
+        with self.assertRaisesRegex(ValidationError, "complete rule"):
+            ProposedUpdate(
+                item_id="workout", fields={"recurrence": "weekly"},
+                confirmation="Move the whole series to Wednesdays?",
+            )
+
+        update = ProposedUpdate(
+            item_id="workout",
+            fields={"recurrence": "weekly", "weekdays": ["WE"], "monthly_on_last_day": False},
+            confirmation="Move the whole series to Wednesdays?",
+        )
+        self.assertEqual(update.fields["weekdays"], ["WE"])
 
     async def test_query_receives_board_records_and_filters_unknown_references(self):
         SESSION.clear()
@@ -380,7 +397,12 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         route = SimpleNamespace(ainvoke=AsyncMock(return_value=RouteDecision(intent="query")))
         decision = SimpleNamespace(
             ainvoke=AsyncMock(return_value=QueryDecision(
-                status="answer", message="Your flight is at 9.", references=["flight", "missing"]
+                status="answer", message="Your flight is at 9.", references=["flight", "missing"],
+                action=ProposedUpdate(
+                    item_id="flight",
+                    fields={"recurrence": "weekly", "weekdays": ["MO"], "monthly_on_last_day": False},
+                    confirmation="Repeat the flight every Monday?",
+                ),
             ))
         )
         with (
@@ -434,7 +456,52 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(response["references"], ["flight"])
+        self.assertIsNone(response["action"])
         self.assertIn("Check in 3 hours early", answer.ainvoke.call_args.args[0]["records"])
+
+    async def test_query_can_propose_a_complete_recurring_series_update(self):
+        SESSION.clear()
+        SESSION.update(
+            id="session", actor_id="lin", timezone="America/Toronto", status="active",
+            intent=None, payload={}, messages=[{"role": "user", "content": "Move workout to Wednesdays"}],
+        )
+        workout = ItemDraft(
+            kind="event", title="Workout", start_date="2026-08-03", all_day=True,
+            recurrence="weekly", weekdays=["MO"],
+        ).model_dump(mode="json")
+        workout.update(id="workout", completed_at=None, notes=[])
+        route = SimpleNamespace(ainvoke=AsyncMock(return_value=RouteDecision(intent="query")))
+        decision = SimpleNamespace(
+            ainvoke=AsyncMock(return_value=QueryDecision(
+                status="needs_details", message="Checking the workout.", references=["workout"]
+            ))
+        )
+        answer = SimpleNamespace(
+            ainvoke=AsyncMock(return_value=AgentReply(
+                message="I can move the whole workout series to Wednesdays.", references=["workout"],
+                action=ProposedUpdate(
+                    item_id="workout",
+                    fields={"recurrence": "weekly", "weekdays": ["WE"], "monthly_on_last_day": False},
+                    confirmation="Move the entire Workout series to every Wednesday?",
+                ),
+            ))
+        )
+        with (
+            patch("backend.hearthbook.llm.graph.router_chain", return_value=route),
+            patch("backend.hearthbook.llm.graph.query_decision_chain", return_value=decision),
+            patch("backend.hearthbook.llm.graph.query_answer_chain", return_value=answer),
+            patch("backend.hearthbook.services.board.create_conversation", return_value=deepcopy(SESSION)),
+            patch("backend.hearthbook.llm.graph.add_message", side_effect=add_message),
+            patch("backend.hearthbook.llm.graph.update_conversation", side_effect=update_conversation),
+        ):
+            response = await BoardService(MemoryDatabase([workout]), "family", "lin").message(
+                {"text": "Move workout to Wednesdays", "timezone": "America/Toronto"}
+            )
+
+        self.assertEqual(response["action"]["fields"]["weekdays"], ["WE"])
+        records = answer.ainvoke.call_args.args[0]["records"]
+        self.assertIn('"recurrence": "weekly"', records)
+        self.assertIn('"weekdays": ["MO"]', records)
 
     def test_recurrence_remains_event_only(self):
         with self.assertRaisesRegex(ValueError, "Only events can recur"):

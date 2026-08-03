@@ -122,10 +122,15 @@ class ProposedUpdate(BaseModel):
         allowed = {
             "title", "details", "preparation", "remind_member_ids", "completed",
             "start_at", "end_at", "start_date", "due_at", "due_date",
-            "reminder_at", "schedule_timezone", "all_day", "recurrence_until",
+            "reminder_at", "schedule_timezone", "all_day", "recurrence", "weekdays",
+            "monthly_on_last_day", "recurrence_until",
         }
         if not self.fields or set(self.fields) - allowed:
             raise ValueError("Unsupported proposed update")
+        recurrence_fields = {"recurrence", "weekdays", "monthly_on_last_day"}
+        field_names = set(self.fields)
+        if recurrence_fields & field_names and not recurrence_fields <= field_names:
+            raise ValueError("A recurrence update requires a complete rule")
         return self
 
 
