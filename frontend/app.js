@@ -752,7 +752,7 @@ function fillEditor(item, scope) {
   if (!item) return;
   $("#editTitle").value = item.title || "";
   $("#editDetails").value = item.details || "";
-  const reminderEditable = item.kind !== "note";
+  const reminderEditable = item.kind !== "note" && scope !== "occurrence";
   $("#editReminderAtField").hidden = !reminderEditable;
   $("#editReminderAt").value = reminderEditable ? toLocalDateTime(item.reminder_at) : "";
   $("#editRemindMemberField").hidden = item.kind === "note" || scope === "occurrence";
@@ -1049,13 +1049,11 @@ $("#itemForm").addEventListener("submit", async (event) => {
   $("#itemFormError").hidden = true;
   try {
     const fields = { title: $("#editTitle").value.trim(), details: $("#editDetails").value.trim() };
-    if (item.kind !== "note") {
-      fields.reminder_at = $("#editReminderAt").value
-        ? new Date($("#editReminderAt").value).toISOString() : null;
-    }
     if (item.kind !== "note" && scope === "series") {
       fields.remind_member_ids = [...$("#editRemindMembers").querySelectorAll("input:checked")]
         .map((input) => input.value);
+      fields.reminder_at = $("#editReminderAt").value
+        ? new Date($("#editReminderAt").value).toISOString() : null;
     }
     if (item.kind === "event") {
       if ($("#editAllDay").checked) {

@@ -11,7 +11,7 @@ from backend.hearthbook.api.conversation import CaptureConfirmation, MAX_AUDIO_B
 from backend.hearthbook.api.dependencies import consume_ai_quota
 from backend.hearthbook.domain.calendar import get_calendar, get_today
 from backend.hearthbook.domain.models import AgentReply, CaptureAnalysis, ItemDraft, ProposedUpdate, QueryDecision, RouteDecision
-from backend.hearthbook.domain.recurrence import base_occurrences, occurrence_item
+from backend.hearthbook.domain.recurrence import base_occurrences
 from backend.hearthbook.llm.graph import conversation_text, query_context
 from backend.hearthbook.services.board import BoardService
 from backend.hearthbook.storage.board import BoardDatabase
@@ -558,23 +558,6 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result["items"][0]["today_reasons"], ["reminder_today"])
 
-    def test_occurrence_reminder_can_override_or_clear_the_series_reminder(self):
-        item = ItemDraft(
-            kind="event", title="Medicine", start_at="2026-08-03T10:00:00-04:00",
-            recurrence="weekly", reminder_at="2026-08-03T09:00:00-04:00",
-        ).model_dump(mode="json")
-        item["id"] = "medicine"
-        occurrence = base_occurrences(item, date(2026, 8, 10), date(2026, 8, 10))[0]
-        exception = {
-            "cancelled": False, "title": None, "details": None, "preparation": None,
-            "start_at": None, "end_at": None, "start_date": None,
-            "reminder_overridden": True, "reminder_at": "2026-08-10T08:00:00-04:00",
-        }
-
-        self.assertEqual(occurrence_item(item, occurrence, exception)["reminder_at"], exception["reminder_at"])
-        exception["reminder_at"] = None
-        self.assertIsNone(occurrence_item(item, occurrence, exception)["reminder_at"])
-
     def test_weekly_recurrence_supports_any_weekday_combination(self):
         item = ItemDraft(
             kind="event", title="Workout", start_date="2026-08-03",
@@ -655,14 +638,11 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
                 "title": "Late pickup", "details": "", "preparation": None,
                 "start_at": "2026-10-01T17:00:00-04:00",
                 "end_at": "2026-10-01T18:00:00-04:00", "start_date": None,
-                "reminder_at": "2026-10-01T16:30:00-04:00",
             },
         )
         exception = exceptions.upsert.call_args.args[0]
         self.assertEqual(exception["occurrence_date"], "2026-09-30")
         self.assertEqual(exception["start_at"], "2026-10-01T17:00:00-04:00")
-        self.assertEqual(exception["reminder_at"], "2026-10-01T16:30:00-04:00")
-        self.assertTrue(exception["reminder_overridden"])
 
 
 if __name__ == "__main__":
