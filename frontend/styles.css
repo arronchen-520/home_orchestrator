@@ -330,9 +330,10 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .dialog-header > div { display: grid; gap: 7px; }
 .dialog-header > div:first-child { min-width: 0; }
 .dialog-header h2 { margin: 0; }
-.item-dialog-actions { display: flex !important; align-items: center; gap: 4px; }
+.item-dialog-actions { display: flex !important; flex: 0 0 auto; align-items: center; gap: 8px; }
+.item-dialog-actions .quiet-button { white-space: nowrap; }
 .item-form, .stack-form { display: grid; gap: 14px; min-width: 0; }
-.item-form > *, .editor-section, .editor-fields { min-width: 0; }
+.item-form > *, .editor-section, .editor-fields, .reminder-picker, .reminder-settings-body, .reminder-settings-body > * { min-width: 0; }
 .item-form label, .stack-form label { display: grid; gap: 6px; font-weight: 700; }
 .item-form select { width: 100%; padding: 10px 12px; }
 .item-overview { display: grid; gap: 14px; }
@@ -349,6 +350,7 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .reminder-picker summary:focus-visible { outline: 3px solid rgb(215 101 59 / 30%); outline-offset: 2px; }
 #editReminderSummary, #editRemindMemberSummary { margin-left: auto; overflow: hidden; color: var(--muted); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .reminder-settings-body { display: grid; gap: 12px; padding: 0 12px 12px; }
+.reminder-settings-body input { max-width: 100%; }
 #editRemindMembers { display: grid; gap: 4px; padding: 0 12px 8px; border-top: 1px solid var(--line); }
 .weekday-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; }
 .weekday-picker legend { margin-bottom: 6px; font-weight: 700; }
@@ -358,18 +360,16 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .weekday-picker label:has(input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
 .item-meta { display: grid; gap: 4px; color: var(--muted); }
 .item-meta p { margin: 4px 0; }
+.item-details { margin: 0; color: var(--ink); line-height: 1.5; white-space: pre-wrap; }
 .item-preparation { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
 .item-preparation h3, .item-preparation p { margin: 0; }
 .item-preparation h3 { color: var(--brand-dark); font-size: .9rem; }
 .item-preparation p { color: var(--muted); line-height: 1.5; white-space: pre-wrap; }
 .scope-hint { margin: 0; color: var(--muted); font-size: .875rem; line-height: 1.45; }
 .button-row { margin-top: 8px; }
-.item-form-actions { position: sticky; bottom: 0; display: flex; justify-content: flex-end; padding-top: 12px; background: white; }
+.item-form-actions { position: sticky; bottom: 0; display: flex; justify-content: space-between; gap: 8px; padding-top: 12px; background: white; }
 .item-form-actions .primary-button { min-width: 104px; }
-.item-danger-actions { border-top: 1px solid var(--line); }
-.item-danger-actions summary { min-height: 48px; display: flex; align-items: center; color: var(--muted); cursor: pointer; font-weight: 700; }
-.item-danger-actions .secondary-button { margin: 0 0 8px; }
-.item-danger-actions .danger-button { margin: 0 0 12px; }
+.item-form-actions .danger-button { min-width: 88px; margin: 0; }
 
 .primary-button, .secondary-button, .danger-button {
   min-height: 46px;

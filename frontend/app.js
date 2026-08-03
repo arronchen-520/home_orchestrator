@@ -832,7 +832,6 @@ function openItem(item) {
   });
   $("#editRemindMemberField").open = false;
   $("#editReminderSettings").open = false;
-  $("#itemDangerActions").open = false;
   $("#editScopeField").hidden = !item.is_occurrence;
   $("#editScope").value = item.is_occurrence ? "occurrence" : "series";
   $("#itemFormError").hidden = true;
@@ -856,6 +855,9 @@ function openItem(item) {
   toggleDone.textContent = t(item.completed_at ? "markOpen" : "markDone");
 
   const reminded = reminderNames(item);
+  const details = item.details?.trim();
+  $("#itemDetails").hidden = !details;
+  $("#itemDetails").textContent = details || "";
   $("#itemReminders").textContent = reminded.length ? `${t("remind")}: ${reminded.join(", ")}` : "";
   const preparation = item.preparation?.trim();
   $("#preparationSection").hidden = !preparation;

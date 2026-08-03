@@ -11,7 +11,7 @@
     <title>Hearthbook</title>
     <link rel="apple-touch-icon" href="/static/assets/hearthbook-icon.png">
     <link rel="manifest" href="/static/manifest.webmanifest">
-    <link rel="stylesheet" href="/static/styles.css?v=20260803-1">
+    <link rel="stylesheet" href="/static/styles.css?v=20260803-2">
   </head>
   <body>
     <header class="topbar">
@@ -200,6 +200,7 @@
       </form>
       <section id="itemOverview" class="item-overview">
         <div id="itemMeta" class="item-meta"></div>
+        <p id="itemDetails" class="item-details" hidden></p>
         <div id="itemReminders" class="remind-line"></div>
         <section id="preparationSection" class="item-preparation" aria-labelledby="preparationTitle" hidden>
           <h3 id="preparationTitle" data-i18n="preparation">准备事项</h3>
@@ -270,12 +271,9 @@
           </div>
         </details>
         <p id="itemFormError" class="form-error" role="alert" hidden></p>
-        <details id="itemDangerActions" class="item-danger-actions">
-          <summary data-i18n="moreActions">更多操作</summary>
-          <button id="restoreOccurrence" class="secondary-button full-width" type="button" data-i18n="restoreOccurrence" hidden>恢复系列默认设置</button>
-          <button id="deleteItem" class="danger-button full-width" type="button" data-i18n="delete">删除</button>
-        </details>
+        <button id="restoreOccurrence" class="secondary-button full-width" type="button" data-i18n="restoreOccurrence" hidden>恢复系列默认设置</button>
         <div class="item-form-actions">
+          <button id="deleteItem" class="danger-button" type="button" data-i18n="delete">删除</button>
           <button class="primary-button" type="submit" data-i18n="save">保存</button>
         </div>
       </form>
@@ -379,6 +377,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <script src="/static/app.js?v=20260803-1" defer></script>
+    <script src="/static/app.js?v=20260803-2" defer></script>
   </body>
 </html>
