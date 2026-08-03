@@ -87,7 +87,9 @@ async def signup(payload: AuthInput, request: Request, response: Response):
     try:
         result = auth_client(request).auth.sign_up({"email": payload.email.strip(), "password": payload.password})
     except AuthError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        code = "email_already_registered" if "already registered" in str(exc).lower() else "signup_failed"
+        logger.warning("Signup failed provider=supabase error_type=%s code=%s", type(exc).__name__, code)
+        raise HTTPException(status_code=400, detail={"code": code}) from exc
     if result.session:
         set_auth_cookies(response, result.session, request)
     return {"authenticated": result.session is not None, "confirmation_required": result.session is None}
@@ -98,9 +100,10 @@ async def login(payload: AuthInput, request: Request, response: Response):
     try:
         result = auth_client(request).auth.sign_in_with_password({"email": payload.email.strip(), "password": payload.password})
     except AuthError as exc:
-        raise HTTPException(status_code=401, detail="Invalid email or password") from exc
+        logger.info("Login rejected provider=supabase error_type=%s", type(exc).__name__)
+        raise HTTPException(status_code=401, detail={"code": "auth_failed"}) from exc
     if not result.session:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(status_code=401, detail={"code": "auth_failed"})
     set_auth_cookies(response, result.session, request)
     return {"authenticated": True}
 

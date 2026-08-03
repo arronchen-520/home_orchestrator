@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -8,6 +9,9 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import AnyHttpUrl, BaseModel, Field, field_validator
 from supabase import Client, create_client
 
+from .errors import request_context
+
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/notifications")
 
 
@@ -38,7 +42,8 @@ class PushSubscriptionDelete(BaseModel):
 
 def notification_client(request: Request) -> Client:
     if not request.app.state.supabase_secret_key:
-        raise HTTPException(status_code=503, detail="Notifications are not configured")
+        logger.error("Notifications unavailable reason=missing_configuration %s", request_context(request))
+        raise HTTPException(status_code=503, detail={"code": "notifications_unavailable"})
     return create_client(request.app.state.supabase_url, request.app.state.supabase_secret_key)
 
 

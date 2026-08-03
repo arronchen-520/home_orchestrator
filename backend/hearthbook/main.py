@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -16,6 +17,7 @@ from .api.conversation import router as conversation_router
 from .api.notifications import router as notification_router
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
 
@@ -43,6 +45,19 @@ app.include_router(notification_router)
 @app.exception_handler(ValueError)
 async def invalid_input(_request: Request, exc: ValueError):
     return JSONResponse({"detail": str(exc)}, status_code=400)
+
+
+@app.exception_handler(Exception)
+async def unhandled_error(request: Request, exc: Exception):
+    logger.exception(
+        "Unhandled request failed error_type=%s method=%s path=%s user_id=%s household_id=%s",
+        type(exc).__name__,
+        request.method,
+        request.url.path,
+        getattr(request.state, "user_id", None),
+        getattr(request.state, "household_id", None),
+    )
+    return JSONResponse({"detail": {"code": "server_error"}}, status_code=500)
 
 
 @app.middleware("http")

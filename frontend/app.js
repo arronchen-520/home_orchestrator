@@ -27,7 +27,11 @@ const copy = {
     saved: "已保存", deleted: "已删除", added: "已添加", confirmed: "已确认",
     deleteConfirm: "确定删除这条内容吗？", deleteSeriesConfirm: "确定删除整个重复日程吗？",
     cancelOccurrenceConfirm: "确定只取消这一次日程吗？",
-    microphoneError: "无法使用麦克风，可以改用文字输入。", networkError: "暂时连接不上，过一会儿再试。",
+    microphoneError: "无法使用麦克风，可以改用文字输入。", networkError: "暂时连接不上，过一会儿再试。", serverError: "服务暂时不可用，请稍后再试。",
+    authRequired: "登录状态已失效，请重新登录。", householdSetupRequired: "请先创建或加入一个家庭。", invalidRequest: "请检查输入内容后再试。",
+    voiceUnavailable: "语音服务暂时不可用，可以改用文字输入。", voiceTranscriptionFailed: "没有成功识别语音，可以再试一次或改用文字输入。",
+    imageUnderstandingFailed: "暂时无法读懂这张图片，请换一张更清晰的图片或补充说明。",
+    emailAlreadyRegistered: "这个邮箱已经注册过了，请直接登录。", signupFailed: "暂时无法创建账号，请稍后再试。", assistantUnavailable: "助手暂时不可用，请稍后再试。",
     noSpeech: "没有听到声音，再试一次。", familyMembers: "家庭成员", invite: "邀请码",
     recurrence: "重复", noRecurrence: "不重复", daily: "每天", weekly: "每周", monthly: "每月",
     monthlyLastDay: "每月最后一天", recurrenceEnds: "重复结束", editScope: "修改范围",
@@ -66,7 +70,11 @@ const copy = {
     saved: "Saved", deleted: "Deleted", added: "Added", confirmed: "Confirmed",
     deleteConfirm: "Delete this item?", deleteSeriesConfirm: "Delete this entire recurring event?",
     cancelOccurrenceConfirm: "Cancel only this occurrence?",
-    microphoneError: "The microphone isn't available. You can type instead.", networkError: "Can't connect right now. Try again in a moment.",
+    microphoneError: "The microphone isn't available. You can type instead.", networkError: "Can't connect right now. Try again in a moment.", serverError: "The service is temporarily unavailable. Try again later.",
+    authRequired: "Your session has expired. Please sign in again.", householdSetupRequired: "Create or join a household first.", invalidRequest: "Check your input and try again.",
+    voiceUnavailable: "Voice service is temporarily unavailable. You can type instead.", voiceTranscriptionFailed: "I couldn't transcribe that. Try again or type instead.",
+    imageUnderstandingFailed: "I couldn't read that image. Try a clearer image or add a note.",
+    emailAlreadyRegistered: "That email is already registered. Try signing in.", signupFailed: "We couldn't create your account. Try again later.", assistantUnavailable: "The assistant is temporarily unavailable. Try again later.",
     noSpeech: "I didn't hear anything. Try again.", familyMembers: "Family members", invite: "Invite code",
     recurrence: "Repeats", noRecurrence: "Does not repeat", daily: "Daily", weekly: "Weekly", monthly: "Monthly",
     monthlyLastDay: "Last day of each month", recurrenceEnds: "Repeat until", editScope: "Edit scope",
@@ -111,13 +119,29 @@ const state = {
 function t(key) { return copy[state.language][key] || key; }
 
 async function api(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: options.body instanceof FormData ? options.headers : { "Content-Type": "application/json", ...options.headers },
-  });
+  let response;
+  try {
+    response = await fetch(path, {
+      ...options,
+      headers: options.body instanceof FormData ? options.headers : { "Content-Type": "application/json", ...options.headers },
+    });
+  } catch (_) {
+    const error = new Error(t("networkError"));
+    error.status = 0;
+    throw error;
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const safeDetail = data.detail?.code === "daily_ai_limit" ? t("dailyLimit") : response.status < 500 ? (typeof data.detail === "string" ? data.detail : data.detail?.[0]?.msg || "") : "";
+    const codeCopy = {
+      daily_ai_limit: "dailyLimit", server_error: "serverError", service_unavailable: "serverError",
+      assistant_unavailable: "assistantUnavailable", auth_failed: "authRequired", email_already_registered: "emailAlreadyRegistered",
+      signup_failed: "signupFailed", voice_unavailable: "voiceUnavailable", voice_transcription_failed: "voiceTranscriptionFailed",
+      image_understanding_failed: "imageUnderstandingFailed", no_speech: "noSpeech", notifications_unavailable: "notificationsUnavailable",
+    };
+    const code = data.detail?.code;
+    const knownDetails = { "Authentication required": "authRequired", "Household setup required": "householdSetupRequired" };
+    const rawDetail = typeof data.detail === "string" ? data.detail : data.detail?.[0]?.msg || "";
+    const safeDetail = codeCopy[code] ? t(codeCopy[code]) : response.status >= 500 ? t("serverError") : knownDetails[rawDetail] ? t(knownDetails[rawDetail]) : response.status === 422 ? t("invalidRequest") : rawDetail;
     const error = new Error(safeDetail || t("networkError"));
     error.status = response.status;
     throw error;
