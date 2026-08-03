@@ -98,6 +98,18 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn("await Promise.all([loadBoard(), loadToday()]);", app)
         self.assertIn('if (location.hash === "#calendar") await loadCalendar();', app)
 
+    def test_calendar_and_notes_use_household_scoped_local_cache(self):
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+
+        self.assertIn('const TAB_CACHE_PREFIX = "hearthbook-tab-cache:v1:";', app)
+        self.assertIn('return `${TAB_CACHE_PREFIX}${state.activeHouseholdId}:${timezone}:${kind}:${scope}`;', app)
+        self.assertIn('writeTabCache("board", "current", state.board);', app)
+        self.assertIn('writeTabCache("calendar", `${start}:${end}`, data);', app)
+        self.assertIn('restoreBoardCache();', app)
+        self.assertIn('restoreCalendarCache();', app)
+        self.assertIn("function clearTabCache()", app)
+        self.assertNotIn('writeTabCache("today"', app)
+
     def test_tasks_precede_notes_and_are_grouped_by_due_date(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")
         app = Path("frontend/app.js").read_text(encoding="utf-8")

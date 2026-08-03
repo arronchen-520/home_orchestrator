@@ -105,6 +105,7 @@ const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 const MAX_MESSAGE_CHARS = 1000;
 const MAX_AUDIO_BYTES = 5 * 1024 * 1024;
 const MAX_RECORDING_MS = 60 * 1000;
+const TAB_CACHE_PREFIX = "hearthbook-tab-cache:v1:";
 const state = {
   language: localStorage.getItem("hearthbook-language") || (navigator.language.startsWith("zh") ? "zh" : "en"),
   board: { household: {}, members: [], items: [] },
@@ -119,6 +120,58 @@ const state = {
 };
 
 function t(key) { return copy[state.language][key] || key; }
+
+function tabCacheKey(kind, scope) {
+  return `${TAB_CACHE_PREFIX}${state.activeHouseholdId}:${timezone}:${kind}:${scope}`;
+}
+
+function readTabCache(kind, scope) {
+  if (!state.activeHouseholdId) return null;
+  try {
+    const cached = JSON.parse(localStorage.getItem(tabCacheKey(kind, scope)) || "null");
+    return cached?.data || null;
+  } catch (_) { return null; }
+}
+
+function writeTabCache(kind, scope, data) {
+  if (!state.activeHouseholdId) return;
+  try {
+    localStorage.setItem(tabCacheKey(kind, scope), JSON.stringify({ cachedAt: Date.now(), data }));
+  } catch (_) {}
+}
+
+function clearTabCache() {
+  Object.keys(localStorage).filter((key) => key.startsWith(TAB_CACHE_PREFIX)).forEach((key) => localStorage.removeItem(key));
+}
+
+function restoreBoardCache() {
+  const board = readTabCache("board", "current");
+  if (!board || !Array.isArray(board.items)) return false;
+  state.board = board;
+  renderMembers();
+  renderNotes();
+  renderCalendar();
+  return true;
+}
+
+function restoreCalendarCache() {
+  const [start, end] = calendarRange();
+  const calendar = readTabCache("calendar", `${start}:${end}`);
+  if (!calendar || !Array.isArray(calendar.items)) return false;
+  state.calendar = calendar.items;
+  state.calendarLoaded = true;
+  renderCalendar();
+  return true;
+}
+
+function resetTabData() {
+  state.board = { household: {}, members: [], items: [] };
+  state.calendar = [];
+  state.calendarLoaded = false;
+  renderMembers();
+  renderNotes();
+  renderCalendar();
+}
 
 async function api(path, options = {}) {
   let response;
@@ -672,6 +725,7 @@ async function sendImage(file, text) {
 
 async function loadBoard() {
   state.board = await api("/api/board");
+  writeTabCache("board", "current", state.board);
   renderMembers();
   renderNotes();
   renderCalendar();
@@ -684,7 +738,9 @@ async function loadToday() {
 
 async function loadCalendar() {
   const [start, end] = calendarRange();
-  state.calendar = (await api(`/api/calendar?start=${start}&end=${end}&timezone=${encodeURIComponent(timezone)}`)).items;
+  const data = await api(`/api/calendar?start=${start}&end=${end}&timezone=${encodeURIComponent(timezone)}`);
+  state.calendar = data.items;
+  writeTabCache("calendar", `${start}:${end}`, data);
   state.calendarLoaded = true;
   renderCalendar();
 }
@@ -903,6 +959,7 @@ function switchTab(name) {
     active ? tab.setAttribute("aria-current", "page") : tab.removeAttribute("aria-current");
   });
   if (name === "calendar" && state.activeHouseholdId && !state.calendarLoaded) {
+    restoreCalendarCache();
     loadCalendar().catch((error) => showToast(error.message, true));
   }
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -915,7 +972,9 @@ async function loadSession() {
     if (!session.household_ready) return $("#onboardingDialog").showModal();
     state.households = Array.isArray(session.households) ? session.households : [];
     state.activeHouseholdId = session.active_household_id || null;
-    state.calendarLoaded = false;
+    resetTabData();
+    restoreBoardCache();
+    if (location.hash === "#calendar") restoreCalendarCache();
     renderHouseholdControls();
     await Promise.all([loadBoard(), loadToday()]);
     if (location.hash === "#calendar") await loadCalendar();
@@ -951,6 +1010,9 @@ $("#householdSelect").addEventListener("change", async (event) => {
   try {
     await api("/api/households/select", { method: "POST", body: JSON.stringify({ household_id: householdId }) });
     state.activeHouseholdId = householdId;
+    resetTabData();
+    restoreBoardCache();
+    if (location.hash === "#calendar") restoreCalendarCache();
     startNewConversation();
     await refreshData();
     renderHouseholdControls();
@@ -967,6 +1029,7 @@ $("#memberProfileForm").addEventListener("submit", async (event) => {
       method: "PATCH",
       body: JSON.stringify({ name: $("#memberName").value, role: $("#memberRole").value }),
     });
+    writeTabCache("board", "current", state.board);
     renderAll();
     showToast(t("saved"));
   } catch (error) { showToast(error.message, true); }
@@ -1308,6 +1371,7 @@ $("#leaveHouseholdButton").addEventListener("click", async () => {
   if (!window.confirm(t("leaveHouseholdConfirm"))) return;
   try {
     await api("/api/households/leave", { method: "POST" });
+    clearTabCache();
     startNewConversation();
     $("#settingsDialog").close();
     await loadSession();
@@ -1316,6 +1380,7 @@ $("#leaveHouseholdButton").addEventListener("click", async () => {
 $("#logoutButton").addEventListener("click", async () => {
   await removePushSubscription().catch(() => {});
   await api("/api/auth/session", { method: "DELETE" });
+  clearTabCache();
   location.reload();
 });
 
