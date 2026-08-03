@@ -284,6 +284,27 @@ function reminderNames(item) {
   return (item.remind_member_ids || []).map(memberName).filter(Boolean);
 }
 
+function draftMeta(draft) {
+  const parts = [];
+  if (draft.kind === "event") {
+    if (draft.start_date) parts.push(`${t("date")}: ${formatDate(draft.start_date)} · ${t("allDay")}`);
+    else if (draft.start_at) {
+      const end = draft.end_at ? `–${formatDateTime(draft.end_at)}` : "";
+      parts.push(`${t("starts")}: ${formatDateTime(draft.start_at)}${end}`);
+    }
+  } else if (draft.kind === "task") {
+    const due = draft.due_at ? formatDateTime(draft.due_at) : draft.due_date ? formatDate(draft.due_date) : "";
+    if (due) parts.push(`${t("due")}: ${due}`);
+  }
+  if (draft.recurrence) {
+    const weekdays = draft.recurrence === "weekly" && draft.weekdays?.length
+      ? ` · ${draft.weekdays.map((day) => t(`weekday${day}`)).join(", ")}` : "";
+    parts.push(`${t("recurrence")}: ${t(draft.monthly_on_last_day ? "monthlyLastDay" : draft.recurrence)}${weekdays}`);
+  }
+  if (draft.reminder_at) parts.push(`${t("reminder")}: ${formatDateTime(draft.reminder_at)}`);
+  return parts.join(" · ");
+}
+
 function applyLanguage() {
   document.documentElement.lang = state.language === "zh" ? "zh-CN" : "en";
   document.querySelectorAll("[data-i18n]").forEach((node) => { node.textContent = t(node.dataset.i18n); });
@@ -520,7 +541,13 @@ function renderConfirmation() {
   const drafts = state.pending.drafts || [];
   const summary = $("#confirmationSummary");
   summary.replaceChildren();
-  drafts.forEach((draft) => summary.append(textNode("p", `${t(draft.kind || "event")}: ${draft.title || draft.details || ""}`, "draft-summary")));
+  drafts.forEach((draft) => {
+    const row = document.createElement("div");
+    row.append(textNode("p", `${t(draft.kind || "event")}: ${draft.title || draft.details || ""}`, "draft-summary"));
+    const meta = draftMeta(draft);
+    if (meta) row.append(textNode("p", meta, "draft-meta"));
+    summary.append(row);
+  });
 
   const reminders = $("#remindChoices");
   reminders.replaceChildren();

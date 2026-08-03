@@ -144,6 +144,15 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('$("#preparationSection").hidden = !preparation;', app)
         self.assertIn('$("#itemPreparation").textContent = preparation || "";', app)
 
+    def test_capture_confirmation_shows_schedule_and_reminder_metadata(self):
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+
+        self.assertIn("function draftMeta(draft)", app)
+        self.assertIn('t("recurrence")', app)
+        self.assertIn('t("reminder")', app)
+        self.assertIn('const meta = draftMeta(draft);', app)
+        self.assertIn('textNode("p", meta, "draft-meta")', app)
+
     def test_reminder_picker_is_collapsed_until_the_user_edits_it(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")
         app = Path("frontend/app.js").read_text(encoding="utf-8")

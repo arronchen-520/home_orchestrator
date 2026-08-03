@@ -44,6 +44,10 @@ query, or chat. The board contains events, tasks, and standalone notes.
 - Query replies may propose one supported item update. The browser must show
   it and require confirmation before calling the normal item `PATCH` route.
 - Validate returned query references against the supplied board context.
+- Current minimal UI intentionally shows an LLM update's `confirmation` text,
+  not a field-by-field `action.fields` diff, and does not render query
+  `references`. Revisit either only when the product needs inspectable update
+  diffs or links to supporting board items.
 - Keep conversations continuous and preserve the input language in generated
   titles, details, and replies.
 - AI may infer who should be reminded from household context. This is visible

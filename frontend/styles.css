@@ -195,6 +195,7 @@ textarea { resize: vertical; line-height: 1.45; }
 
 .confirmation { margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--line); }
 .draft-summary { margin: 6px 0; font-weight: 700; }
+.draft-meta { margin: 0 0 10px; color: var(--muted); font-size: .86rem; line-height: 1.4; }
 .confirmation fieldset { margin: 14px 0; padding: 10px 0; border: 0; }
 .confirmation legend { margin-bottom: 8px; font-weight: 750; }
 .confirmation label { display: flex; align-items: center; gap: 9px; min-height: 44px; }
