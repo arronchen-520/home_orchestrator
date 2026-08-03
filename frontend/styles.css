@@ -361,27 +361,20 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .item-meta { display: grid; gap: 4px; color: var(--muted); }
 .item-meta p { margin: 4px 0; }
 .item-details { margin: 0; color: var(--ink); line-height: 1.5; white-space: pre-wrap; }
-.item-preparation { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+.item-preparation { display: grid; gap: 6px; padding: 0; border: 0; border-radius: 0; background: transparent; }
 .item-preparation h3, .item-preparation p { margin: 0; }
 .item-preparation h3 { color: var(--brand-dark); font-size: .9rem; }
 .item-preparation p { color: var(--muted); line-height: 1.5; white-space: pre-wrap; }
 .scope-hint { margin: 0; color: var(--muted); font-size: .875rem; line-height: 1.45; }
 .button-row { margin-top: 8px; }
 .item-form-actions {
-  position: sticky;
-  z-index: 1;
-  bottom: -20px;
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  margin: 0 -20px -20px;
-  padding: 12px 20px max(20px, env(safe-area-inset-bottom));
-  border-top: 1px solid var(--line);
-  background: var(--card);
-  box-shadow: 0 -8px 18px rgb(73 49 27 / 8%);
 }
 .item-form-actions .primary-button { min-width: 104px; }
-.item-form-actions .danger-button { min-width: 88px; margin: 0; }
+.item-form-actions .secondary-button { min-width: 88px; }
+.item-form > .danger-button { margin: 0; }
 
 .primary-button, .secondary-button, .danger-button {
   min-height: 46px;

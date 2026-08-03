@@ -11,7 +11,7 @@
     <title>Hearthbook</title>
     <link rel="apple-touch-icon" href="/static/assets/hearthbook-icon.png">
     <link rel="manifest" href="/static/manifest.webmanifest">
-    <link rel="stylesheet" href="/static/styles.css?v=20260803-3">
+    <link rel="stylesheet" href="/static/styles.css?v=20260803-4">
   </head>
   <body>
     <header class="topbar">
@@ -192,7 +192,6 @@
         <div><span id="itemKind" class="badge"></span><h2 id="itemTitle"></h2></div>
         <div class="item-dialog-actions">
           <button id="editItemButton" class="quiet-button" type="button" data-i18n="edit">编辑</button>
-          <button id="cancelItemEditButton" class="quiet-button" type="button" data-i18n="cancel" hidden>取消</button>
           <button class="icon-button" type="submit" data-i18n-aria="close" aria-label="关闭">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
           </button>
@@ -272,8 +271,9 @@
         </details>
         <p id="itemFormError" class="form-error" role="alert" hidden></p>
         <button id="restoreOccurrence" class="secondary-button full-width" type="button" data-i18n="restoreOccurrence" hidden>恢复系列默认设置</button>
+        <button id="deleteItem" class="danger-button full-width" type="button" data-i18n="delete">删除</button>
         <div class="item-form-actions">
-          <button id="deleteItem" class="danger-button" type="button" data-i18n="delete">删除</button>
+          <button id="cancelItemEditButton" class="secondary-button" type="button" data-i18n="cancel">取消</button>
           <button class="primary-button" type="submit" data-i18n="save">保存</button>
         </div>
       </form>
@@ -377,6 +377,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <script src="/static/app.js?v=20260803-3" defer></script>
+    <script src="/static/app.js?v=20260803-4" defer></script>
   </body>
 </html>

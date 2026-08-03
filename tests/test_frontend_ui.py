@@ -171,10 +171,9 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('$("#cancelItemEditButton").addEventListener("click", () => {', app)
         self.assertIn('<div class="item-form-actions">', index)
         self.assertNotIn('id="itemDangerActions"', index)
-        self.assertIn('id="deleteItem" class="danger-button"', index)
-        self.assertIn('.item-form-actions {\n  position: sticky;', styles)
-        self.assertIn('z-index: 1;', styles)
-        self.assertIn('padding: 12px 20px max(20px, env(safe-area-inset-bottom));', styles)
+        self.assertIn('id="deleteItem" class="danger-button full-width"', index)
+        self.assertIn('id="cancelItemEditButton" class="secondary-button"', index)
+        self.assertNotIn('position: sticky;', styles[styles.index('.item-form-actions'):styles.index('.primary-button')])
         self.assertIn('.item-dialog-actions .quiet-button { white-space: nowrap; }', styles)
         self.assertIn('.item-form > *, .editor-section, .editor-fields, .reminder-picker, .reminder-settings-body, .reminder-settings-body > * { min-width: 0; }', styles)
         self.assertIn('.reminder-settings-body input { max-width: 100%; }', styles)
@@ -197,7 +196,7 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('$("#editRemindMemberField").open = false;', app)
         self.assertIn('$("#editRemindMembers").addEventListener("change", updateEditReminderSummary);', app)
         self.assertIn('.reminder-picker summary { display: flex;', styles)
-        self.assertIn('.item-preparation { display: grid;', styles)
+        self.assertIn('.item-preparation { display: grid; gap: 6px; padding: 0; border: 0;', styles)
 
     def test_item_editor_supports_preparation_and_restoring_one_occurrence(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")
