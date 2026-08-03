@@ -217,6 +217,7 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('$("#editReminderAt").value = reminderEditable ? toLocalDateTime(item.reminder_at) : "";', app)
         self.assertIn('fields.reminder_at = $("#editReminderAt").value', app)
         self.assertIn('.item-form input[type="datetime-local"] { min-width: 0; width: 100%; max-width: 100%; }', styles)
+        self.assertIn('.item-form input:is([type="date"], [type="time"], [type="datetime-local"]) { width: calc(100% - 28px); }', styles)
 
 
 if __name__ == "__main__":

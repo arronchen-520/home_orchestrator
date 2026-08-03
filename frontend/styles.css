@@ -338,6 +338,9 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .item-form label, .stack-form label { display: grid; gap: 6px; font-weight: 700; }
 .item-form select { width: 100%; padding: 10px 12px; }
 .item-form input[type="datetime-local"] { min-width: 0; width: 100%; max-width: 100%; }
+@supports (-webkit-touch-callout: none) {
+  .item-form input:is([type="date"], [type="time"], [type="datetime-local"]) { width: calc(100% - 28px); }
+}
 .item-overview { display: grid; gap: 14px; }
 .editor-section { display: grid; gap: 14px; }
 .editor-section h3 { margin: 0; font-size: .95rem; }
