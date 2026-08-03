@@ -326,10 +326,6 @@ dialog {
 }
 
 dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); }
-#itemDialog {
-  width: min(calc(100% - 12px), 640px);
-  padding-inline: 16px;
-}
 .dialog-header { margin-bottom: 18px; }
 .dialog-header > div { display: grid; gap: 7px; }
 .dialog-header > div:first-child { min-width: 0; }
@@ -339,9 +335,9 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .item-dialog-actions .quiet-button:focus-visible { outline: 0; color: var(--brand-dark); text-decoration: underline; text-underline-offset: 3px; }
 .item-form, .stack-form { display: grid; gap: 14px; min-width: 0; }
 .item-overview > *, .item-form > *, .editor-section, .editor-fields, .reminder-picker, .reminder-settings-body, .reminder-settings-body > *, .item-preparation { width: 100%; min-width: 0; max-width: 100%; }
-.item-form label, .stack-form label { display: grid; min-width: 0; max-width: 100%; gap: 6px; font-weight: 700; }
+.item-form label, .stack-form label { display: grid; gap: 6px; font-weight: 700; }
 .item-form select { width: 100%; padding: 10px 12px; }
-.item-form input:not([type="checkbox"]), .item-form select, .item-form textarea { min-width: 0; width: 100%; max-width: 100%; }
+.item-form input[type="datetime-local"] { min-width: 0; width: 100%; max-width: 100%; }
 .item-overview { display: grid; gap: 14px; }
 .editor-section { display: grid; gap: 14px; }
 .editor-section h3 { margin: 0; font-size: .95rem; }
@@ -361,7 +357,6 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .weekday-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; }
 .weekday-picker legend { margin-bottom: 6px; font-weight: 700; }
 .weekday-picker label { display: grid; place-items: center; min-width: 44px; min-height: 44px; border: 1px solid var(--line); border-radius: 14px; cursor: pointer; }
-#itemDialog .weekday-picker label { min-width: 44px; }
 .weekday-picker input { position: absolute; opacity: 0; }
 .weekday-picker label:has(input:checked) { border-color: var(--brand); color: var(--brand-dark); background: #fff0e5; }
 .weekday-picker label:has(input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
