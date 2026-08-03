@@ -174,6 +174,9 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertNotIn('position: sticky;', styles[styles.index('.item-form-actions'):styles.index('.primary-button')])
         self.assertIn('.item-dialog-actions .quiet-button { white-space: nowrap; }', styles)
         self.assertIn('.item-dialog-actions .quiet-button:focus-visible { outline: 0;', styles)
+        self.assertIn('#itemDialog {', styles)
+        self.assertIn('.item-form label, .stack-form label { display: grid; min-width: 0; max-width: 100%;', styles)
+        self.assertIn('.item-form input:not([type="checkbox"]), .item-form select, .item-form textarea { min-width: 0; width: 100%; max-width: 100%; }', styles)
         self.assertIn('.item-overview > *, .item-form > *, .editor-section, .editor-fields, .reminder-picker, .reminder-settings-body, .reminder-settings-body > *, .item-preparation { width: 100%; min-width: 0; max-width: 100%; }', styles)
         self.assertIn('.reminder-settings-body input { max-width: 100%; }', styles)
 
@@ -216,7 +219,7 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('const reminderEditable = item.kind !== "note" && scope !== "occurrence";', app)
         self.assertIn('$("#editReminderAt").value = reminderEditable ? toLocalDateTime(item.reminder_at) : "";', app)
         self.assertIn('fields.reminder_at = $("#editReminderAt").value', app)
-        self.assertIn('.item-form input[type="datetime-local"] { min-width: 0; width: 100%; max-width: 100%; }', styles)
+        self.assertIn('.item-form input:not([type="checkbox"]), .item-form select, .item-form textarea { min-width: 0; width: 100%; max-width: 100%; }', styles)
 
 
 if __name__ == "__main__":
