@@ -50,6 +50,7 @@ class OccurrenceUpdate(BaseModel):
     start_at: datetime | None = None
     end_at: datetime | None = None
     start_date: date | None = None
+    reminder_at: datetime | None = None
 
 
 @router.get("/board")

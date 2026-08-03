@@ -329,7 +329,7 @@ class BoardDatabase:
 
     def update_occurrence(self, household_id: str, series_id: str, occurrence_date: str, actor_id: str, fields: dict) -> None:
         self.require_member(household_id, actor_id)
-        allowed = {"title", "details", "preparation", "start_at", "end_at", "start_date"}
+        allowed = {"title", "details", "preparation", "start_at", "end_at", "start_date", "reminder_at"}
         if not fields or set(fields) - allowed:
             raise ValueError("Invalid occurrence fields")
         self._require_occurrence(household_id, series_id, occurrence_date)
@@ -337,8 +337,7 @@ class BoardDatabase:
             fields["end_at"]
         ) < datetime.fromisoformat(fields["start_at"]):
             raise ValueError("Event end must be after its start")
-        self.client.table("recurrence_exceptions").upsert(
-            {
+        exception = {
                 "series_id": series_id,
                 "occurrence_date": occurrence_date,
                 "cancelled": False,
@@ -349,7 +348,11 @@ class BoardDatabase:
                 "details": fields.get("details"),
                 "preparation": fields.get("preparation"),
                 "updated_at": now_text(),
-            },
+        }
+        if "reminder_at" in fields:
+            exception.update(reminder_at=fields["reminder_at"], reminder_overridden=True)
+        self.client.table("recurrence_exceptions").upsert(
+            exception,
             on_conflict="series_id,occurrence_date",
         ).execute()
 
@@ -367,6 +370,8 @@ class BoardDatabase:
                 "title": None,
                 "details": None,
                 "preparation": None,
+                "reminder_at": None,
+                "reminder_overridden": False,
                 "updated_at": now_text(),
             },
             on_conflict="series_id,occurrence_date",

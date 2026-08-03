@@ -164,12 +164,12 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('.reminder-picker summary { display: flex;', styles)
         self.assertIn('.item-preparation { display: grid;', styles)
 
-    def test_item_dialog_can_edit_a_series_reminder_time(self):
+    def test_item_dialog_can_edit_a_reminder_time_for_a_series_or_occurrence(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")
         app = Path("frontend/app.js").read_text(encoding="utf-8")
 
         self.assertIn('id="editReminderAt" type="datetime-local"', index)
-        self.assertIn('const reminderEditable = item.kind !== "note" && scope !== "occurrence";', app)
+        self.assertIn('const reminderEditable = item.kind !== "note";', app)
         self.assertIn('$("#editReminderAt").value = reminderEditable ? toLocalDateTime(item.reminder_at) : "";', app)
         self.assertIn('fields.reminder_at = $("#editReminderAt").value', app)
 

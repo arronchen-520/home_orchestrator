@@ -341,6 +341,9 @@ class SupabaseAuthTest(unittest.TestCase):
             self.assertIn(expected, recipients)
         recipient_limit = (migrations / "202608020004_limit_reminder_recipients.sql").read_text(encoding="utf-8").lower()
         self.assertIn("cardinality(remind_member_ids) <= 5", recipient_limit)
+        occurrence_reminder = (migrations / "202608030001_occurrence_reminder_override.sql").read_text(encoding="utf-8").lower()
+        for expected in ("reminder_at timestamptz", "reminder_overridden boolean"):
+            self.assertIn(expected, occurrence_reminder)
         quota = (migrations / "202608020005_ai_daily_quota.sql").read_text(encoding="utf-8").lower()
         for expected in (
             "ai_usage_daily", "ai_user_limits", "daily_limit integer default 5",

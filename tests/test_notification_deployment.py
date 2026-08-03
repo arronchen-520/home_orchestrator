@@ -15,6 +15,7 @@ class NotificationDeploymentTest(unittest.TestCase):
         function = Path("supabase/functions/daily-notifications/index.ts").read_text(encoding="utf-8")
 
         self.assertIn("summaryItems.some((item) => !item.completed_at)", function)
+        self.assertIn("occurrence.reminder_overridden", function)
         self.assertIn("item.remind_member_ids?.some", function)
 
 

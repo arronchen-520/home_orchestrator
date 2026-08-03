@@ -99,7 +99,9 @@ def occurrence_item(
                 start_at=exception["start_at"],
                 end_at=exception["end_at"],
             )
-    if item.get("reminder_at"):
+    if exception and exception.get("reminder_overridden"):
+        result["reminder_at"] = exception.get("reminder_at")
+    elif item.get("reminder_at"):
         base_start = (
             datetime.combine(date.fromisoformat(item["start_date"]), time.min, occurrence.tzinfo)
             if item["all_day"]
