@@ -1,6 +1,6 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import HTTPException
 
@@ -18,11 +18,14 @@ class Upload:
 
 class ImageInputTest(unittest.IsolatedAsyncioTestCase):
     async def test_png_without_a_note_is_described(self):
+        quota = MagicMock()
         response = SimpleNamespace(content="9月12日学校活动")
         with patch("backend.hearthbook.api.conversation.model", return_value=SimpleNamespace(ainvoke=AsyncMock(return_value=response))):
-            summary = await describe_image(Upload(b"\x89PNG\r\n\x1a\nimage"), "", "zh")
+            summary = await describe_image(Upload(b"\x89PNG\r\n\x1a\nimage"), "", "zh", quota)
 
         self.assertEqual(summary, "9月12日学校活动")
+
+        quota.assert_called_once_with()
 
     async def test_jpeg_is_described(self):
         response = SimpleNamespace(content="School notice")

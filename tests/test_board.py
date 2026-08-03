@@ -4,9 +4,11 @@ from datetime import date
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from fastapi import HTTPException
 from pydantic import ValidationError
 
 from backend.hearthbook.api.conversation import CaptureConfirmation, MAX_AUDIO_BYTES, MessageInput
+from backend.hearthbook.api.dependencies import consume_ai_quota
 from backend.hearthbook.domain.calendar import get_calendar, get_today
 from backend.hearthbook.domain.models import AgentReply, CaptureAnalysis, ItemDraft, QueryDecision, RouteDecision
 from backend.hearthbook.domain.recurrence import base_occurrences
@@ -119,6 +121,19 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValidationError):
             CaptureConfirmation(remind_member_ids=[[str(index) for index in range(6)]], accepted_preparations=[True])
         self.assertEqual(MAX_AUDIO_BYTES, 5 * 1024 * 1024)
+
+    def test_ai_quota_blocks_only_when_the_database_denies_it(self):
+        database = SimpleNamespace(consume_ai_quota=MagicMock(return_value={"allowed": True}))
+        request = SimpleNamespace(state=SimpleNamespace(database=database, household_id="family"))
+
+        consume_ai_quota(request)
+        database.consume_ai_quota.assert_called_once_with("family")
+
+        database.consume_ai_quota.return_value = {"allowed": False}
+        with self.assertRaises(HTTPException) as error:
+            consume_ai_quota(request)
+        self.assertEqual(error.exception.status_code, 429)
+        self.assertEqual(error.exception.detail, {"code": "daily_ai_limit"})
 
     async def test_capture_routes_to_its_specialist_and_keeps_reminder_target(self):
         SESSION.clear()

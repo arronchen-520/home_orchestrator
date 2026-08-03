@@ -1,4 +1,4 @@
-from fastapi import Request
+from fastapi import HTTPException, Request
 
 from ..services.board import BoardService
 from ..storage.board import BoardDatabase
@@ -20,3 +20,16 @@ def board_service(request: Request) -> BoardService:
         service = BoardService(database, request.state.household_id, member_id)
         request.state.board_service = service
     return service
+
+
+def consume_ai_quota(request: Request) -> None:
+    database = getattr(request.state, "database", None)
+    if database is None:
+        database = BoardDatabase(
+            getattr(request.state, "data_client", None)
+            or data_client(request, request.state.access_token)
+        )
+        request.state.database = database
+    quota = database.consume_ai_quota(request.state.household_id)
+    if not quota.get("allowed"):
+        raise HTTPException(status_code=429, detail={"code": "daily_ai_limit"})

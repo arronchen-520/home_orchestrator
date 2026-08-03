@@ -3,14 +3,14 @@ from __future__ import annotations
 import logging
 import os
 from base64 import b64encode
-from typing import Annotated, Literal
+from typing import Annotated, Callable, Literal
 
 import httpx
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from .dependencies import board_service
+from .dependencies import board_service, consume_ai_quota
 from .errors import service_call
 from ..domain.models import MAX_REMINDER_RECIPIENTS
 from ..llm.graph import model
@@ -36,6 +36,7 @@ class CaptureConfirmation(BaseModel):
 
 @router.post("/messages")
 async def message(payload: MessageInput, request: Request):
+    consume_ai_quota(request)
     return await service_call(board_service(request).message(payload.model_dump()))
 
 
@@ -46,7 +47,11 @@ async def confirm(session_id: str, payload: CaptureConfirmation, request: Reques
     )
 
 
-async def transcribe(file: UploadFile, language: Literal["en", "zh"]) -> str:
+async def transcribe(
+    file: UploadFile,
+    language: Literal["en", "zh"],
+    before_provider: Callable[[], None] | None = None,
+) -> str:
     api_key = os.getenv("DEEPGRAM_API_KEY")
     if not api_key:
         raise HTTPException(status_code=503, detail="DEEPGRAM_API_KEY is not configured")
@@ -56,6 +61,8 @@ async def transcribe(file: UploadFile, language: Literal["en", "zh"]) -> str:
     if len(audio) > MAX_AUDIO_BYTES:
         raise HTTPException(status_code=413, detail="Audio must be 5 MB or smaller")
     content_type = (file.content_type or "audio/webm").split(";", 1)[0]
+    if before_provider:
+        before_provider()
     try:
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(
@@ -71,7 +78,12 @@ async def transcribe(file: UploadFile, language: Literal["en", "zh"]) -> str:
         raise HTTPException(status_code=502, detail="Transcription failed") from exc
 
 
-async def describe_image(file: UploadFile, text: str, language: Literal["en", "zh"]) -> str:
+async def describe_image(
+    file: UploadFile,
+    text: str,
+    language: Literal["en", "zh"],
+    before_provider: Callable[[], None] | None = None,
+) -> str:
     content_type = (file.content_type or "").split(";", 1)[0]
     signatures = {"image/png": PNG_SIGNATURE, "image/jpeg": JPEG_SIGNATURE}
     if content_type not in signatures:
@@ -81,6 +93,8 @@ async def describe_image(file: UploadFile, text: str, language: Literal["en", "z
         raise HTTPException(status_code=413, detail="Image must be 3 MB or smaller")
     if not image.startswith(signatures[content_type]):
         raise HTTPException(status_code=415, detail="Upload a valid PNG or JPEG image")
+    if before_provider:
+        before_provider()
     try:
         response = await model().ainvoke(
             [
@@ -119,7 +133,7 @@ async def audio_message(
     session_id: Annotated[str | None, Form()] = None,
     language: Annotated[Literal["en", "zh"], Form()] = "en",
 ):
-    text = await transcribe(file, language)
+    text = await transcribe(file, language, lambda: consume_ai_quota(request))
     if not text:
         raise HTTPException(status_code=422, detail="No speech was detected")
     result = await service_call(
@@ -139,7 +153,7 @@ async def image_message(
     language: Annotated[Literal["en", "zh"], Form()] = "en",
     text: Annotated[str, Form(max_length=2000)] = "",
 ):
-    summary = await describe_image(file, text.strip(), language)
+    summary = await describe_image(file, text.strip(), language, lambda: consume_ai_quota(request))
     message = f"Image content:\n{summary}"
     if text.strip():
         message += f"\nUser note:\n{text.strip()}"

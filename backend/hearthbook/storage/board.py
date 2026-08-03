@@ -71,6 +71,12 @@ class BoardDatabase:
             raise ValueError("Member profile setup required")
         return row["id"]
 
+    def consume_ai_quota(self, household_id: str) -> dict:
+        response = self.client.rpc(
+            "consume_ai_quota", {"target_household_id": household_id}
+        ).execute()
+        return response.data or {}
+
     def get_household_memory(self, household_id: str) -> str:
         row = self.one(
             self.client.table("households").select("memory").eq("id", household_id).limit(1).execute()

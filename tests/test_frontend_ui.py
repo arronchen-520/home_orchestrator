@@ -35,6 +35,8 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('messageTooLong', app)
         self.assertIn('recordingLimit', app)
         self.assertIn('audioTooLarge', app)
+        self.assertIn('daily_ai_limit', app)
+        self.assertIn('dailyLimit', app)
 
     def test_settings_dialog_has_an_explicit_close_action(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")

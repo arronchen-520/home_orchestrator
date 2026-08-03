@@ -87,6 +87,8 @@ copy.zh.audioTooLarge = "录音不能超过 5 MB。";
 copy.en.messageTooLong = "Messages can be up to 1,000 characters.";
 copy.en.recordingLimit = "Recordings can be up to 60 seconds. Sending the first 60 seconds.";
 copy.en.audioTooLarge = "Recordings can be up to 5 MB.";
+copy.zh.dailyLimit = "今天的 5 次 AI 请求已用完，请明天再试。";
+copy.en.dailyLimit = "Today's 5 AI requests have been used. Try again tomorrow.";
 
 const $ = (selector) => document.querySelector(selector);
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -115,7 +117,7 @@ async function api(path, options = {}) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const safeDetail = response.status < 500 ? (typeof data.detail === "string" ? data.detail : data.detail?.[0]?.msg || "") : "";
+    const safeDetail = data.detail?.code === "daily_ai_limit" ? t("dailyLimit") : response.status < 500 ? (typeof data.detail === "string" ? data.detail : data.detail?.[0]?.msg || "") : "";
     const error = new Error(safeDetail || t("networkError"));
     error.status = response.status;
     throw error;
