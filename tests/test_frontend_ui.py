@@ -90,6 +90,14 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('state.calendarAgendaOpen = true;', app)
         self.assertIn('.calendar-weekdays, .calendar-grid { display: grid;', styles)
 
+    def test_calendar_loading_is_deferred_and_not_repeated_on_tab_switch(self):
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+
+        self.assertIn("calendarLoaded: false", app)
+        self.assertIn('if (name === "calendar" && state.activeHouseholdId && !state.calendarLoaded)', app)
+        self.assertIn("await Promise.all([loadBoard(), loadToday()]);", app)
+        self.assertIn('if (location.hash === "#calendar") await loadCalendar();', app)
+
     def test_tasks_precede_notes_and_are_grouped_by_due_date(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")
         app = Path("frontend/app.js").read_text(encoding="utf-8")

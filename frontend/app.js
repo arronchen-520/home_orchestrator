@@ -108,7 +108,7 @@ const MAX_RECORDING_MS = 60 * 1000;
 const state = {
   language: localStorage.getItem("hearthbook-language") || (navigator.language.startsWith("zh") ? "zh" : "en"),
   board: { household: {}, members: [], items: [] },
-  today: [], calendar: [], calendarMonth: dateKey().slice(0, 7), selectedDate: dateKey(), calendarAgendaOpen: false,
+  today: [], calendar: [], calendarLoaded: false, calendarMonth: dateKey().slice(0, 7), selectedDate: dateKey(), calendarAgendaOpen: false,
   calendarFilter: localStorage.getItem("hearthbook-calendar-filter") === "mine" ? "mine" : "all",
   taskFilter: localStorage.getItem("hearthbook-task-filter") === "mine" ? "mine" : "all",
   messages: [], pending: null, selectedItem: null,
@@ -685,6 +685,7 @@ async function loadToday() {
 async function loadCalendar() {
   const [start, end] = calendarRange();
   state.calendar = (await api(`/api/calendar?start=${start}&end=${end}&timezone=${encodeURIComponent(timezone)}`)).items;
+  state.calendarLoaded = true;
   renderCalendar();
 }
 
@@ -901,7 +902,9 @@ function switchTab(name) {
     tab.classList.toggle("active", active);
     active ? tab.setAttribute("aria-current", "page") : tab.removeAttribute("aria-current");
   });
-  if (name === "calendar") loadCalendar().catch((error) => showToast(error.message, true));
+  if (name === "calendar" && state.activeHouseholdId && !state.calendarLoaded) {
+    loadCalendar().catch((error) => showToast(error.message, true));
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -912,8 +915,10 @@ async function loadSession() {
     if (!session.household_ready) return $("#onboardingDialog").showModal();
     state.households = Array.isArray(session.households) ? session.households : [];
     state.activeHouseholdId = session.active_household_id || null;
+    state.calendarLoaded = false;
     renderHouseholdControls();
-    await refreshData();
+    await Promise.all([loadBoard(), loadToday()]);
+    if (location.hash === "#calendar") await loadCalendar();
     await syncNotifications();
   } catch (error) {
     showToast(error.message, true);
