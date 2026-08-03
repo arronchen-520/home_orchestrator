@@ -48,6 +48,23 @@ class LeaveClient(MembershipClient):
         return SimpleNamespace(data=None) if hasattr(self, "rpc_call") else super().execute()
 
 
+class LogoutAuth:
+    def __init__(self):
+        self.session = None
+        self.scope = None
+
+    def set_session(self, access_token, refresh_token):
+        self.session = (access_token, refresh_token)
+
+    def sign_out(self, options):
+        self.scope = options["scope"]
+
+
+class LogoutClient:
+    def __init__(self):
+        self.auth = LogoutAuth()
+
+
 class CreateClient(MembershipClient):
     def __init__(self):
         self.rpc_calls = []
@@ -80,6 +97,30 @@ class MemberProfileStub:
 
 
 class SupabaseAuthTest(unittest.TestCase):
+    def test_logout_revokes_the_current_session_before_clearing_cookies(self):
+        client = LogoutClient()
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "SUPABASE_URL": "https://example.supabase.co",
+                    "SUPABASE_PUBLISHABLE_KEY": "test-key",
+                },
+                clear=True,
+            ),
+            patch("backend.hearthbook.api.auth.auth_client", return_value=client),
+            TestClient(app_module.app, base_url="https://testserver") as browser,
+        ):
+            response = browser.delete(
+                "/api/auth/session",
+                cookies={"hearthbook_access": "access", "hearthbook_refresh": "refresh"},
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(client.auth.session, ("access", "refresh"))
+        self.assertEqual(client.auth.scope, "local")
+        self.assertIn('hearthbook_refresh="";', response.headers["set-cookie"])
+
     def test_create_household_saves_the_creator_role(self):
         client = CreateClient()
         with (

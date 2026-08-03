@@ -134,7 +134,16 @@ async def session(request: Request, response: Response):
 
 
 @router.delete("/auth/session")
-async def logout(response: Response):
+async def logout(request: Request, response: Response):
+    access_token = request.cookies.get(ACCESS_COOKIE)
+    refresh_token = request.cookies.get(REFRESH_COOKIE)
+    if access_token and refresh_token:
+        try:
+            auth = auth_client(request).auth
+            auth.set_session(access_token, refresh_token)
+            auth.sign_out({"scope": "local"})
+        except Exception:
+            logger.exception("Session revocation failed during logout")
     for cookie in (ACCESS_COOKIE, REFRESH_COOKIE, HOUSEHOLD_COOKIE):
         response.delete_cookie(cookie, httponly=True, samesite="lax")
     return {"authenticated": False}

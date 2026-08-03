@@ -26,6 +26,13 @@ class PushSubscriptionInput(BaseModel):
     timezone: str = Field(min_length=1, max_length=100)
     language: Literal["zh", "en"] = "en"
 
+    @field_validator("endpoint")
+    @classmethod
+    def https_endpoint(cls, value: AnyHttpUrl) -> AnyHttpUrl:
+        if value.scheme != "https":
+            raise ValueError("Push endpoint must use HTTPS")
+        return value
+
     @field_validator("timezone")
     @classmethod
     def valid_timezone(cls, value: str) -> str:
@@ -38,6 +45,13 @@ class PushSubscriptionInput(BaseModel):
 
 class PushSubscriptionDelete(BaseModel):
     endpoint: AnyHttpUrl
+
+    @field_validator("endpoint")
+    @classmethod
+    def https_endpoint(cls, value: AnyHttpUrl) -> AnyHttpUrl:
+        if value.scheme != "https":
+            raise ValueError("Push endpoint must use HTTPS")
+        return value
 
 
 def notification_client(request: Request) -> Client:
