@@ -11,7 +11,7 @@
     <title>Hearthbook</title>
     <link rel="apple-touch-icon" href="/static/assets/hearthbook-icon.png">
     <link rel="manifest" href="/static/manifest.webmanifest">
-    <link rel="stylesheet" href="/static/styles.css?v=20260802-2">
+    <link rel="stylesheet" href="/static/styles.css?v=20260803-1">
   </head>
   <body>
     <header class="topbar">
@@ -190,108 +190,136 @@
     <dialog id="itemDialog" class="sheet">
       <form method="dialog" class="dialog-header">
         <div><span id="itemKind" class="badge"></span><h2 id="itemTitle"></h2></div>
-        <button class="icon-button" type="submit" data-i18n-aria="close" aria-label="关闭">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
-        </button>
+        <div class="item-dialog-actions">
+          <button id="editItemButton" class="quiet-button" type="button" data-i18n="edit">编辑</button>
+          <button id="cancelItemEditButton" class="quiet-button" type="button" data-i18n="cancel" hidden>取消</button>
+          <button class="icon-button" type="submit" data-i18n-aria="close" aria-label="关闭">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
       </form>
-      <form id="itemForm" class="item-form">
-        <label><span data-i18n="title">标题</span><input id="editTitle" maxlength="120" required></label>
-        <label><span data-i18n="details">详情</span><textarea id="editDetails" rows="3" maxlength="2000"></textarea></label>
-        <label id="editReminderAtField"><span data-i18n="reminder">提醒</span><input id="editReminderAt" type="datetime-local"></label>
-        <label id="editScopeField" hidden>
-          <span data-i18n="editScope">修改范围</span>
-          <select id="editScope">
-            <option value="occurrence" data-i18n="thisOccurrence">只修改这一次</option>
-            <option value="series" data-i18n="entireSeries">修改整个系列</option>
-          </select>
-        </label>
-        <details id="editRemindMemberField" class="reminder-picker">
-          <summary><span data-i18n="remindWho">提醒谁</span><span id="editRemindMemberSummary"></span></summary>
-          <div id="editRemindMembers"></div>
-        </details>
-        <div id="editEventFields" class="editor-fields" hidden>
-          <label class="checkbox-row"><input id="editAllDay" type="checkbox"><span data-i18n="allDay">全天</span></label>
-          <label id="editStartDateField"><span data-i18n="date">日期</span><input id="editStartDate" type="date"></label>
-          <label id="editStartAtField"><span data-i18n="starts">开始</span><input id="editStartAt" type="datetime-local"></label>
-          <label id="editEndAtField"><span data-i18n="ends">结束</span><input id="editEndAt" type="datetime-local"></label>
-          <label id="editRecurrenceField">
-            <span data-i18n="recurrence">重复</span>
-            <select id="editRecurrence">
-              <option value="" data-i18n="noRecurrence">不重复</option>
-              <option value="daily" data-i18n="daily">每天</option>
-              <option value="weekly" data-i18n="weekly">每周</option>
-              <option value="monthly" data-i18n="monthly">每月</option>
-              <option value="monthly_last_day" data-i18n="monthlyLastDay">每月最后一天</option>
-            </select>
-          </label>
-          <fieldset id="editWeekdaysField" class="weekday-picker" hidden>
-            <legend data-i18n="repeatOn">重复日期</legend>
-            <label><input type="checkbox" value="MO"><span data-i18n="weekdayMO">周一</span></label>
-            <label><input type="checkbox" value="TU"><span data-i18n="weekdayTU">周二</span></label>
-            <label><input type="checkbox" value="WE"><span data-i18n="weekdayWE">周三</span></label>
-            <label><input type="checkbox" value="TH"><span data-i18n="weekdayTH">周四</span></label>
-            <label><input type="checkbox" value="FR"><span data-i18n="weekdayFR">周五</span></label>
-            <label><input type="checkbox" value="SA"><span data-i18n="weekdaySA">周六</span></label>
-            <label><input type="checkbox" value="SU"><span data-i18n="weekdaySU">周日</span></label>
-          </fieldset>
-          <label id="editRecurrenceUntilField"><span data-i18n="recurrenceEnds">重复结束</span><input id="editRecurrenceUntil" type="date"></label>
-        </div>
-        <div id="editTaskFields" class="editor-fields" hidden>
-          <label class="checkbox-row"><input id="editDueTimed" type="checkbox"><span data-i18n="specificTime">指定时间</span></label>
-          <label id="editDueDateField"><span data-i18n="dueDate">截止日期</span><input id="editDueDate" type="date"></label>
-          <label id="editDueAtField"><span data-i18n="due">截止</span><input id="editDueAt" type="datetime-local"></label>
-        </div>
+      <section id="itemOverview" class="item-overview">
         <div id="itemMeta" class="item-meta"></div>
         <div id="itemReminders" class="remind-line"></div>
         <section id="preparationSection" class="item-preparation" aria-labelledby="preparationTitle" hidden>
           <h3 id="preparationTitle" data-i18n="preparation">准备事项</h3>
           <p id="itemPreparation"></p>
         </section>
+        <div id="itemViewActions" class="button-row">
+          <button id="toggleDone" class="primary-button" type="button" data-i18n="markDone">标记完成</button>
+        </div>
+      </section>
+      <form id="itemForm" class="item-form" hidden>
+        <section class="editor-section">
+          <h3 data-i18n="basicInfo">基本信息</h3>
+          <label><span data-i18n="title">标题</span><input id="editTitle" maxlength="120" required></label>
+          <label><span data-i18n="details">详情</span><textarea id="editDetails" rows="3" maxlength="2000"></textarea></label>
+          <label id="editScopeField" hidden>
+            <span data-i18n="editScope">修改范围</span>
+            <select id="editScope">
+              <option value="occurrence" data-i18n="thisOccurrence">只修改这一次</option>
+              <option value="series" data-i18n="entireSeries">修改整个系列</option>
+            </select>
+          </label>
+        </section>
+        <section id="editScheduleSection" class="editor-section">
+          <h3 data-i18n="schedule">时间安排</h3>
+          <div id="editEventFields" class="editor-fields" hidden>
+            <label class="checkbox-row"><input id="editAllDay" type="checkbox"><span data-i18n="allDay">全天</span></label>
+            <label id="editStartDateField"><span data-i18n="date">日期</span><input id="editStartDate" type="date"></label>
+            <label id="editStartAtField"><span data-i18n="starts">开始</span><input id="editStartAt" type="datetime-local"></label>
+            <label id="editEndAtField"><span data-i18n="ends">结束</span><input id="editEndAt" type="datetime-local"></label>
+            <label id="editRecurrenceField">
+              <span data-i18n="recurrence">重复</span>
+              <select id="editRecurrence">
+                <option value="" data-i18n="noRecurrence">不重复</option>
+                <option value="daily" data-i18n="daily">每天</option>
+                <option value="weekly" data-i18n="weekly">每周</option>
+                <option value="monthly" data-i18n="monthly">每月</option>
+                <option value="monthly_last_day" data-i18n="monthlyLastDay">每月最后一天</option>
+              </select>
+            </label>
+            <fieldset id="editWeekdaysField" class="weekday-picker" hidden>
+              <legend data-i18n="repeatOn">重复日期</legend>
+              <label><input type="checkbox" value="MO"><span data-i18n="weekdayMO">周一</span></label>
+              <label><input type="checkbox" value="TU"><span data-i18n="weekdayTU">周二</span></label>
+              <label><input type="checkbox" value="WE"><span data-i18n="weekdayWE">周三</span></label>
+              <label><input type="checkbox" value="TH"><span data-i18n="weekdayTH">周四</span></label>
+              <label><input type="checkbox" value="FR"><span data-i18n="weekdayFR">周五</span></label>
+              <label><input type="checkbox" value="SA"><span data-i18n="weekdaySA">周六</span></label>
+              <label><input type="checkbox" value="SU"><span data-i18n="weekdaySU">周日</span></label>
+            </fieldset>
+            <label id="editRecurrenceUntilField"><span data-i18n="recurrenceEnds">重复结束</span><input id="editRecurrenceUntil" type="date"></label>
+          </div>
+          <div id="editTaskFields" class="editor-fields" hidden>
+            <label class="checkbox-row"><input id="editDueTimed" type="checkbox"><span data-i18n="specificTime">指定时间</span></label>
+            <label id="editDueDateField"><span data-i18n="dueDate">截止日期</span><input id="editDueDate" type="date"></label>
+            <label id="editDueAtField"><span data-i18n="due">截止</span><input id="editDueAt" type="datetime-local"></label>
+          </div>
+        </section>
+        <details id="editReminderSettings" class="reminder-picker">
+          <summary><span data-i18n="reminder">提醒</span><span id="editReminderSummary"></span></summary>
+          <div class="reminder-settings-body">
+            <label id="editReminderAtField"><span data-i18n="reminder">提醒</span><input id="editReminderAt" type="datetime-local"></label>
+            <details id="editRemindMemberField" class="reminder-picker">
+              <summary><span data-i18n="remindWho">提醒谁</span><span id="editRemindMemberSummary"></span></summary>
+              <div id="editRemindMembers"></div>
+            </details>
+          </div>
+        </details>
         <p id="itemFormError" class="form-error" role="alert" hidden></p>
-        <div class="button-row">
-          <button id="deleteItem" class="danger-button" type="button" data-i18n="delete">删除</button>
-          <button id="toggleDone" class="secondary-button" type="button" data-i18n="markDone">标记完成</button>
+        <details id="itemDangerActions" class="item-danger-actions">
+          <summary data-i18n="moreActions">更多操作</summary>
+          <button id="deleteItem" class="danger-button full-width" type="button" data-i18n="delete">删除</button>
+        </details>
+        <div class="item-form-actions">
           <button class="primary-button" type="submit" data-i18n="save">保存</button>
         </div>
       </form>
-      <section id="followupsSection" class="followups">
-        <h3 data-i18n="followups">进展记录</h3>
+      <details id="followupsSection" class="followups">
+        <summary><span data-i18n="followups">进展记录</span><span id="followupsCount" class="agenda-count"></span></summary>
         <div id="followupList"></div>
         <form id="followupForm" class="inline-form">
           <label for="followupInput" class="sr-only" data-i18n="addFollowup">添加进展</label>
           <input id="followupInput" maxlength="1000" required data-i18n-placeholder="followupPlaceholder" placeholder="记录最新进展…">
           <button class="primary-button" type="submit" data-i18n="add">添加</button>
         </form>
-      </section>
+      </details>
     </dialog>
 
     <dialog id="settingsDialog" class="sheet small-sheet">
       <div class="dialog-header"><h2 data-i18n="settings">设置</h2><button id="settingsCloseButton" class="icon-button" type="button" data-i18n-aria="close" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
-      <section class="settings-section" aria-labelledby="currentHouseholdTitle">
+      <section class="settings-current" aria-labelledby="currentHouseholdTitle">
         <h3 id="currentHouseholdTitle" data-i18n="currentHousehold">当前家庭</h3>
         <p id="currentHouseholdName" class="current-household-name" hidden></p>
         <label id="householdSwitcher" hidden><span data-i18n="switchHousehold">切换家庭</span><select id="householdSelect"></select></label>
       </section>
-      <section class="settings-section" aria-labelledby="profileTitle">
-        <h3 id="profileTitle" data-i18n="myProfile">我的资料</h3>
+      <details class="settings-details" name="settings">
+        <summary><span id="profileTitle" data-i18n="myProfile">我的资料</span><span id="profileSummary" class="settings-summary"></span></summary>
+        <div class="settings-details-body">
         <form id="memberProfileForm" class="stack-form" hidden>
           <label><span data-i18n="yourName">你的名字</span><input id="memberName" maxlength="40" autocomplete="name" required></label>
           <label><span data-i18n="myRole">我的身份</span><input id="memberRole" maxlength="40" autocomplete="organization-title"></label>
           <button class="secondary-button" type="submit" data-i18n="saveProfile">保存资料</button>
         </form>
-      </section>
-      <section class="settings-section" aria-labelledby="notificationTitle">
-        <h3 id="notificationTitle" data-i18n="notifications">通知</h3>
+        </div>
+      </details>
+      <details class="settings-details" name="settings">
+        <summary><span id="notificationTitle" data-i18n="notifications">通知</span><span id="notificationSummary" class="settings-summary"></span></summary>
+        <div class="settings-details-body">
         <p data-i18n="notificationHelp">在提醒时间推送日程和待办，并在每天上午 9 点（本地时间）发送今日摘要。</p>
         <button id="notificationButton" class="secondary-button full-width" type="button" data-i18n="allowNotifications">允许通知</button>
         <p id="notificationStatus" class="settings-status" aria-live="polite"></p>
-      </section>
-      <section class="settings-section" aria-labelledby="membersTitle">
-        <h3 id="membersTitle" data-i18n="familyMembers">家庭成员</h3>
+        </div>
+      </details>
+      <details class="settings-details" name="settings">
+        <summary><span id="membersTitle" data-i18n="familyMembers">家庭成员</span><span id="membersSummary" class="settings-summary"></span></summary>
+        <div class="settings-details-body">
         <div id="householdSummary"></div>
-      </section>
-      <details class="settings-details">
-        <summary data-i18n="otherHouseholds">其他家庭</summary>
+        </div>
+      </details>
+      <details class="settings-details" name="settings">
+        <summary><span data-i18n="otherHouseholds">其他家庭</span></summary>
         <div class="settings-details-body">
           <form id="createAdditionalHouseholdForm" class="stack-form">
             <h3 data-i18n="createAnotherHousehold">创建新家庭</h3>
@@ -309,11 +337,13 @@
           </form>
         </div>
       </details>
-      <section class="settings-section account-settings" aria-labelledby="accountTitle">
-        <h3 id="accountTitle" data-i18n="account">账户</h3>
+      <details class="settings-details account-settings" name="settings">
+        <summary><span id="accountTitle" data-i18n="account">账户</span></summary>
+        <div class="settings-details-body">
         <button id="leaveHouseholdButton" class="logout-button" type="button" data-i18n="leaveHousehold">退出这个家庭</button>
         <button id="logoutButton" class="logout-button" type="button" data-i18n="logout">退出登录</button>
-      </section>
+        </div>
+      </details>
     </dialog>
 
     <dialog id="authDialog" class="sheet small-sheet">
@@ -346,6 +376,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <script src="/static/app.js?v=20260802-2" defer></script>
+    <script src="/static/app.js?v=20260803-1" defer></script>
   </body>
 </html>

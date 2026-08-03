@@ -152,6 +152,7 @@ h2 { margin: 0; font-size: 1.3rem; letter-spacing: -.02em; }
 .image-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 8px; }
 .message-form, .inline-form { display: flex; width: 100%; gap: 8px; margin-top: 12px; }
 textarea, input, select {
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 14px;
   color: var(--ink);
@@ -327,10 +328,16 @@ dialog {
 dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); }
 .dialog-header { margin-bottom: 18px; }
 .dialog-header > div { display: grid; gap: 7px; }
+.dialog-header > div:first-child { min-width: 0; }
 .dialog-header h2 { margin: 0; }
-.item-form, .stack-form { display: grid; gap: 14px; }
+.item-dialog-actions { display: flex !important; align-items: center; gap: 4px; }
+.item-form, .stack-form { display: grid; gap: 14px; min-width: 0; }
+.item-form > *, .editor-section, .editor-fields { min-width: 0; }
 .item-form label, .stack-form label { display: grid; gap: 6px; font-weight: 700; }
 .item-form select { width: 100%; padding: 10px 12px; }
+.item-overview { display: grid; gap: 14px; }
+.editor-section { display: grid; gap: 14px; }
+.editor-section h3 { margin: 0; font-size: .95rem; }
 .editor-fields { display: grid; gap: 14px; }
 .item-form .checkbox-row { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .checkbox-row input { width: 22px; min-height: 22px; }
@@ -340,7 +347,8 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .reminder-picker summary { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 8px 12px; cursor: pointer; font-weight: 700; }
 .reminder-picker summary::marker { color: var(--muted); }
 .reminder-picker summary:focus-visible { outline: 3px solid rgb(215 101 59 / 30%); outline-offset: 2px; }
-#editRemindMemberSummary { margin-left: auto; overflow: hidden; color: var(--muted); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+#editReminderSummary, #editRemindMemberSummary { margin-left: auto; overflow: hidden; color: var(--muted); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.reminder-settings-body { display: grid; gap: 12px; padding: 0 12px 12px; }
 #editRemindMembers { display: grid; gap: 4px; padding: 0 12px 8px; border-top: 1px solid var(--line); }
 .weekday-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; }
 .weekday-picker legend { margin-bottom: 6px; font-weight: 700; }
@@ -348,13 +356,18 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .weekday-picker input { position: absolute; opacity: 0; }
 .weekday-picker label:has(input:checked) { border-color: var(--brand); color: var(--brand-dark); background: #fff0e5; }
 .weekday-picker label:has(input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
-.item-meta { padding: 10px 0; color: var(--muted); }
+.item-meta { display: grid; gap: 4px; color: var(--muted); }
 .item-meta p { margin: 4px 0; }
 .item-preparation { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
 .item-preparation h3, .item-preparation p { margin: 0; }
 .item-preparation h3 { color: var(--brand-dark); font-size: .9rem; }
 .item-preparation p { color: var(--muted); line-height: 1.5; white-space: pre-wrap; }
 .button-row { margin-top: 8px; }
+.item-form-actions { position: sticky; bottom: 0; display: flex; justify-content: flex-end; padding-top: 12px; background: white; }
+.item-form-actions .primary-button { min-width: 104px; }
+.item-danger-actions { border-top: 1px solid var(--line); }
+.item-danger-actions summary { min-height: 48px; display: flex; align-items: center; color: var(--muted); cursor: pointer; font-weight: 700; }
+.item-danger-actions .danger-button { margin: 0 0 12px; }
 
 .primary-button, .secondary-button, .danger-button {
   min-height: 46px;
@@ -368,28 +381,29 @@ dialog::backdrop { background: rgb(39 36 31 / 38%); backdrop-filter: blur(2px); 
 .danger-button { margin-right: auto; border: 1px solid #efd0cb; color: #a43c2f; background: #fff5f3; }
 .full-width { width: 100%; }
 
-.followups { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
-.followups h3 { margin: 0 0 12px; }
+.followups { margin-top: 24px; border-top: 1px solid var(--line); }
+.followups summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; cursor: pointer; font-weight: 750; }
+.followups[open] summary { margin-bottom: 12px; }
 .followups article { padding: 10px 0; border-bottom: 1px solid var(--line); }
 .followups article p { margin: 0 0 4px; }
 .followups small { color: var(--muted); }
 .inline-form input { min-width: 0; }
 .inline-form button { flex: 0 0 auto; }
-.settings-section { display: grid; gap: 12px; padding: 18px 0; border-bottom: 1px solid var(--line); }
-.settings-section:first-of-type { padding-top: 0; }
-.settings-section h3 { margin: 0; }
-.settings-section > label { display: grid; gap: 6px; font-weight: 700; }
-.settings-section select { width: 100%; }
+.settings-current { display: grid; gap: 6px; padding: 0 0 18px; border-bottom: 1px solid var(--line); }
+.settings-current h3 { margin: 0; }
+.settings-current > label { display: grid; gap: 6px; font-weight: 700; }
+.settings-current select { width: 100%; }
 .current-household-name { margin: -6px 0 0; font-size: 1.12rem; font-weight: 750; }
 #householdSummary { display: grid; gap: 10px; }
 #householdSummary p { margin: 0; color: var(--muted); }
 #householdSummary ul { margin: 0; padding-left: 20px; color: var(--muted); }
-.settings-section > p { margin: 0; color: var(--muted); line-height: 1.5; }
+.settings-details-body > p { margin: 0; color: var(--muted); line-height: 1.5; }
 .settings-status { min-height: 1.4em; margin: -4px 0 0; font-size: .86rem; }
 .settings-status[data-state="success"] { color: var(--green); }
 .settings-status[data-state="warning"] { color: #a43c2f; }
 .settings-details { margin: 0; border-bottom: 1px solid var(--line); }
-.settings-details summary { min-height: 56px; display: flex; align-items: center; font-weight: 750; cursor: pointer; }
+.settings-details summary { min-height: 56px; display: flex; align-items: center; gap: 12px; font-weight: 750; cursor: pointer; }
+.settings-summary { margin-left: auto; overflow: hidden; max-width: 52%; color: var(--muted); font-weight: 500; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .settings-details-body { display: grid; gap: 18px; padding: 0 0 18px; }
 .settings-details form + form { padding-top: 18px; border-top: 1px solid var(--line); }
 .settings-details h3 { margin: 0; }

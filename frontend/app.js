@@ -14,7 +14,7 @@ const copy = {
     calendarDensityHelp: "色深表示当天安排数量",
     unscheduled: "未定时间", taskSpace: "待办与笔记", tasks: "待办", dueSoon: "未来 7 天", moreTasks: "展开更多", emptyTasks: "没有待办。", familyMemory: "常用信息", notes: "笔记",
     notesHelp: "家里常用的信息，放在这里。", home: "首页",
-    close: "关闭", title: "标题", details: "详情", delete: "删除", save: "保存",
+    close: "关闭", edit: "编辑", title: "标题", details: "详情", basicInfo: "基本信息", schedule: "时间安排", moreActions: "更多操作", delete: "删除", save: "保存",
     followups: "进展记录", addFollowup: "添加进展", followupPlaceholder: "记录最新进展…",
     add: "添加", logout: "退出登录", authTitle: "登录 Hearthbook", email: "邮箱",
     password: "密码", login: "登录", signup: "创建账号", householdSetup: "设置家庭",
@@ -43,6 +43,7 @@ const copy = {
     notificationsChecking: "正在检查通知状态…", notificationsUnavailable: "通知暂时不可用，请稍后再试。",
     installForNotifications: "请先将 Hearthbook 添加到主屏幕，再开启通知。",
     notificationsDenied: "通知权限已被拒绝，请在系统设置中开启。",
+    notificationOn: "已开启", notificationOff: "未开启", notificationUnavailableShort: "不可用", notificationCheckingShort: "检查中",
   },
   en: {
     settings: "Settings", homeTitle: "Anything you'd like to note today?",
@@ -57,7 +58,7 @@ const copy = {
     calendarDensityHelp: "Darker days have more plans.",
     unscheduled: "No date yet", taskSpace: "Tasks and notes", tasks: "Tasks", dueSoon: "Due in 7 days", moreTasks: "Show more", emptyTasks: "No tasks yet.", familyMemory: "Household info", notes: "Notes",
     notesHelp: "Keep household details here.", home: "Home",
-    close: "Close", title: "Title", details: "Details", delete: "Delete", save: "Save",
+    close: "Close", edit: "Edit", title: "Title", details: "Details", basicInfo: "Basic information", schedule: "Schedule", moreActions: "More actions", delete: "Delete", save: "Save",
     followups: "Updates", addFollowup: "Add an update", followupPlaceholder: "Add the latest update…",
     add: "Add", logout: "Log out", authTitle: "Sign in to Hearthbook", email: "Email",
     password: "Password", login: "Sign in", signup: "Create account", householdSetup: "Set up your household",
@@ -86,6 +87,7 @@ const copy = {
     notificationsChecking: "Checking notification status…", notificationsUnavailable: "Notifications are temporarily unavailable. Try again later.",
     installForNotifications: "Add Hearthbook to your Home Screen before turning on notifications.",
     notificationsDenied: "Notification permission is blocked. Enable it in system settings.",
+    notificationOn: "On", notificationOff: "Off", notificationUnavailableShort: "Unavailable", notificationCheckingShort: "Checking",
   },
 };
 
@@ -191,28 +193,36 @@ function needsHomeScreenInstall() {
 function renderNotificationSettings() {
   const button = $("#notificationButton");
   const status = $("#notificationStatus");
+  const summary = $("#notificationSummary");
   button.className = "secondary-button full-width";
   button.setAttribute("aria-busy", String(!state.notification.ready));
   status.dataset.state = "";
+  summary.textContent = "";
+  let summaryKey = "notificationCheckingShort";
   if (!supportsPush() || needsHomeScreenInstall()) {
     button.disabled = true;
     status.textContent = needsHomeScreenInstall() ? t("installForNotifications") : t("notificationsUnavailable");
     status.dataset.state = "warning";
+    summaryKey = "notificationUnavailableShort";
   } else if (!state.notification.ready || !state.notification.configured) {
     button.disabled = true;
     status.textContent = t(state.notification.ready ? "notificationsUnavailable" : "notificationsChecking");
     status.dataset.state = state.notification.ready ? "warning" : "";
+    summaryKey = state.notification.ready ? "notificationUnavailableShort" : "notificationCheckingShort";
   } else if (Notification.permission === "denied") {
     button.disabled = true;
     status.textContent = t("notificationsDenied");
     status.dataset.state = "warning";
+    summaryKey = "notificationUnavailableShort";
   } else {
     button.disabled = false;
     button.className = `${state.notification.subscription ? "secondary" : "primary"}-button full-width`;
     button.textContent = t(state.notification.subscription ? "disableNotifications" : "allowNotifications");
     status.textContent = state.notification.subscription ? t("notificationsEnabled") : "";
     status.dataset.state = state.notification.subscription ? "success" : "";
+    summaryKey = state.notification.subscription ? "notificationOn" : "notificationOff";
   }
+  summary.textContent = t(summaryKey);
 }
 
 function applicationServerKey(value) {
@@ -329,6 +339,9 @@ function renderMembers() {
   summary.append(list);
   const currentMember = state.board.members.find((member) => member.id === state.board.current_member_id);
   $("#memberProfileForm").hidden = !currentMember;
+  $("#profileSummary").textContent = currentMember
+    ? [currentMember.name, currentMember.role].filter(Boolean).join(" · ") : "";
+  $("#membersSummary").textContent = state.board.members.length ? String(state.board.members.length) : "";
   if (currentMember) {
     $("#memberName").value = currentMember.name || "";
     $("#memberRole").value = currentMember.role || "";
@@ -753,11 +766,13 @@ function fillEditor(item, scope) {
   $("#editTitle").value = item.title || "";
   $("#editDetails").value = item.details || "";
   const reminderEditable = item.kind !== "note" && scope !== "occurrence";
+  $("#editReminderSettings").hidden = !reminderEditable;
   $("#editReminderAtField").hidden = !reminderEditable;
   $("#editReminderAt").value = reminderEditable ? toLocalDateTime(item.reminder_at) : "";
   $("#editRemindMemberField").hidden = item.kind === "note" || scope === "occurrence";
   $("#editEventFields").hidden = item.kind !== "event";
   $("#editTaskFields").hidden = item.kind !== "task";
+  $("#editScheduleSection").hidden = item.kind === "note";
   if (item.kind === "event") {
     $("#editAllDay").checked = Boolean(item.all_day);
     $("#editStartDate").value = item.start_date || "";
@@ -773,12 +788,24 @@ function fillEditor(item, scope) {
     $("#editDueAt").value = toLocalDateTime(item.due_at);
   }
   toggleEditorFields();
+  updateEditReminderSummary();
 }
 
 function updateEditReminderSummary() {
   const names = [...$("#editRemindMembers").querySelectorAll("input:checked")]
     .map((input) => memberName(input.value)).filter(Boolean);
   $("#editRemindMemberSummary").textContent = names.join(", ") || "—";
+  const when = $("#editReminderAt").value
+    ? formatDateTime(new Date($("#editReminderAt").value).toISOString()) : "";
+  $("#editReminderSummary").textContent = [when, names.join(", ")].filter(Boolean).join(" · ") || "—";
+}
+
+function setItemEditing(editing) {
+  $("#itemOverview").hidden = editing;
+  $("#itemForm").hidden = !editing;
+  $("#editItemButton").hidden = editing;
+  $("#cancelItemEditButton").hidden = !editing;
+  $("#followupsSection").hidden = editing || state.selectedItem?.kind === "note";
 }
 
 function openItem(item) {
@@ -800,7 +827,8 @@ function openItem(item) {
     reminderChoices.append(label);
   });
   $("#editRemindMemberField").open = false;
-  updateEditReminderSummary();
+  $("#editReminderSettings").open = false;
+  $("#itemDangerActions").open = false;
   $("#editScopeField").hidden = !item.is_occurrence;
   $("#editScope").value = item.is_occurrence ? "occurrence" : "series";
   $("#itemFormError").hidden = true;
@@ -817,15 +845,20 @@ function openItem(item) {
     meta.append(textNode("p", `${t("recurrence")}: ${t(item.monthly_on_last_day ? "monthlyLastDay" : item.recurrence)}${weekdays}`));
   }
   if (item.completed_at) meta.append(textNode("p", t("done")));
-  $("#toggleDone").hidden = item.kind !== "task";
-  $("#toggleDone").textContent = t(item.completed_at ? "markOpen" : "markDone");
+  const toggleDone = $("#toggleDone");
+  $("#itemViewActions").hidden = item.kind !== "task";
+  toggleDone.hidden = item.kind !== "task";
+  toggleDone.className = item.completed_at ? "secondary-button" : "primary-button";
+  toggleDone.textContent = t(item.completed_at ? "markOpen" : "markDone");
 
   const reminded = reminderNames(item);
   $("#itemReminders").textContent = reminded.length ? `${t("remind")}: ${reminded.join(", ")}` : "";
   const preparation = item.preparation?.trim();
   $("#preparationSection").hidden = !preparation;
   $("#itemPreparation").textContent = preparation || "";
+  $("#followupsSection").open = false;
   renderFollowups(item);
+  setItemEditing(false);
   $("#itemDialog").showModal();
 }
 
@@ -840,6 +873,7 @@ function renderFollowups(item) {
     if (author || note.created_at) row.append(textNode("small", [author, note.created_at ? formatDateTime(note.created_at) : ""].filter(Boolean).join(" · ")));
     list.append(row);
   });
+  $("#followupsCount").textContent = item.notes?.length ? String(item.notes.length) : "";
   $("#followupsSection").hidden = item.kind === "note";
 }
 
@@ -889,7 +923,18 @@ $("#languageButton").addEventListener("click", () => {
   if (state.notification.subscription) savePushSubscription(state.notification.subscription).catch(() => {});
 });
 
-$("#settingsButton").addEventListener("click", () => { renderNotificationSettings(); $("#settingsDialog").showModal(); });
+$("#settingsButton").addEventListener("click", () => {
+  renderNotificationSettings();
+  document.querySelectorAll("#settingsDialog .settings-details").forEach((section) => { section.open = false; });
+  $("#settingsDialog").showModal();
+});
+document.querySelectorAll("#settingsDialog .settings-details").forEach((section) => {
+  section.addEventListener("toggle", () => {
+    if (section.open) document.querySelectorAll("#settingsDialog .settings-details").forEach((other) => {
+      if (other !== section) other.open = false;
+    });
+  });
+});
 $("#householdSelect").addEventListener("change", async (event) => {
   const householdId = event.target.value;
   if (!householdId || householdId === state.activeHouseholdId) return;
@@ -1041,6 +1086,17 @@ $("#editRecurrence").addEventListener("change", () => {
 });
 $("#editScope").addEventListener("change", (event) => fillEditor(editorItem(event.target.value), event.target.value));
 $("#editRemindMembers").addEventListener("change", updateEditReminderSummary);
+$("#editReminderAt").addEventListener("change", updateEditReminderSummary);
+$("#editItemButton").addEventListener("click", () => {
+  if (!state.selectedItem) return;
+  const scope = state.selectedItem.is_occurrence ? $("#editScope").value : "series";
+  fillEditor(editorItem(scope), scope);
+  setItemEditing(true);
+});
+$("#cancelItemEditButton").addEventListener("click", () => {
+  $("#itemFormError").hidden = true;
+  setItemEditing(false);
+});
 $("#itemForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const scope = state.selectedItem?.is_occurrence ? $("#editScope").value : "series";

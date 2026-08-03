@@ -45,17 +45,23 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('id="settingsCloseButton"', index)
         self.assertIn('$("#settingsCloseButton").addEventListener("click", () => $("#settingsDialog").close());', app)
 
-    def test_settings_folds_other_households_after_everyday_controls(self):
+    def test_settings_uses_single_open_sections_after_current_household(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")
         app = Path("frontend/app.js").read_text(encoding="utf-8")
         styles = Path("frontend/styles.css").read_text(encoding="utf-8")
 
+        self.assertIn('class="settings-current"', index)
         self.assertLess(index.index('id="currentHouseholdTitle"'), index.index('id="profileTitle"'))
         self.assertLess(index.index('id="profileTitle"'), index.index('id="notificationTitle"'))
         self.assertLess(index.index('id="notificationTitle"'), index.index('id="membersTitle"'))
-        self.assertLess(index.index('id="membersTitle"'), index.index('<details class="settings-details">'))
+        self.assertIn('<details class="settings-details" name="settings">', index)
+        self.assertIn('id="profileSummary" class="settings-summary"', index)
+        self.assertIn('id="notificationSummary" class="settings-summary"', index)
+        self.assertIn('id="membersSummary" class="settings-summary"', index)
         self.assertIn('id="joinAdditionalHouseholdForm"', index)
         self.assertIn('$("#joinAdditionalHouseholdForm").addEventListener("submit", async (event) => {', app)
+        self.assertIn('section.addEventListener("toggle", () => {', app)
+        self.assertIn('section.open = false;', app)
         self.assertIn('householdName.hidden = !household.name;', app)
         self.assertIn('.settings-details summary { min-height: 56px;', styles)
 
@@ -64,6 +70,8 @@ class FrontendUIContractTest(unittest.TestCase):
         styles = Path("frontend/styles.css").read_text(encoding="utf-8")
 
         self.assertIn('notificationsChecking: "正在检查通知状态…"', app)
+        self.assertIn('notificationUnavailableShort: "Unavailable"', app)
+        self.assertIn('summary.textContent = t(summaryKey);', app)
         self.assertIn('status.dataset.state = "warning"', app)
         self.assertIn('status.dataset.state = state.notification.subscription ? "success" : ""', app)
         self.assertIn('button:disabled { cursor: not-allowed; opacity: .5; }', styles)
@@ -143,6 +151,24 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('const preparation = item.preparation?.trim();', app)
         self.assertIn('$("#preparationSection").hidden = !preparation;', app)
         self.assertIn('$("#itemPreparation").textContent = preparation || "";', app)
+
+    def test_item_dialog_shows_details_before_editing(self):
+        index = Path("frontend/index.html").read_text(encoding="utf-8")
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+        styles = Path("frontend/styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('id="itemOverview" class="item-overview"', index)
+        self.assertIn('id="itemForm" class="item-form" hidden', index)
+        self.assertIn('id="editItemButton"', index)
+        self.assertIn('id="cancelItemEditButton"', index)
+        self.assertIn('id="editReminderSettings" class="reminder-picker"', index)
+        self.assertIn('function setItemEditing(editing)', app)
+        self.assertIn('$("#itemOverview").hidden = editing;', app)
+        self.assertIn('$("#itemForm").hidden = !editing;', app)
+        self.assertIn('$("#editItemButton").addEventListener("click", () => {', app)
+        self.assertIn('$("#cancelItemEditButton").addEventListener("click", () => {', app)
+        self.assertIn('.item-form-actions { position: sticky;', styles)
+        self.assertIn('.item-form > *, .editor-section, .editor-fields { min-width: 0; }', styles)
 
     def test_capture_confirmation_shows_schedule_and_reminder_metadata(self):
         app = Path("frontend/app.js").read_text(encoding="utf-8")
