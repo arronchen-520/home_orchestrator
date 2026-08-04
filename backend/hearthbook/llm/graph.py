@@ -13,7 +13,13 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 
-from ..domain.models import AgentReply, CaptureAnalysis, QueryDecision, RouteDecision
+from ..domain.models import (
+    MAX_REMINDER_RECIPIENTS,
+    AgentReply,
+    CaptureAnalysis,
+    QueryDecision,
+    RouteDecision,
+)
 from ..storage.board import HOUSEHOLD_MEMORY_MAX_CHARS, BoardDatabase
 from ..storage.conversation import (
     add_message,
@@ -93,9 +99,11 @@ Current time and Timezone, and leave optional details empty.
 
 Events can recur daily, weekly, or monthly. For weekly events use weekday codes;
 "weekdays" means MO through FR, "weekends" means SA and SU, and an unspecified
-weekly event uses its start weekday.
-Tasks and notes cannot recur. Use start_date for a date-only event and start_at/end_at
-only for specific times; never turn a date-only event into a midnight-to-midnight range.
+weekly event uses its start weekday. Weekdays are weekly-only; last-day recurrence is
+monthly and starts on that month's last day; recurrence_until cannot precede the start.
+An event uses start_date or start_at, never both; end_at cannot precede start_at. A task
+uses at most one of due_date or due_at. Tasks and notes cannot recur. Omit
+schedule_timezone. Never turn a date-only event into a midnight-to-midnight range.
 Set reminder_at only when the user or an explicit product rule provides a determinate time.
 Return named reminder recipients in remind_member_ids. If none are named, leave it
 empty so the app can default to the proposer. If no reminder is needed, leave both
@@ -323,7 +331,7 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
                 draft["schedule_timezone"] = session["timezone"]
             member_ids = list(dict.fromkeys(
                 member_id for member_id in draft.get("remind_member_ids", []) if member_id in valid_members
-            ))
+            ))[:MAX_REMINDER_RECIPIENTS]
             if draft["kind"] != "note" and draft.get("reminder_at") and not member_ids:
                 member_ids = [session["actor_id"]]
             draft["remind_member_ids"] = member_ids if draft["kind"] != "note" else []

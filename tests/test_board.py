@@ -86,6 +86,19 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(analysis.items, [])
 
+    def test_capture_ignores_model_timezone_and_accepts_recipient_overflow(self):
+        analysis = CaptureAnalysis(
+            status="review",
+            items=[{
+                "kind": "event", "title": "Dinner", "start_date": "2026-08-04",
+                "schedule_timezone": "not/a-zone",
+                "remind_member_ids": [str(index) for index in range(6)],
+            }],
+        )
+
+        self.assertIsNone(analysis.items[0].schedule_timezone)
+        self.assertEqual(len(analysis.items[0].remind_member_ids), 6)
+
     def test_event_schedule_normalizes_date_only_time_range(self):
         date_only = ItemDraft(
             kind="event",

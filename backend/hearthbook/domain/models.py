@@ -20,7 +20,7 @@ class ItemDraft(BaseModel):
     title: str = Field(min_length=1, max_length=120)
     details: str = Field(default="", max_length=2000)
     preparation: str | None = Field(default=None, max_length=500)
-    remind_member_ids: list[str] = Field(default_factory=list, max_length=MAX_REMINDER_RECIPIENTS)
+    remind_member_ids: list[str] = Field(default_factory=list)
     schedule_timezone: str | None = None
     start_at: datetime | None = Field(
         default=None, description="Specific start date and time; do not use for date-only events."
@@ -141,12 +141,19 @@ class CaptureAnalysis(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize_clarification(cls, value):
-        if isinstance(value, dict) and value.get("status") == "clarify" and value.get("items"):
-            data = dict(value)
+    def normalize_capture_output(cls, value):
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+        if data.get("status") == "clarify" and data.get("items"):
             data["items"] = []
-            return data
-        return value
+        else:
+            data["items"] = [
+                {key: field for key, field in item.items() if key != "schedule_timezone"}
+                if isinstance(item, dict) else item
+                for item in data.get("items", [])
+            ]
+        return data
 
     @model_validator(mode="after")
     def match_status(self) -> "CaptureAnalysis":
