@@ -3,8 +3,9 @@
 ## Goal
 
 Build the smallest useful mobile-first bilingual family assistant. Supabase
-Postgres is the source of truth. LangGraph routes every message to capture,
-query, or chat. The board contains events, tasks, and standalone notes.
+Postgres is the source of truth. LangGraph routes text, audio, and image input
+to capture, query, or chat. The board contains events, tasks, and standalone
+notes.
 
 ## Commands
 
@@ -21,7 +22,8 @@ query, or chat. The board contains events, tasks, and standalone notes.
 - `backend/hearthbook/domain/`: Pydantic item models, recurrence expansion,
   Calendar, and deterministic Today logic.
 - `backend/hearthbook/llm/`: OpenRouter model/graph plus capture, board-context
-  query, and chat nodes.
+  query, and chat nodes. Image understanding is in the conversation API and
+  feeds the same graph.
 - `backend/hearthbook/services/`: `BoardService`, the API boundary for board
   reads, writes, conversation handling, and confirmation.
 - `backend/hearthbook/storage/`: Supabase board and conversation persistence.
@@ -39,8 +41,11 @@ query, or chat. The board contains events, tasks, and standalone notes.
 - Route every message through LangGraph. Keep ordinary CRUD in
   `BoardDatabase` behind `BoardService`.
 - Capture produces drafts and requires explicit confirmation before creating
-  items. Query first receives a compact household-scoped index plus the
-  auth-bound member, then receives full details only for item ids it selects.
+  items. Confirmation also accepts or rejects preparations and selects reminder
+  recipients.
+- Query first receives a compact household-scoped index plus the auth-bound
+  member, then receives full details only for item ids it selects. Never restore
+  generated SQL or a writable query connection.
 - Query replies may propose one supported item update. The browser must show
   it and require confirmation before calling the normal item `PATCH` route.
 - LLM recurrence changes must provide a complete rule and affect the entire
@@ -54,14 +59,18 @@ query, or chat. The board contains events, tasks, and standalone notes.
   titles, details, and replies.
 - AI may infer who should be reminded from household context. This is visible
   and correctable, and is never ownership or assignment. Preserve
-  `remind_member_id` semantics and use it for Calendar/Tasks “Mine” filters.
+  `remind_member_ids` semantics, cap it at five members, and use it for
+  Calendar/Tasks “Mine” filters.
 - AI may suggest one preparation for an event or task. Save it only after the
   user accepts it; keep it manually editable.
-- Keep Home limited to unified voice/text conversation and deterministic Today.
+- Keep Home limited to unified text/audio/image conversation and deterministic
+  Today.
   Primary mobile navigation is Home, Calendar, and Notes.
 - Dated tasks belong in Calendar; undated tasks stay in `Unscheduled`.
 - Events and tasks support append-only follow-up notes. Notes themselves do not
   have reminders or follow-up notes.
+- Store timed schedules with an item-level IANA `schedule_timezone`. Preserve
+  all-day and inclusive multi-day event dates when expanding Calendar/Today.
 - Store one row per recurring event series. Expand requested ranges on the
   server; series edits/deletion affect all occurrences.
 - Recurrence is event-only and limited to daily, weekly, and monthly. Preserve
@@ -71,6 +80,8 @@ query, or chat. The board contains events, tasks, and standalone notes.
   original local occurrence date. Never materialize every future occurrence.
 - Keep Web Push delivery in the Supabase Edge Function. The app only manages
   subscriptions; never move VAPID private keys or Cron secrets into the client.
+- Consume the authenticated user's daily AI quota before OpenRouter or
+  Deepgram calls. The default is five requests per UTC day.
 
 ## Boundaries
 
@@ -81,7 +92,12 @@ query, or chat. The board contains events, tasks, and standalone notes.
 - `SUPABASE_SECRET_KEY` and `VAPID_PUBLIC_KEY` are backend notification
   configuration. VAPID private material and `NOTIFICATION_CRON_SECRET` stay in
   Supabase only.
+- Trust-boundary limits are 1,000 text characters, 5 MB audio, 3 MB PNG/JPEG
+  images, and five reminder recipients. The browser limits recordings to 60
+  seconds.
 - Never commit `.env`, credentials, API keys, private keys, or audio.
+- A Git commit does not apply Supabase migrations or deploy Edge Functions;
+  verify those separately before claiming production behavior.
 - Do not add React, an ORM, social login, or another service until a concrete
   requirement needs it.
 - Add one focused runnable test for non-trivial state behavior. Keep tests

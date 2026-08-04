@@ -1,25 +1,29 @@
 # Hearthbook
 
-Hearthbook is a mobile-first bilingual family assistant. Speak or type once to
-record a plan, ask about the household, or continue a conversation. The Home
-screen shows a deterministic summary of what happens, is due, is overdue, or
-needs a reminder today.
+Hearthbook is a mobile-first bilingual family assistant. Type, speak, or upload
+a PNG/JPEG image to record a plan, ask about the household, or continue a
+conversation. The Home screen shows a deterministic summary of what happens,
+is due, is overdue, or needs a reminder today.
 
-Hearthbook 是一个移动端优先的双语家庭助手。用户可以通过文字或语音记录安排、查询家庭事项，或继续一段对话；Home 页面用确定性的 Today 视图展示今天发生、到期、逾期和需要提醒的内容。
+Hearthbook 是一个移动端优先的双语家庭助手。用户可以通过文字、语音或 PNG/JPEG 图片记录安排、查询家庭事项，或继续一段对话；Home 页面用确定性的 Today 视图展示今天发生、到期、逾期和需要提醒的内容。
 
 ## Product model
 
 - Events, tasks, and standalone notes share one household database.
+- Events support timed, all-day, and multi-day schedules in their own IANA
+  timezone. They may recur daily, weekly, or monthly, including fixed-day and
+  month-end rules.
 - Dated tasks appear in Calendar; undated tasks stay in `Unscheduled`.
-- Events may recur daily, weekly, or monthly, including fixed-day and month-end rules.
-- Events and tasks have append-only follow-up notes.
-- `remind_member_id` identifies who should be reminded. It is not ownership,
-  assignment, claiming, or a kanban workflow.
+- Events and tasks have append-only follow-up notes and optional preparations.
+- `remind_member_ids` identifies up to five household members to remind. It is
+  not ownership, assignment, claiming, or a kanban workflow.
 - Tasks use `completed_at`; events and tasks can be edited manually afterward.
-- Every message is routed through LangGraph to capture, query, or chat.
-- Capture creates drafts for explicit review. Query uses a household-scoped,
-  read-only in-memory SQLite projection and may propose one item update; the
-  browser applies that update only after explicit confirmation.
+- Text, audio, and image messages are routed through LangGraph to capture,
+  query, or chat. Capture creates drafts for explicit review, including
+  reminder recipients and preparations.
+- Query first receives a compact household-scoped index, fetches full details
+  only for selected items, and may propose one item update. The browser applies
+  that update only after explicit confirmation.
 
 ## Repository structure
 
@@ -27,7 +31,7 @@ Hearthbook 是一个移动端优先的双语家庭助手。用户可以通过文
 backend/hearthbook/
   api/          FastAPI auth, household, board, conversation, and notification routes
   domain/       item models, recurrence, calendar, and Today calculations
-  llm/          OpenRouter/LangGraph routing, capture, chat, and safe SQL queries
+  llm/          OpenRouter/LangGraph routing, capture, board-context query, and chat
   services/     application operations used by the API routes
   storage/      Supabase board and conversation persistence
   main.py       FastAPI app, middleware, static files, and /health
@@ -39,10 +43,9 @@ supabase/
 tests/          focused API, graph, domain, frontend, and deployment-boundary checks
 ```
 
-Supabase Postgres is the source of truth. The SQLite database used by the query
-assistant is an in-memory, household-scoped projection and is never the write
-connection. The ignored `data/` directory is local runtime data, not product
-storage.
+Supabase Postgres is the source of truth. Query reads use a household-scoped
+board context and never execute generated SQL against Supabase. The ignored
+`data/` directory is local runtime data, not product storage.
 
 ## Run locally
 
@@ -62,6 +65,14 @@ Required for the app: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and
 
 Apply every file in `supabase/migrations/` in filename order before using the
 app.
+
+## Request limits
+
+- Text input: 1,000 characters.
+- Audio: 5 MB; the browser records at most 60 seconds.
+- Images: PNG or JPEG, up to 3 MB.
+- AI-backed text, audio, and image requests: five per authenticated user per
+  UTC day by default.
 
 ## Web Push notifications
 
@@ -129,6 +140,8 @@ controls the local 9 AM daily summary.
 
 ```powershell
 uv run python -m unittest -v
+node --check frontend/app.js
+git diff --check
 ```
 
 Tests use small contract stubs and do not call AI, transcription, or Supabase
