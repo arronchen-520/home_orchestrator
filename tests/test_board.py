@@ -126,12 +126,12 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValidationError, "requires a date"):
             ItemDraft(kind="event", title="Missing date", all_day=True)
 
-    def test_capture_review_falls_back_to_a_confirmation_message(self):
+    def test_capture_review_allows_an_empty_message_for_localized_fallback(self):
         review = CaptureAnalysis(
             status="review", message="", items=[ItemDraft(kind="note", title="Shopping list")]
         )
 
-        self.assertEqual(review.message, "Please confirm the following.")
+        self.assertEqual(review.message, "")
         with self.assertRaises(ValueError):
             CaptureAnalysis(status="clarify", message="")
 
@@ -193,7 +193,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
             status="active",
             intent=None,
             payload={},
-            messages=[{"role": "user", "content": "School pickup Saturday"}],
+            messages=[{"role": "user", "content": "明天接孩子"}],
         )
         route = SimpleNamespace(
             ainvoke=AsyncMock(return_value=RouteDecision(intent="capture"))
@@ -202,7 +202,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
             ainvoke=AsyncMock(
                 return_value=CaptureAnalysis(
                     status="review",
-                    message="Please check this.",
+                    message="",
                     items=[
                         ItemDraft(
                             kind="event",
@@ -227,7 +227,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         ):
             response = await BoardService(MemoryDatabase(), "family", "lin").message(
                 {
-                    "text": "School pickup Saturday",
+                    "text": "明天接孩子",
                     "actor_id": "sam",
                     "timezone": "America/Toronto",
                 }
@@ -235,6 +235,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response["intent"], "capture")
         self.assertEqual(response["status"], "review")
+        self.assertEqual(response["message"], "请确认以下内容。")
         self.assertEqual(response["drafts"][0]["remind_member_ids"], ["sam", "lin"])
         self.assertEqual(response["drafts"][0]["schedule_timezone"], "America/Toronto")
         self.assertEqual(create.call_args.args[2], "lin")
@@ -256,7 +257,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
             ainvoke=AsyncMock(
                 return_value=CaptureAnalysis(
                     status="review",
-                    message="Please check this.",
+                    message="",
                     items=[
                         ItemDraft(
                             kind="task",
@@ -280,6 +281,7 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(response["drafts"][0]["remind_member_ids"], ["lin"])
+        self.assertEqual(response["message"], "Please confirm the following.")
 
     async def test_event_reminder_defaults_to_proposer(self):
         SESSION.clear()

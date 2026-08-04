@@ -164,8 +164,6 @@ class CaptureAnalysis(BaseModel):
                 raise ValueError("Clarification requires a message")
         elif not self.items:
             raise ValueError("Review requires at least one draft")
-        elif not self.message.strip():
-            self.message = "Please confirm the following."
         return self
 
 

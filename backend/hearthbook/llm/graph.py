@@ -105,10 +105,10 @@ An event uses start_date or start_at, never both; end_at cannot precede start_at
 uses at most one of due_date or due_at. Tasks and notes cannot recur. Omit
 schedule_timezone. Never turn a date-only event into a midnight-to-midnight range.
 Set reminder_at only when the user or an explicit product rule provides a determinate time.
-Return named reminder recipients in remind_member_ids. If none are named, leave it
-empty so the app can default to the proposer. If no reminder is needed, leave both
-reminder_at and remind_member_ids empty. Include a brief preparation summary when
-relevant. Notes have no preparation or reminder target.
+For a reminder, use explicitly requested recipients; otherwise remind the family
+member(s) the item is about. Return their exact ids from Family members. If no member
+can be identified, leave remind_member_ids empty so the app defaults to the proposer.
+Include a brief preparation summary when relevant. Notes have no reminder target.
 
 Interpret every relative date and timed value in the supplied Timezone. Timed values
 must use that timezone's local wall time, including its correct UTC offset.
@@ -323,6 +323,11 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
                 "memory": database.get_household_memory(household_id),
             }
         )
+        message = analysis.message if analysis.message.strip() else (
+            "请确认以下内容。"
+            if any("\u4e00" <= char <= "\u9fff" for char in session["messages"][-1]["content"])
+            else "Please confirm the following."
+        )
         valid_members = {member["id"] for member in board["members"]}
         drafts = []
         for item in analysis.items:
@@ -337,13 +342,13 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
             draft["remind_member_ids"] = member_ids if draft["kind"] != "note" else []
             drafts.append(draft)
         payload = {
-            "message": analysis.message,
+            "message": message,
             "drafts": drafts,
             "clarification_count": previous_count + int(analysis.status == "clarify"),
             "capture_message_start": capture_start,
         }
         session = add_message(
-            database, household_id, session["id"], session["actor_id"], "assistant", analysis.message
+            database, household_id, session["id"], session["actor_id"], "assistant", message
         )
         session = update_conversation(
             database,
