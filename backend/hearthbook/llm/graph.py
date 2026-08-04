@@ -83,14 +83,15 @@ def capture_chain():
     return parsed_chain(
         CaptureAnalysis,
         """You are the capture specialist for a bilingual family assistant.
-Create event, task, or standalone note drafts.
+Create event, task, or standalone note drafts. One event is one independently managed
+continuous time block: split distinct blocks even when they share a topic, merge one
+continuous span even across days, and never infer blocks from locations or details alone.
 Choose event or task by semantic role, not by whether the message contains a date
 or time. An event is something scheduled or expected to happen, such as an
 appointment, class, meeting, or trip; its focus is when it happens. A task is an
 action a person needs to carry out and can mark complete; its focus is what must
 be done. A dated action remains a task (for example, “Buy milk tomorrow”); a future
-appointment remains an event (for example, “Go to the dentist on Saturday afternoon”). If one message
-contains both, create separate drafts. Ask one short question when date, time, item
+appointment remains an event (for example, “Go to the dentist on Saturday afternoon”). Ask one short question when date, time, item
 type, or recurrence is materially ambiguous; ask no more than two in total, and state
 assumptions when Remaining questions is 0. Preserve the user's language.
 When status is clarify, items must be empty; only status review may include drafts.
@@ -101,8 +102,9 @@ Events can recur daily, weekly, or monthly. For weekly events use weekday codes;
 "weekdays" means MO through FR, "weekends" means SA and SU, and an unspecified
 weekly event uses its start weekday. Weekdays are weekly-only; last-day recurrence is
 monthly and starts on that month's last day; recurrence_until cannot precede the start.
-An event uses start_date or start_at, never both; end_at cannot precede start_at. A task
-uses at most one of due_date or due_at. Tasks and notes cannot recur. Omit
+An all-day event uses start_date and optional inclusive end_date; a timed event uses
+start_at and optional end_at. Ends cannot precede starts. A task uses at most one of
+due_date or due_at. Tasks and notes cannot recur. Omit
 schedule_timezone. Never turn a date-only event into a midnight-to-midnight range.
 Set reminder_at only when the user or an explicit product rule provides a determinate time.
 For a reminder, use explicitly requested recipients; otherwise remind the family
@@ -236,7 +238,7 @@ def query_context(
         index.append(
             {
                 "id": item["id"], "kind": item["kind"], "title": item["title"],
-                "start_at": item.get("start_at"), "start_date": item.get("start_date"),
+                "start_at": item.get("start_at"), "start_date": item.get("start_date"), "end_date": item.get("end_date"),
                 "due_at": item.get("due_at"), "due_date": item.get("due_date"),
                 "remind_member_ids": item.get("remind_member_ids") or [],
                 "remind_member_names": [
@@ -256,7 +258,7 @@ def query_context(
                 if member_id in members
             ],
             "completed_at": item.get("completed_at"), "start_at": item.get("start_at"),
-            "end_at": item.get("end_at"), "start_date": item.get("start_date"),
+            "end_at": item.get("end_at"), "start_date": item.get("start_date"), "end_date": item.get("end_date"),
             "due_at": item.get("due_at"), "due_date": item.get("due_date"),
             "reminder_at": item.get("reminder_at"), "schedule_timezone": item.get("schedule_timezone"),
             "all_day": item.get("all_day"), "recurrence": item.get("recurrence"),
@@ -417,7 +419,7 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
         action = reply.action.model_dump(mode="json") if reply.action and reply.action.item_id in valid_ids else None
         if action and set(action["fields"]) & {"recurrence", "weekdays", "monthly_on_last_day"} and not used_details:
             action = None
-        if action and set(action["fields"]) & {"start_at", "end_at", "start_date", "due_at", "due_date", "reminder_at"}:
+        if action and set(action["fields"]) & {"start_at", "end_at", "start_date", "end_date", "due_at", "due_date", "reminder_at"}:
             action["fields"].setdefault("schedule_timezone", timezone_name)
         session = add_message(
             database, household_id, session["id"], session["actor_id"], "assistant", reply.message

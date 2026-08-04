@@ -29,8 +29,9 @@ class ItemDraft(BaseModel):
         default=None, description="Specific end date and time, only when an actual end time is known."
     )
     start_date: date | None = Field(
-        default=None, description="Date-only event date; use instead of start_at and end_at."
+        default=None, description="Date-only event start date; use instead of start_at and end_at."
     )
+    end_date: date | None = Field(default=None, description="Inclusive end date for a date-only event.")
     due_at: datetime | None = None
     due_date: date | None = None
     reminder_at: datetime | None = None
@@ -70,6 +71,7 @@ class ItemDraft(BaseModel):
             and end.microsecond == 0
         ):
             data["start_date"] = start.date()
+            data["end_date"] = end.date() if end.date() != start.date() else None
             data["start_at"] = data["end_at"] = None
         else:
             data["all_day"] = False
@@ -94,10 +96,14 @@ class ItemDraft(BaseModel):
                 if not self.start_date:
                     raise ValueError("An all-day event requires a date")
                 self.start_at = self.end_at = None
-            elif not self.start_at:
-                raise ValueError("A timed event requires a start")
-            if self.end_at and self.end_at < self.start_at:
-                raise ValueError("Event end must be after its start")
+                if self.end_date and self.end_date < self.start_date:
+                    raise ValueError("Event end date must not precede its start")
+            else:
+                self.end_date = None
+                if not self.start_at:
+                    raise ValueError("A timed event requires a start")
+                if self.end_at and self.end_at < self.start_at:
+                    raise ValueError("Event end must be after its start")
             if self.monthly_on_last_day:
                 if self.recurrence != "monthly":
                     raise ValueError("Last-day recurrence must be monthly")
@@ -114,12 +120,12 @@ class ItemDraft(BaseModel):
         elif self.kind == "task":
             if self.recurrence or self.weekdays or self.monthly_on_last_day or self.recurrence_until:
                 raise ValueError("Only events can recur")
-            self.start_at = self.end_at = self.start_date = None
+            self.start_at = self.end_at = self.start_date = self.end_date = None
             self.all_day = False
             if self.due_at and self.due_date:
                 raise ValueError("A task cannot have both a due date and due time")
         else:
-            self.start_at = self.end_at = self.start_date = None
+            self.start_at = self.end_at = self.start_date = self.end_date = None
             self.due_at = self.due_date = self.reminder_at = None
             self.preparation = self.schedule_timezone = None
             self.remind_member_ids = []
@@ -176,7 +182,7 @@ class ProposedUpdate(BaseModel):
     def supported_fields(self) -> "ProposedUpdate":
         allowed = {
             "title", "details", "preparation", "remind_member_ids", "completed",
-            "start_at", "end_at", "start_date", "due_at", "due_date",
+            "start_at", "end_at", "start_date", "end_date", "due_at", "due_date",
             "reminder_at", "schedule_timezone", "all_day", "recurrence", "weekdays",
             "monthly_on_last_day", "recurrence_until",
         }

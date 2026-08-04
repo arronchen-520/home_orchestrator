@@ -25,6 +25,19 @@ def item_date(item: dict, timezone_name: str) -> date | None:
     )
 
 
+def event_end_date(item: dict, timezone_name: str) -> date | None:
+    start = item_date(item, timezone_name)
+    if item["kind"] != "event" or start is None:
+        return start
+    if item.get("all_day"):
+        return date.fromisoformat(item["end_date"]) if item.get("end_date") else start
+    return (
+        datetime.fromisoformat(item["end_at"]).astimezone(ZoneInfo(timezone_name)).date()
+        if item.get("end_at")
+        else start
+    )
+
+
 def base_occurrences(item: dict, start_date: date, end_date: date) -> list[datetime]:
     zone = schedule_zone(item)
     first_date = item_date(item, zone.key)
@@ -76,7 +89,8 @@ def occurrence_item(
         "is_occurrence": bool(item.get("recurrence")),
     }
     if item["all_day"]:
-        result["start_date"] = occurrence_date
+        duration = event_end_date(item, occurrence.tzinfo.key) - date.fromisoformat(item["start_date"])
+        result.update(start_date=occurrence_date, end_date=(occurrence.date() + duration).isoformat())
     else:
         duration = (
             datetime.fromisoformat(item["end_at"])
@@ -91,11 +105,19 @@ def occurrence_item(
             if exception[field] is not None:
                 result[field] = exception[field]
         if exception["start_date"] is not None:
-            result.update(all_day=True, start_date=exception["start_date"], start_at=None, end_at=None)
+            duration = event_end_date(item, occurrence.tzinfo.key) - date.fromisoformat(item["start_date"])
+            result.update(
+                all_day=True,
+                start_date=exception["start_date"],
+                end_date=(date.fromisoformat(exception["start_date"]) + duration).isoformat(),
+                start_at=None,
+                end_at=None,
+            )
         elif exception["start_at"] is not None:
             result.update(
                 all_day=False,
                 start_date=None,
+                end_date=None,
                 start_at=exception["start_at"],
                 end_at=exception["end_at"],
             )

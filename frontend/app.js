@@ -340,9 +340,28 @@ function itemDate(item) {
   return value ? (/^\d{4}-\d{2}-\d{2}$/.test(value) ? value : dateKey(value)) : "";
 }
 
+function itemEndDate(item) {
+  const value = item.end_date || item.end_at;
+  return value ? (/^\d{4}-\d{2}-\d{2}$/.test(value) ? value : dateKey(value)) : itemDate(item);
+}
+
+function itemDates(item, rangeStart, rangeEnd) {
+  const dates = [];
+  for (let value = itemDate(item), end = itemEndDate(item); value && value <= end;) {
+    if (value >= rangeStart && value <= rangeEnd) dates.push(value);
+    const next = localDate(value);
+    next.setDate(next.getDate() + 1);
+    value = dateKey(next);
+  }
+  return dates;
+}
+
 function itemTime(item) {
   if (item.kind === "event") {
-    if (item.all_day || item.start_date) return t("allDay");
+    if (item.all_day || item.start_date) {
+      const end = item.end_date && item.end_date !== item.start_date ? `–${formatDate(item.end_date)}` : "";
+      return `${formatDate(item.start_date)}${end} · ${t("allDay")}`;
+    }
     return item.start_at ? formatDateTime(item.start_at) : "";
   }
   if (item.kind === "task") return item.due_at ? `${t("due")} ${formatDateTime(item.due_at)}` : item.due_date ? t("due") : "";
@@ -360,7 +379,10 @@ function reminderNames(item) {
 function draftMeta(draft) {
   const parts = [];
   if (draft.kind === "event") {
-    if (draft.start_date) parts.push(`${t("date")}: ${formatDate(draft.start_date)} · ${t("allDay")}`);
+    if (draft.start_date) {
+      const end = draft.end_date && draft.end_date !== draft.start_date ? `–${formatDate(draft.end_date)}` : "";
+      parts.push(`${t("date")}: ${formatDate(draft.start_date)}${end} · ${t("allDay")}`);
+    }
     else if (draft.start_at) {
       const end = draft.end_at ? `–${formatDateTime(draft.end_at)}` : "";
       parts.push(`${t("starts")}: ${formatDateTime(draft.start_at)}${end}`);
@@ -481,9 +503,11 @@ function renderCalendar() {
   const firstDay = state.language === "zh" ? 1 : 0;
   const [start] = calendarRange();
   const month = localDate(`${state.calendarMonth}-01`);
+  const [rangeStart, rangeEnd] = calendarRange();
   const byDate = filteredCalendarItems().reduce((result, item) => {
-    const key = itemDate(item);
-    if (key) (result.get(key) || result.set(key, []).get(key)).push(item);
+    itemDates(item, rangeStart, rangeEnd).forEach((key) => {
+      (result.get(key) || result.set(key, []).get(key)).push(item);
+    });
     return result;
   }, new Map());
   const locale = state.language === "zh" ? "zh-CN" : "en-CA";
@@ -821,6 +845,7 @@ function toggleEditorFields() {
   if (!item) return;
   const allDay = item.kind === "event" && $("#editAllDay").checked;
   $("#editStartDateField").hidden = !allDay;
+  $("#editEndDateField").hidden = !allDay || $("#editScope").value === "occurrence";
   $("#editStartAtField").hidden = allDay;
   $("#editEndAtField").hidden = allDay;
   $("#editStartDate").required = allDay;
@@ -853,6 +878,7 @@ function fillEditor(item, scope) {
   if (item.kind === "event") {
     $("#editAllDay").checked = Boolean(item.all_day);
     $("#editStartDate").value = item.start_date || "";
+    $("#editEndDate").value = item.end_date || "";
     $("#editStartAt").value = toLocalDateTime(item.start_at);
     $("#editEndAt").value = toLocalDateTime(item.end_at);
     $("#editRecurrence").value = item.monthly_on_last_day ? "monthly_last_day" : item.recurrence || "";
@@ -1205,10 +1231,12 @@ $("#itemForm").addEventListener("submit", async (event) => {
         fields.start_date = $("#editStartDate").value;
         fields.start_at = null;
         fields.end_at = null;
+        if (scope === "series") fields.end_date = $("#editEndDate").value || null;
       } else {
         fields.start_at = new Date($("#editStartAt").value).toISOString();
         fields.end_at = $("#editEndAt").value ? new Date($("#editEndAt").value).toISOString() : null;
         fields.start_date = null;
+        if (scope === "series") fields.end_date = null;
       }
       if (scope === "series") {
         const recurrence = $("#editRecurrence").value;

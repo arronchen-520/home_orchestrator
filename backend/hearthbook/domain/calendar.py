@@ -4,10 +4,18 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
-from .recurrence import base_occurrences, item_date, occurrence_item, schedule_zone
+from .recurrence import base_occurrences, event_end_date, item_date, occurrence_item, schedule_zone
 
 if TYPE_CHECKING:
     from ..storage.board import BoardDatabase
+
+
+def overlaps_calendar_range(item: dict, start_date: date, end_date: date, timezone_name: str) -> bool:
+    start = item_date(item, timezone_name)
+    if start is None:
+        return False
+    finish = event_end_date(item, timezone_name) if item["kind"] == "event" else start
+    return start <= end_date and finish >= start_date
 
 
 def get_calendar(
@@ -39,7 +47,7 @@ def get_calendar(
             continue
         if not item.get("recurrence"):
             target = item_date(item, timezone_name)
-            if target and start_date <= target <= end_date:
+            if target and overlaps_calendar_range(item, start_date, end_date, timezone_name):
                 result.append(
                     {
                         **item,
@@ -54,12 +62,13 @@ def get_calendar(
         source_zone = schedule_zone(item)
         source_start = datetime.combine(start_date, datetime.min.time(), zone).astimezone(source_zone).date()
         source_end = datetime.combine(end_date + timedelta(days=1), datetime.min.time(), zone).astimezone(source_zone).date()
+        source_start -= event_end_date(item, source_zone.key) - item_date(item, source_zone.key)
         for occurrence in base_occurrences(item, source_start, source_end):
             key = occurrence.date().isoformat()
             seen.add(key)
             expanded = occurrence_item(item, occurrence, exceptions_for_series.get(key))
             target = item_date(expanded, timezone_name) if expanded else None
-            if target and start_date <= target <= end_date:
+            if target and overlaps_calendar_range(expanded, start_date, end_date, timezone_name):
                 result.append(expanded)
         for key, exception in exceptions_for_series.items():
             if key in seen or exception["cancelled"]:
@@ -69,7 +78,7 @@ def get_calendar(
             if occurrences:
                 expanded = occurrence_item(item, occurrences[0], exception)
                 target = item_date(expanded, timezone_name) if expanded else None
-                if target and start_date <= target <= end_date:
+                if target and overlaps_calendar_range(expanded, start_date, end_date, timezone_name):
                     result.append(expanded)
     result.sort(
         key=lambda item: (

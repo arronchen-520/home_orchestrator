@@ -158,7 +158,7 @@ class BoardDatabase:
             self.client.table("items")
             .select(
                 "id,conversation_id,kind,title,details,preparation,remind_member_ids,completed_at,"
-                "start_at,end_at,start_date,due_at,due_date,reminder_at,schedule_timezone,all_day,recurrence,"
+                "start_at,end_at,start_date,end_date,due_at,due_date,reminder_at,schedule_timezone,all_day,recurrence,"
                 "weekdays,monthly_on_last_day,recurrence_until,created_by,created_at,updated_at,original_text"
             )
             .eq("household_id", household_id)
@@ -220,7 +220,7 @@ class BoardDatabase:
     def update_item(self, household_id: str, item_id: str, actor_id: str, fields: dict) -> None:
         allowed = {
             "title", "details", "preparation", "remind_member_ids", "completed",
-            "start_at", "end_at", "start_date", "due_at", "due_date", "reminder_at", "schedule_timezone",
+            "start_at", "end_at", "start_date", "end_date", "due_at", "due_date", "reminder_at", "schedule_timezone",
             "all_day", "recurrence", "monthly_on_last_day", "recurrence_until",
             "weekdays",
         }
@@ -233,7 +233,7 @@ class BoardDatabase:
         item = dict(row)
         original_pattern = tuple(
             item.get(key)
-            for key in ("start_at", "start_date", "recurrence", "monthly_on_last_day")
+            for key in ("start_at", "start_date", "end_date", "recurrence", "monthly_on_last_day")
         )
         original_pattern += (tuple(item.get("weekdays") or []),)
         completed = fields.pop("completed", None)
@@ -262,12 +262,16 @@ class BoardDatabase:
                 if not item.get("start_date"):
                     raise ValueError("An all-day event requires a date")
                 item["start_at"] = item["end_at"] = None
+                if item.get("end_date") and date.fromisoformat(item["end_date"]) < date.fromisoformat(item["start_date"]):
+                    raise ValueError("Event end date must not precede its start")
             elif not item.get("start_at"):
                 raise ValueError("A timed event requires a start")
-            elif item.get("end_at") and datetime.fromisoformat(
-                item["end_at"]
-            ) < datetime.fromisoformat(item["start_at"]):
-                raise ValueError("Event end must be after its start")
+            else:
+                item["end_date"] = None
+                if item.get("end_at") and datetime.fromisoformat(
+                    item["end_at"]
+                ) < datetime.fromisoformat(item["start_at"]):
+                    raise ValueError("Event end must be after its start")
             if not item.get("recurrence"):
                 item["monthly_on_last_day"] = False
                 item["recurrence_until"] = None
@@ -286,7 +290,7 @@ class BoardDatabase:
             validate_month_end(item)
         elif item["kind"] == "task":
             if set(fields) & {
-                "start_at", "end_at", "start_date", "all_day", "recurrence",
+                "start_at", "end_at", "start_date", "end_date", "all_day", "recurrence",
                 "weekdays", "monthly_on_last_day", "recurrence_until",
             }:
                 raise ValueError("Tasks do not have event schedule fields")
@@ -304,7 +308,7 @@ class BoardDatabase:
         self.client.table("items").update(update).eq("id", item_id).eq("household_id", household_id).execute()
         current_pattern = tuple(
             item.get(key)
-            for key in ("start_at", "start_date", "recurrence", "monthly_on_last_day")
+            for key in ("start_at", "start_date", "end_date", "recurrence", "monthly_on_last_day")
         )
         current_pattern += (tuple(item.get("weekdays") or []),)
         if original_pattern != current_pattern and (original_pattern[2] or item.get("recurrence")):

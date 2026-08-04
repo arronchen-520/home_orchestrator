@@ -23,6 +23,7 @@ class ItemUpdate(BaseModel):
     start_at: datetime | None = None
     end_at: datetime | None = None
     start_date: date | None = None
+    end_date: date | None = None
     due_at: datetime | None = None
     due_date: date | None = None
     reminder_at: datetime | None = None

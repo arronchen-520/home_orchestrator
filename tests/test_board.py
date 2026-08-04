@@ -113,6 +113,14 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(date_only.end_at)
         self.assertTrue(date_only.all_day)
 
+        multi_day = ItemDraft(
+            kind="event", title="Retreat", start_date="2026-10-19", end_date="2026-10-21"
+        )
+        self.assertEqual(multi_day.end_date, date(2026, 10, 21))
+
+        with self.assertRaisesRegex(ValidationError, "end date"):
+            ItemDraft(kind="event", title="Invalid", start_date="2026-10-21", end_date="2026-10-19")
+
         timed = ItemDraft(
             kind="event",
             title="Flight",
@@ -401,6 +409,38 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         reasons = {item["id"]: item["today_reasons"] for item in summary["items"]}
         self.assertEqual(set(reasons["event"]), {"happens_today", "reminder_today"})
         self.assertEqual(reasons["overdue"], ["overdue"])
+
+    def test_calendar_and_today_include_every_day_of_a_multi_day_event(self):
+        all_day = ItemDraft(
+            kind="event", title="Retreat", start_date="2026-08-01", end_date="2026-08-03"
+        ).model_dump(mode="json")
+        timed = ItemDraft(
+            kind="event", title="Overnight", start_at="2026-08-01T22:00:00-04:00",
+            end_at="2026-08-02T02:00:00-04:00",
+        ).model_dump(mode="json")
+        for index, item in enumerate((all_day, timed)):
+            item.update(id=str(index), completed_at=None, notes=[])
+        database = MemoryDatabase([all_day, timed])
+
+        calendar = get_calendar(database, "family", date(2026, 8, 2), date(2026, 8, 2), "America/Toronto")
+        today = get_today(database, "family", date(2026, 8, 2), "America/Toronto")
+
+        self.assertEqual({item["title"] for item in calendar["items"]}, {"Retreat", "Overnight"})
+        self.assertEqual({item["title"] for item in today["items"]}, {"Retreat", "Overnight"})
+
+    def test_recurring_multi_day_event_keeps_its_duration(self):
+        item = ItemDraft(
+            kind="event", title="Retreat", start_date="2026-08-01", end_date="2026-08-03",
+            recurrence="weekly", weekdays=["SA"],
+        ).model_dump(mode="json")
+        item.update(id="retreat", completed_at=None, notes=[])
+
+        calendar = get_calendar(
+            MemoryDatabase([item]), "family", date(2026, 8, 3), date(2026, 8, 3), "America/Toronto"
+        )
+
+        self.assertEqual(calendar["items"][0]["start_date"], "2026-08-01")
+        self.assertEqual(calendar["items"][0]["end_date"], "2026-08-03")
 
     def test_query_context_keeps_recurring_series_compact(self):
         item = ItemDraft(
