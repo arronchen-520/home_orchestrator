@@ -92,8 +92,10 @@ assumptions in the review message. Preserve the user's language.
 Events can recur daily, weekly, or monthly. For weekly events, set weekdays to any
 combination of MO, TU, WE, TH, FR, SA, SU. "Weekdays" means MO through FR; "weekends"
 means SA and SU. A plain weekly event may leave weekdays empty to use its start weekday.
-Tasks and notes cannot recur. Every dated
-event or task needs a sensible reminder_at. Return every explicitly named family member
+Tasks and notes cannot recur. Use start_date for a date-only event and start_at/end_at
+only for specific times; never turn a date-only event into a midnight-to-midnight range.
+Set reminder_at only when the user or an explicit product rule provides a determinate time.
+Return every explicitly named family member
 in remind_member_ids. If the user does not name anyone, leave it empty so the app can
 default to the proposer. When no reminder is needed or the user explicitly asks not to
 remind anyone, leave both reminder_at and remind_member_ids empty. This means

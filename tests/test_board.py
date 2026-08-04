@@ -77,6 +77,33 @@ SESSION = {}
 
 
 class BoardContractTest(unittest.IsolatedAsyncioTestCase):
+    def test_event_schedule_normalizes_date_only_time_range(self):
+        date_only = ItemDraft(
+            kind="event",
+            title="Flight",
+            schedule_timezone="Asia/Hong_Kong",
+            start_at="2026-10-19T00:00:00+08:00",
+            end_at="2026-10-19T23:59:59+08:00",
+            all_day=True,
+        )
+        self.assertEqual(date_only.start_date, date(2026, 10, 19))
+        self.assertIsNone(date_only.start_at)
+        self.assertIsNone(date_only.end_at)
+        self.assertTrue(date_only.all_day)
+
+        timed = ItemDraft(
+            kind="event",
+            title="Flight",
+            start_at="2026-10-19T09:30:00+08:00",
+            end_at="2026-10-19T13:00:00+08:00",
+            all_day=True,
+        )
+        self.assertFalse(timed.all_day)
+        self.assertIsNone(timed.start_date)
+
+        with self.assertRaisesRegex(ValidationError, "requires a date"):
+            ItemDraft(kind="event", title="Missing date", all_day=True)
+
     def test_capture_review_falls_back_to_a_confirmation_message(self):
         review = CaptureAnalysis(
             status="review", message="", items=[ItemDraft(kind="note", title="Shopping list")]

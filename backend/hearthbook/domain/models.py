@@ -22,17 +22,58 @@ class ItemDraft(BaseModel):
     preparation: str | None = Field(default=None, max_length=500)
     remind_member_ids: list[str] = Field(default_factory=list, max_length=MAX_REMINDER_RECIPIENTS)
     schedule_timezone: str | None = None
-    start_at: datetime | None = None
-    end_at: datetime | None = None
-    start_date: date | None = None
+    start_at: datetime | None = Field(
+        default=None, description="Specific start date and time; do not use for date-only events."
+    )
+    end_at: datetime | None = Field(
+        default=None, description="Specific end date and time, only when an actual end time is known."
+    )
+    start_date: date | None = Field(
+        default=None, description="Date-only event date; use instead of start_at and end_at."
+    )
     due_at: datetime | None = None
     due_date: date | None = None
     reminder_at: datetime | None = None
-    all_day: bool = False
+    all_day: bool = Field(
+        default=False,
+        description="True only for a date-only event; use start_date and leave start_at/end_at null.",
+    )
     recurrence: Recurrence | None = None
     weekdays: list[Weekday] = Field(default_factory=list)
     monthly_on_last_day: bool = False
     recurrence_until: date | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_event_schedule(cls, value):
+        if not isinstance(value, dict) or value.get("kind") != "event":
+            return value
+        data = dict(value)
+        if data.get("start_date"):
+            data["all_day"] = True
+            data["start_at"] = data["end_at"] = None
+            return data
+        if not data.get("all_day") or not data.get("start_at"):
+            return data
+        try:
+            start = data["start_at"] if isinstance(data["start_at"], datetime) else datetime.fromisoformat(str(data["start_at"]))
+            end = data.get("end_at")
+            end = end if isinstance(end, datetime) else datetime.fromisoformat(str(end)) if end else None
+        except (TypeError, ValueError):
+            return data
+        if (
+            start.hour == start.minute == start.second == start.microsecond == 0
+            and end is not None
+            and end.hour == 23
+            and end.minute == 59
+            and end.second == 59
+            and end.microsecond == 0
+        ):
+            data["start_date"] = start.date()
+            data["start_at"] = data["end_at"] = None
+        else:
+            data["all_day"] = False
+        return data
 
     @model_validator(mode="after")
     def match_kind(self) -> "ItemDraft":
