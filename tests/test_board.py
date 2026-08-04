@@ -271,6 +271,48 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(create.call_args.args[2], "lin")
         route.ainvoke.assert_awaited_once()
 
+    async def test_invalid_capture_draft_logs_error_and_returns_retry_message(self):
+        SESSION.clear()
+        SESSION.update(
+            id="session",
+            actor_id="lin",
+            timezone="America/Toronto",
+            status="active",
+            intent=None,
+            payload={},
+            messages=[{"role": "user", "content": "Add this flight"}],
+        )
+        route = SimpleNamespace(ainvoke=AsyncMock(return_value=RouteDecision(intent="capture")))
+        capture = SimpleNamespace(
+            ainvoke=AsyncMock(
+                return_value=CaptureOutput(
+                    items=[CaptureItem(
+                        kind="event",
+                        title="Flight",
+                        start="2026-10-03T01:50:00-04:00",
+                        end="2026-10-03T05:00:00+08:00",
+                    )]
+                )
+            )
+        )
+        with (
+            patch("backend.hearthbook.llm.graph.router_chain", return_value=route),
+            patch("backend.hearthbook.llm.graph.capture_chain", return_value=capture),
+            patch("backend.hearthbook.services.board.create_conversation", return_value=deepcopy(SESSION)),
+            patch("backend.hearthbook.llm.graph.add_message", side_effect=add_message),
+            patch("backend.hearthbook.llm.graph.update_conversation", side_effect=update_conversation),
+            patch("backend.hearthbook.llm.graph.logger.warning") as warning,
+        ):
+            response = await BoardService(MemoryDatabase(), "family", "lin").message(
+                {"text": "Add this flight", "timezone": "America/Toronto"}
+            )
+
+        self.assertEqual(response["status"], "clarifying")
+        self.assertEqual(response["message"], "Something went wrong. Please try again later.")
+        self.assertEqual(response["drafts"], [])
+        warning.assert_called_once()
+        self.assertIn("Event end must be after its start", str(warning.call_args.args[1]))
+
     async def test_task_reminder_defaults_to_proposer(self):
         SESSION.clear()
         SESSION.update(

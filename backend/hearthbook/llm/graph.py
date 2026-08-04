@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from datetime import date, datetime
 from functools import lru_cache
@@ -26,6 +27,9 @@ from ..storage.conversation import (
     add_message,
     update_conversation,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigurationError(RuntimeError):
@@ -105,7 +109,9 @@ weekly event uses its start weekday. Output weekdays only when the user explicit
 them; weekdays are weekly-only. Use repeat=monthly_last_day
 for the last day of each month. Use start/end for events and due for tasks: YYYY-MM-DD
 means an all-day date, otherwise use an ISO datetime with its UTC offset. Event start/end
-must use the same form; an end date is inclusive. Tasks and notes cannot recur.
+must use the same form. Apply an explicit relative-day offset or cross-day marker to an
+event end before emitting it, and ensure end is later than start after accounting for UTC
+offsets; otherwise ask a question. An end date is inclusive. Tasks and notes cannot recur.
 Set reminder_at only when the user or an explicit product rule provides a determinate time.
 For a reminder, use explicitly requested recipients; otherwise remind the family
 member(s) the item is about. Return their exact ids from Family members. If no member
@@ -331,13 +337,14 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
             try:
                 items = [item.to_item_draft() for item in output.items]
                 analysis = CaptureAnalysis(status="review", items=items, updated_memory=output.updated_memory)
-            except ValueError:
+            except ValueError as exc:
+                logger.warning("Capture draft conversion failed: %s", exc)
                 analysis = CaptureAnalysis(
                     status="clarify",
                     message=(
-                        "请确认日期和时间。"
+                        "遇到了问题，请稍后重试。"
                         if any("\u4e00" <= char <= "\u9fff" for char in session["messages"][-1]["content"])
-                        else "Please confirm the dates and times."
+                        else "Something went wrong. Please try again later."
                     ),
                     updated_memory=output.updated_memory,
                 )
