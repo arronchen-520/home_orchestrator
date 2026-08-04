@@ -76,7 +76,7 @@ Return capture when the user wants to record, create, or remember something new.
 Return query when they ask about existing family plans, tasks, reminders, or notes,
 including requests to change or complete an existing item. Return chat for greetings,
 help, brainstorming, or conversation that needs
-no board lookup or change. Use the full conversation and pending intent: short replies
+no board lookup or change. Use the latest message and pending intent: short replies
 normally continue the pending capture, while an explicit topic change may switch.
 Classify every turn. Do not answer the user. {format_instructions}""",
         "Pending intent: {pending}\nConversation:\n{conversation}",
@@ -281,6 +281,8 @@ def query_context(
 def build_conversation_graph(database: BoardDatabase, household_id: str):
     async def route(state: ConversationState) -> dict:
         session = state["session"]
+        if state["command"].get("source") == "image" and not state["command"].get("image_note"):
+            return {"intent": "capture"}
         decision = await router_chain().ainvoke(
             {
                 "pending": session.get("intent") if session.get("status") in {"clarifying", "review"} else "none",

@@ -313,6 +313,37 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         warning.assert_called_once()
         self.assertIn("Event end must be after its start", str(warning.call_args.args[1]))
 
+    async def test_image_without_note_routes_to_capture_without_router(self):
+        SESSION.clear()
+        SESSION.update(
+            id="session",
+            actor_id="lin",
+            timezone="America/Toronto",
+            status="active",
+            intent=None,
+            payload={},
+            messages=[{"role": "user", "content": "Image content: school event"}],
+        )
+        route = SimpleNamespace(ainvoke=AsyncMock())
+        capture = SimpleNamespace(
+            ainvoke=AsyncMock(return_value=CaptureOutput(items=[CaptureItem(kind="note", title="School event")]))
+        )
+        with (
+            patch("backend.hearthbook.llm.graph.router_chain", return_value=route),
+            patch("backend.hearthbook.llm.graph.capture_chain", return_value=capture),
+            patch("backend.hearthbook.services.board.create_conversation", return_value=deepcopy(SESSION)),
+            patch("backend.hearthbook.llm.graph.add_message", side_effect=add_message),
+            patch("backend.hearthbook.llm.graph.update_conversation", side_effect=update_conversation),
+        ):
+            response = await BoardService(MemoryDatabase(), "family", "lin").message(
+                {"text": "Image content: school event", "source": "image", "image_note": "", "timezone": "America/Toronto"}
+            )
+
+        self.assertEqual(response["intent"], "capture")
+        self.assertEqual(response["status"], "review")
+        route.ainvoke.assert_not_awaited()
+        capture.ainvoke.assert_awaited_once()
+
     async def test_task_reminder_defaults_to_proposer(self):
         SESSION.clear()
         SESSION.update(

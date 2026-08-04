@@ -187,7 +187,13 @@ async def image_message(
         message += f"\nUser note:\n{text.strip()}"
     result = await service_call(
         board_service(request).message(
-            {"text": message, "timezone": timezone, "session_id": session_id, "source": "image"}
+            {
+                "text": message,
+                "timezone": timezone,
+                "session_id": session_id,
+                "source": "image",
+                "image_note": text.strip(),
+            }
         ),
         request,
         "image message",
