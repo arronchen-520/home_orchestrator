@@ -77,6 +77,15 @@ SESSION = {}
 
 
 class BoardContractTest(unittest.IsolatedAsyncioTestCase):
+    def test_clarification_discards_unconfirmed_drafts(self):
+        analysis = CaptureAnalysis(
+            status="clarify",
+            message="Which date?",
+            items=[{"kind": "event", "title": "Appointment", "start_date": "2026-08-04"}],
+        )
+
+        self.assertEqual(analysis.items, [])
+
     def test_event_schedule_normalizes_date_only_time_range(self):
         date_only = ItemDraft(
             kind="event",

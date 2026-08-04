@@ -139,6 +139,15 @@ class CaptureAnalysis(BaseModel):
     items: list[ItemDraft] = Field(default_factory=list, max_length=20)
     updated_memory: str | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_clarification(cls, value):
+        if isinstance(value, dict) and value.get("status") == "clarify" and value.get("items"):
+            data = dict(value)
+            data["items"] = []
+            return data
+        return value
+
     @model_validator(mode="after")
     def match_status(self) -> "CaptureAnalysis":
         if self.status == "clarify":
