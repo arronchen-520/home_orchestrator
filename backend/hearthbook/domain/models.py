@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from calendar import monthrange
 from datetime import date, datetime
+import re
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -171,6 +172,82 @@ class CaptureAnalysis(BaseModel):
         elif not self.items:
             raise ValueError("Review requires at least one draft")
         return self
+
+
+CaptureRepeat = Literal["daily", "weekly", "monthly", "monthly_last_day"]
+
+
+def parse_capture_schedule(value: str) -> tuple[date | datetime, bool]:
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return date.fromisoformat(value), True
+    parsed = datetime.fromisoformat(value)
+    if parsed.utcoffset() is None:
+        raise ValueError("Timed values require a timezone")
+    return parsed, False
+
+
+class CaptureItem(BaseModel):
+    kind: ItemKind
+    title: str = Field(min_length=1, max_length=120)
+    details: str = Field(default="", max_length=2000)
+    preparation: str | None = Field(default=None, max_length=500)
+    remind_member_ids: list[str] = Field(default_factory=list)
+    start: str | None = Field(default=None, max_length=40)
+    end: str | None = Field(default=None, max_length=40)
+    due: str | None = Field(default=None, max_length=40)
+    reminder_at: datetime | None = None
+    repeat: CaptureRepeat | None = None
+    weekdays: list[Weekday] = Field(default_factory=list)
+    repeat_until: date | None = None
+
+    def to_item_draft(self) -> ItemDraft:
+        if self.kind == "event":
+            if not self.start:
+                raise ValueError("An event requires a start")
+            start, all_day = parse_capture_schedule(self.start)
+            end, end_all_day = parse_capture_schedule(self.end) if self.end else (None, all_day)
+            if end is not None and all_day != end_all_day:
+                raise ValueError("Event start and end must use the same form")
+            return ItemDraft(
+                kind=self.kind,
+                title=self.title,
+                details=self.details,
+                preparation=self.preparation,
+                remind_member_ids=self.remind_member_ids,
+                start_date=start if all_day else None,
+                end_date=end if all_day else None,
+                start_at=None if all_day else start,
+                end_at=None if all_day else end,
+                all_day=all_day,
+                recurrence="monthly" if self.repeat == "monthly_last_day" else self.repeat,
+                weekdays=self.weekdays,
+                monthly_on_last_day=self.repeat == "monthly_last_day",
+                recurrence_until=self.repeat_until,
+                reminder_at=self.reminder_at,
+            )
+        if self.kind == "task":
+            if self.start or self.end or self.repeat or self.weekdays or self.repeat_until:
+                raise ValueError("Tasks do not have event schedule fields")
+            due, all_day = parse_capture_schedule(self.due) if self.due else (None, False)
+            return ItemDraft(
+                kind=self.kind,
+                title=self.title,
+                details=self.details,
+                preparation=self.preparation,
+                remind_member_ids=self.remind_member_ids,
+                due_date=due if all_day else None,
+                due_at=None if all_day else due,
+                reminder_at=self.reminder_at,
+            )
+        if self.start or self.end or self.due or self.repeat or self.weekdays or self.repeat_until:
+            raise ValueError("Notes do not have schedule fields")
+        return ItemDraft(kind=self.kind, title=self.title, details=self.details)
+
+
+class CaptureOutput(BaseModel):
+    items: list[CaptureItem] = Field(default_factory=list, max_length=20)
+    question: str | None = Field(default=None, max_length=1000)
+    updated_memory: str | None = None
 
 
 class ProposedUpdate(BaseModel):

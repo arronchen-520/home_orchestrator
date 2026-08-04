@@ -17,6 +17,7 @@ from ..domain.models import (
     MAX_REMINDER_RECIPIENTS,
     AgentReply,
     CaptureAnalysis,
+    CaptureOutput,
     QueryDecision,
     RouteDecision,
 )
@@ -81,7 +82,7 @@ Classify every turn. Do not answer the user. {format_instructions}""",
 @lru_cache(maxsize=1)
 def capture_chain():
     return parsed_chain(
-        CaptureAnalysis,
+        CaptureOutput,
         """You are the capture specialist for a bilingual family assistant.
 Create event, task, or standalone note drafts. One event is one independently managed
 continuous time block: split distinct blocks even when they share a topic, merge one
@@ -93,19 +94,17 @@ action a person needs to carry out and can mark complete; its focus is what must
 be done. A dated action remains a task (for example, “Buy milk tomorrow”); a future
 appointment remains an event (for example, “Go to the dentist on Saturday afternoon”). Ask one short question when date, time, item
 type, or recurrence is materially ambiguous; ask no more than two in total, and state
-assumptions when Remaining questions is 0. Preserve the user's language.
-When status is clarify, items must be empty; only status review may include drafts.
+assumptions when Remaining questions is 0. Preserve the user's language. Return a
+question and no items only when clarification is needed; otherwise return items and no question.
 Ask only for information required to create the draft. Resolve relative dates from
 Current time and Timezone, and leave optional details empty.
 
 Events can recur daily, weekly, or monthly. For weekly events use weekday codes;
 "weekdays" means MO through FR, "weekends" means SA and SU, and an unspecified
-weekly event uses its start weekday. Weekdays are weekly-only; last-day recurrence is
-monthly and starts on that month's last day; recurrence_until cannot precede the start.
-An all-day event uses start_date and optional inclusive end_date; a timed event uses
-start_at and optional end_at. Ends cannot precede starts. A task uses at most one of
-due_date or due_at. Tasks and notes cannot recur. Omit
-schedule_timezone. Never turn a date-only event into a midnight-to-midnight range.
+weekly event uses its start weekday. Weekdays are weekly-only; use repeat=monthly_last_day
+for the last day of each month. Use start/end for events and due for tasks: YYYY-MM-DD
+means an all-day date, otherwise use an ISO datetime with its UTC offset. Event start/end
+must use the same form; an end date is inclusive. Tasks and notes cannot recur.
 Set reminder_at only when the user or an explicit product rule provides a determinate time.
 For a reminder, use explicitly requested recipients; otherwise remind the family
 member(s) the item is about. Return their exact ids from Family members. If no member
@@ -314,7 +313,7 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
         capture_start = int(session.get("payload", {}).get("capture_message_start", len(session["messages"]) - 1)) if continuing else len(session["messages"]) - 1
         capture_messages = {"messages": session["messages"][max(0, capture_start):]}
         previous_count = int(session.get("payload", {}).get("clarification_count", 0)) if continuing else 0
-        analysis = await capture_chain().ainvoke(
+        output = await capture_chain().ainvoke(
             {
                 "now": local_now.isoformat(),
                 "timezone": session["timezone"],
@@ -325,6 +324,22 @@ def build_conversation_graph(database: BoardDatabase, household_id: str):
                 "memory": database.get_household_memory(household_id),
             }
         )
+        if output.question:
+            analysis = CaptureAnalysis(status="clarify", message=output.question, updated_memory=output.updated_memory)
+        else:
+            try:
+                items = [item.to_item_draft() for item in output.items]
+                analysis = CaptureAnalysis(status="review", items=items, updated_memory=output.updated_memory)
+            except ValueError:
+                analysis = CaptureAnalysis(
+                    status="clarify",
+                    message=(
+                        "请确认日期和时间。"
+                        if any("\u4e00" <= char <= "\u9fff" for char in session["messages"][-1]["content"])
+                        else "Please confirm the dates and times."
+                    ),
+                    updated_memory=output.updated_memory,
+                )
         message = analysis.message if analysis.message.strip() else (
             "请确认以下内容。"
             if any("\u4e00" <= char <= "\u9fff" for char in session["messages"][-1]["content"])

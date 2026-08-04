@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from backend.hearthbook.api.conversation import CaptureConfirmation, MAX_AUDIO_BYTES, MessageInput
 from backend.hearthbook.api.dependencies import consume_ai_quota
 from backend.hearthbook.domain.calendar import get_calendar, get_today
-from backend.hearthbook.domain.models import AgentReply, CaptureAnalysis, ItemDraft, ProposedUpdate, QueryDecision, RouteDecision
+from backend.hearthbook.domain.models import AgentReply, CaptureAnalysis, CaptureItem, CaptureOutput, ItemDraft, ProposedUpdate, QueryDecision, RouteDecision
 from backend.hearthbook.domain.recurrence import base_occurrences
 from backend.hearthbook.llm.graph import conversation_text, query_context
 from backend.hearthbook.services.board import BoardService
@@ -98,6 +98,30 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(analysis.items[0].schedule_timezone)
         self.assertEqual(len(analysis.items[0].remind_member_ids), 6)
+
+    def test_compact_capture_schedule_is_mapped_deterministically(self):
+        date_only = CaptureItem(
+            kind="event", title="Retreat", start="2026-08-31", end="2026-09-02",
+            repeat="monthly_last_day",
+        ).to_item_draft()
+        timed = CaptureItem(
+            kind="event", title="Call", start="2026-08-10T09:00:00-04:00",
+            end="2026-08-10T10:00:00-04:00",
+        ).to_item_draft()
+        task = CaptureItem(kind="task", title="Buy milk", due="2026-08-10").to_item_draft()
+
+        self.assertTrue(date_only.all_day)
+        self.assertEqual(date_only.end_date, date(2026, 9, 2))
+        self.assertEqual(date_only.recurrence, "monthly")
+        self.assertTrue(date_only.monthly_on_last_day)
+        self.assertFalse(timed.all_day)
+        self.assertIsNotNone(timed.end_at)
+        self.assertEqual(task.due_date, date(2026, 8, 10))
+        self.assertNotIn("all_day", CaptureItem.model_json_schema()["properties"])
+        self.assertNotIn("status", CaptureOutput.model_json_schema()["properties"])
+
+        with self.assertRaisesRegex(ValueError, "same form"):
+            CaptureItem(kind="event", title="Invalid", start="2026-08-10", end="2026-08-10T09:00:00-04:00").to_item_draft()
 
     def test_event_schedule_normalizes_date_only_time_range(self):
         date_only = ItemDraft(
@@ -208,14 +232,12 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         )
         capture = SimpleNamespace(
             ainvoke=AsyncMock(
-                return_value=CaptureAnalysis(
-                    status="review",
-                    message="",
+                return_value=CaptureOutput(
                     items=[
-                        ItemDraft(
+                        CaptureItem(
                             kind="event",
                             title="School pickup",
-                            start_at="2026-08-01T15:30:00-04:00",
+                            start="2026-08-01T15:30:00-04:00",
                             reminder_at="2026-08-01T15:00:00-04:00",
                             remind_member_ids=["sam", "lin"],
                         )
@@ -263,14 +285,12 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         route = SimpleNamespace(ainvoke=AsyncMock(return_value=RouteDecision(intent="capture")))
         capture = SimpleNamespace(
             ainvoke=AsyncMock(
-                return_value=CaptureAnalysis(
-                    status="review",
-                    message="",
+                return_value=CaptureOutput(
                     items=[
-                        ItemDraft(
+                        CaptureItem(
                             kind="task",
                             title="Buy milk",
-                            due_date="2026-08-02",
+                            due="2026-08-02",
                             reminder_at="2026-08-02T09:00:00-04:00",
                         )
                     ],
@@ -305,14 +325,12 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         route = SimpleNamespace(ainvoke=AsyncMock(return_value=RouteDecision(intent="capture")))
         capture = SimpleNamespace(
             ainvoke=AsyncMock(
-                return_value=CaptureAnalysis(
-                    status="review",
-                    message="Please check this.",
+                return_value=CaptureOutput(
                     items=[
-                        ItemDraft(
+                        CaptureItem(
                             kind="event",
                             title="Flight",
-                            start_at="2026-08-02T09:00:00-04:00",
+                            start="2026-08-02T09:00:00-04:00",
                             reminder_at="2026-08-02T07:00:00-04:00",
                         )
                     ],
@@ -346,19 +364,17 @@ class BoardContractTest(unittest.IsolatedAsyncioTestCase):
         route = SimpleNamespace(ainvoke=AsyncMock(return_value=RouteDecision(intent="capture")))
         capture = SimpleNamespace(
             ainvoke=AsyncMock(
-                return_value=CaptureAnalysis(
-                    status="review",
-                    message="请确认这两项内容。",
+                return_value=CaptureOutput(
                     items=[
-                        ItemDraft(
+                        CaptureItem(
                             kind="event",
                             title="看牙医",
-                            start_at="2026-08-01T15:00:00-04:00",
+                            start="2026-08-01T15:00:00-04:00",
                         ),
-                        ItemDraft(
+                        CaptureItem(
                             kind="task",
                             title="买牛奶",
-                            due_date="2026-08-02",
+                            due="2026-08-02",
                         ),
                     ],
                 )
