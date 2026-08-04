@@ -123,7 +123,7 @@ const state = {
   calendarFilter: localStorage.getItem("hearthbook-calendar-filter") === "mine" ? "mine" : "all",
   taskFilter: localStorage.getItem("hearthbook-task-filter") === "mine" ? "mine" : "all",
   messages: [], pending: null, selectedItem: null,
-  sessionId: localStorage.getItem("hearthbook-session") || null,
+  sessionId: sessionStorage.getItem("hearthbook-session") || null,
   households: [], activeHouseholdId: null,
   recorder: null, recordingTimer: null,
   notification: { ready: false, configured: false, publicKey: "", registration: null, subscription: null },
@@ -698,7 +698,7 @@ function renderAll() {
 function consumeResponse(data) {
   if (data.session_id) {
     state.sessionId = data.session_id;
-    localStorage.setItem("hearthbook-session", data.session_id);
+    sessionStorage.setItem("hearthbook-session", data.session_id);
   }
   const messages = Array.isArray(data.messages) ? data.messages : [];
   const latest = [...messages].reverse().find((message) => message.role === "assistant");
@@ -713,7 +713,7 @@ function startNewConversation() {
   state.messages = [];
   state.pending = null;
   state.sessionId = null;
-  localStorage.removeItem("hearthbook-session");
+  sessionStorage.removeItem("hearthbook-session");
   renderMessages();
 }
 

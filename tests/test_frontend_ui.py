@@ -38,6 +38,14 @@ class FrontendUIContractTest(unittest.TestCase):
         self.assertIn('daily_ai_limit', app)
         self.assertIn('dailyLimit', app)
 
+    def test_conversation_session_ends_when_the_page_closes(self):
+        app = Path("frontend/app.js").read_text(encoding="utf-8")
+
+        self.assertIn('sessionStorage.getItem("hearthbook-session")', app)
+        self.assertIn('sessionStorage.setItem("hearthbook-session", data.session_id)', app)
+        self.assertIn('sessionStorage.removeItem("hearthbook-session")', app)
+        self.assertNotIn('localStorage.getItem("hearthbook-session")', app)
+
     def test_settings_dialog_has_an_explicit_close_action(self):
         index = Path("frontend/index.html").read_text(encoding="utf-8")
         app = Path("frontend/app.js").read_text(encoding="utf-8")
