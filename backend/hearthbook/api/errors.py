@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import HTTPException, Request
+from langchain_core.exceptions import OutputParserException
 
 from ..llm.graph import ConfigurationError
 
@@ -28,6 +29,13 @@ async def service_call(awaitable, request: Request | None = None, operation: str
             request_context(request),
         )
         raise HTTPException(status_code=503, detail={"code": "service_unavailable"}) from exc
+    except OutputParserException as exc:
+        logger.exception(
+            "Assistant output parsing failed operation=%s %s",
+            operation,
+            request_context(request),
+        )
+        raise HTTPException(status_code=502, detail={"code": "assistant_unavailable"}) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
