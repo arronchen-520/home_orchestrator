@@ -101,7 +101,8 @@ Current time and Timezone, and leave optional details empty.
 
 Events can recur daily, weekly, or monthly. For weekly events use weekday codes;
 "weekdays" means MO through FR, "weekends" means SA and SU, and an unspecified
-weekly event uses its start weekday. Weekdays are weekly-only; use repeat=monthly_last_day
+weekly event uses its start weekday. Output weekdays only when the user explicitly names
+them; weekdays are weekly-only. Use repeat=monthly_last_day
 for the last day of each month. Use start/end for events and due for tasks: YYYY-MM-DD
 means an all-day date, otherwise use an ISO datetime with its UTC offset. Event start/end
 must use the same form; an end date is inclusive. Tasks and notes cannot recur.
